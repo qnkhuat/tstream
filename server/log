@@ -1,0 +1,430 @@
+yo2021/06/25 20:19:03 yo
+yo2021/06/25 20:21:46 checking health
+yo2021/06/25 20:22:36 remote addr: [::1]:56189
+yo2021/06/25 20:23:21 Something went wrong with the webserver
+yo2021/06/25 20:24:03 Something went wrong with the webserver
+yo2021/06/25 20:24:22 Something went wrong with the webserver: listen tcp 0.0.0.0:3000: bind: address already in use
+yo2021/06/25 20:24:30 Something went wrong with the webserver: listen tcp 0.0.0.0:3000: bind: address already in use
+yo2021/06/25 20:28:00 Something went wrong with the webserver: listen tcp 0.0.0.0:3000: bind: address already in use
+yo2021/06/25 20:30:04 remote addr: [::1]:58097
+yo2021/06/25 20:30:04 Failed to upgrade to websocket
+yo2021/06/25 20:30:04 http: panic serving [::1]:58097: Failed to upgrade to websocket
+goroutine 7 [running]:
+net/http.(*conn).serve.func1(0x140002040a0)
+	/usr/local/go/src/net/http/server.go:1824 +0x108
+panic(0x1048ef8a0, 0x1400011a0c0)
+	/usr/local/go/src/runtime/panic.go:971 +0x3f4
+log.Panic(0x140000b59d8, 0x1, 0x1)
+	/usr/local/go/src/log/log.go:354 +0x98
+main.handleWebSocket(0x1049557d0, 0x140001061c0, 0x14000136200)
+	/Users/earther/fun/0_tstream/server/main.go:38 +0x130
+net/http.HandlerFunc.ServeHTTP(0x10494b540, 0x1049557d0, 0x140001061c0, 0x14000136200)
+	/usr/local/go/src/net/http/server.go:2069 +0x40
+github.com/gorilla/mux.(*Router).ServeHTTP(0x140000fe000, 0x1049557d0, 0x140001061c0, 0x14000136000)
+	/Users/earther/go/pkg/mod/github.com/gorilla/mux@v1.8.0/mux.go:210 +0x9c
+net/http.serverHandler.ServeHTTP(0x1400007a000, 0x1049557d0, 0x140001061c0, 0x14000136000)
+	/usr/local/go/src/net/http/server.go:2887 +0xbc
+net/http.(*conn).serve(0x140002040a0, 0x104955d40, 0x14000024280)
+	/usr/local/go/src/net/http/server.go:1952 +0x710
+created by net/http.(*Server).Serve
+	/usr/local/go/src/net/http/server.go:3013 +0x308
+yo2021/06/25 20:30:04 remote addr: [::1]:58126
+yo2021/06/25 20:30:04 Failed to upgrade to websocket
+yo2021/06/25 20:30:04 http: panic serving [::1]:58126: Failed to upgrade to websocket
+goroutine 20 [running]:
+net/http.(*conn).serve.func1(0x140000b2dc0)
+	/usr/local/go/src/net/http/server.go:1824 +0x108
+panic(0x1048ef8a0, 0x14000098f40)
+	/usr/local/go/src/runtime/panic.go:971 +0x3f4
+log.Panic(0x140000bb9d8, 0x1, 0x1)
+	/usr/local/go/src/log/log.go:354 +0x98
+main.handleWebSocket(0x1049557d0, 0x1400019c000, 0x14000194200)
+	/Users/earther/fun/0_tstream/server/main.go:38 +0x130
+net/http.HandlerFunc.ServeHTTP(0x10494b540, 0x1049557d0, 0x1400019c000, 0x14000194200)
+	/usr/local/go/src/net/http/server.go:2069 +0x40
+github.com/gorilla/mux.(*Router).ServeHTTP(0x140000fe000, 0x1049557d0, 0x1400019c000, 0x14000194000)
+	/Users/earther/go/pkg/mod/github.com/gorilla/mux@v1.8.0/mux.go:210 +0x9c
+net/http.serverHandler.ServeHTTP(0x1400007a000, 0x1049557d0, 0x1400019c000, 0x14000194000)
+	/usr/local/go/src/net/http/server.go:2887 +0xbc
+net/http.(*conn).serve(0x140000b2dc0, 0x104955d40, 0x140000d8240)
+	/usr/local/go/src/net/http/server.go:1952 +0x710
+created by net/http.(*Server).Serve
+	/usr/local/go/src/net/http/server.go:3013 +0x308
+yo2021/06/25 20:30:05 remote addr: [::1]:58131
+yo2021/06/25 20:30:05 Failed to upgrade to websocket
+yo2021/06/25 20:30:05 http: panic serving [::1]:58131: Failed to upgrade to websocket
+goroutine 10 [running]:
+net/http.(*conn).serve.func1(0x14000204140)
+	/usr/local/go/src/net/http/server.go:1824 +0x108
+panic(0x1048ef8a0, 0x14000012230)
+	/usr/local/go/src/runtime/panic.go:971 +0x3f4
+log.Panic(0x140000b79d8, 0x1, 0x1)
+	/usr/local/go/src/log/log.go:354 +0x98
+main.handleWebSocket(0x1049557d0, 0x1400007a460, 0x14000210800)
+	/Users/earther/fun/0_tstream/server/main.go:38 +0x130
+net/http.HandlerFunc.ServeHTTP(0x10494b540, 0x1049557d0, 0x1400007a460, 0x14000210800)
+	/usr/local/go/src/net/http/server.go:2069 +0x40
+github.com/gorilla/mux.(*Router).ServeHTTP(0x140000fe000, 0x1049557d0, 0x1400007a460, 0x14000210600)
+	/Users/earther/go/pkg/mod/github.com/gorilla/mux@v1.8.0/mux.go:210 +0x9c
+net/http.serverHandler.ServeHTTP(0x1400007a000, 0x1049557d0, 0x1400007a460, 0x14000210600)
+	/usr/local/go/src/net/http/server.go:2887 +0xbc
+net/http.(*conn).serve(0x14000204140, 0x104955d40, 0x140000243c0)
+	/usr/local/go/src/net/http/server.go:1952 +0x710
+created by net/http.(*Server).Serve
+	/usr/local/go/src/net/http/server.go:3013 +0x308
+yo2021/06/25 20:30:10 remote addr: [::1]:58152
+yo2021/06/25 20:30:10 Failed to upgrade to websocket
+yo2021/06/25 20:30:10 http: panic serving [::1]:58152: Failed to upgrade to websocket
+goroutine 36 [running]:
+net/http.(*conn).serve.func1(0x14000154000)
+	/usr/local/go/src/net/http/server.go:1824 +0x108
+panic(0x1048ef8a0, 0x1400011a170)
+	/usr/local/go/src/runtime/panic.go:971 +0x3f4
+log.Panic(0x140000b59d8, 0x1, 0x1)
+	/usr/local/go/src/log/log.go:354 +0x98
+main.handleWebSocket(0x1049557d0, 0x14000106380, 0x14000136500)
+	/Users/earther/fun/0_tstream/server/main.go:38 +0x130
+net/http.HandlerFunc.ServeHTTP(0x10494b540, 0x1049557d0, 0x14000106380, 0x14000136500)
+	/usr/local/go/src/net/http/server.go:2069 +0x40
+github.com/gorilla/mux.(*Router).ServeHTTP(0x140000fe000, 0x1049557d0, 0x14000106380, 0x14000136300)
+	/Users/earther/go/pkg/mod/github.com/gorilla/mux@v1.8.0/mux.go:210 +0x9c
+net/http.serverHandler.ServeHTTP(0x1400007a000, 0x1049557d0, 0x14000106380, 0x14000136300)
+	/usr/local/go/src/net/http/server.go:2887 +0xbc
+net/http.(*conn).serve(0x14000154000, 0x104955d40, 0x140001180c0)
+	/usr/local/go/src/net/http/server.go:1952 +0x710
+created by net/http.(*Server).Serve
+	/usr/local/go/src/net/http/server.go:3013 +0x308
+yo2021/06/25 20:30:25 remote addr: [::1]:58213
+yo2021/06/25 20:30:25 Failed to upgrade to websocket
+yo2021/06/25 20:30:25 http: panic serving [::1]:58213: Failed to upgrade to websocket
+goroutine 22 [running]:
+net/http.(*conn).serve.func1(0x140000b2e60)
+	/usr/local/go/src/net/http/server.go:1824 +0x108
+panic(0x1048ef8a0, 0x14000098ff0)
+	/usr/local/go/src/runtime/panic.go:971 +0x3f4
+log.Panic(0x140000bb9d8, 0x1, 0x1)
+	/usr/local/go/src/log/log.go:354 +0x98
+main.handleWebSocket(0x1049557d0, 0x1400019c1c0, 0x14000194500)
+	/Users/earther/fun/0_tstream/server/main.go:38 +0x130
+net/http.HandlerFunc.ServeHTTP(0x10494b540, 0x1049557d0, 0x1400019c1c0, 0x14000194500)
+	/usr/local/go/src/net/http/server.go:2069 +0x40
+github.com/gorilla/mux.(*Router).ServeHTTP(0x140000fe000, 0x1049557d0, 0x1400019c1c0, 0x14000194300)
+	/Users/earther/go/pkg/mod/github.com/gorilla/mux@v1.8.0/mux.go:210 +0x9c
+net/http.serverHandler.ServeHTTP(0x1400007a000, 0x1049557d0, 0x1400019c1c0, 0x14000194300)
+	/usr/local/go/src/net/http/server.go:2887 +0xbc
+net/http.(*conn).serve(0x140000b2e60, 0x104955d40, 0x140000d8380)
+	/usr/local/go/src/net/http/server.go:1952 +0x710
+created by net/http.(*Server).Serve
+	/usr/local/go/src/net/http/server.go:3013 +0x308
+yo2021/06/25 20:30:55 remote addr: [::1]:58336
+yo2021/06/25 20:30:55 Failed to upgrade to websocket
+yo2021/06/25 20:30:55 http: panic serving [::1]:58336: Failed to upgrade to websocket
+goroutine 12 [running]:
+net/http.(*conn).serve.func1(0x140002041e0)
+	/usr/local/go/src/net/http/server.go:1824 +0x108
+panic(0x1048ef8a0, 0x140000990a0)
+	/usr/local/go/src/runtime/panic.go:971 +0x3f4
+log.Panic(0x140000bb9d8, 0x1, 0x1)
+	/usr/local/go/src/log/log.go:354 +0x98
+main.handleWebSocket(0x1049557d0, 0x1400019c380, 0x14000194800)
+	/Users/earther/fun/0_tstream/server/main.go:38 +0x130
+net/http.HandlerFunc.ServeHTTP(0x10494b540, 0x1049557d0, 0x1400019c380, 0x14000194800)
+	/usr/local/go/src/net/http/server.go:2069 +0x40
+github.com/gorilla/mux.(*Router).ServeHTTP(0x140000fe000, 0x1049557d0, 0x1400019c380, 0x14000194600)
+	/Users/earther/go/pkg/mod/github.com/gorilla/mux@v1.8.0/mux.go:210 +0x9c
+net/http.serverHandler.ServeHTTP(0x1400007a000, 0x1049557d0, 0x1400019c380, 0x14000194600)
+	/usr/local/go/src/net/http/server.go:2887 +0xbc
+net/http.(*conn).serve(0x140002041e0, 0x104955d40, 0x140000d8480)
+	/usr/local/go/src/net/http/server.go:1952 +0x710
+created by net/http.(*Server).Serve
+	/usr/local/go/src/net/http/server.go:3013 +0x308
+yo2021/06/25 20:31:52 Lady we have: {%!s(*os.file=&{{{0 0 0} 4 {0} <nil> 0 1 true true true} /dev/ptmx <nil> false false false})}
+yo2021/06/25 20:31:55 remote addr: [::1]:58577
+yo2021/06/25 20:31:55 Failed to upgrade to websocket
+yo2021/06/25 20:31:55 http: panic serving [::1]:58577: Failed to upgrade to websocket
+goroutine 13 [running]:
+net/http.(*conn).serve.func1(0x14000204280)
+	/usr/local/go/src/net/http/server.go:1824 +0x108
+panic(0x1048ef8a0, 0x140000122e0)
+	/usr/local/go/src/runtime/panic.go:971 +0x3f4
+log.Panic(0x140000b79d8, 0x1, 0x1)
+	/usr/local/go/src/log/log.go:354 +0x98
+main.handleWebSocket(0x1049557d0, 0x1400007a620, 0x14000210b00)
+	/Users/earther/fun/0_tstream/server/main.go:38 +0x130
+net/http.HandlerFunc.ServeHTTP(0x10494b540, 0x1049557d0, 0x1400007a620, 0x14000210b00)
+	/usr/local/go/src/net/http/server.go:2069 +0x40
+github.com/gorilla/mux.(*Router).ServeHTTP(0x140000fe000, 0x1049557d0, 0x1400007a620, 0x14000210900)
+	/Users/earther/go/pkg/mod/github.com/gorilla/mux@v1.8.0/mux.go:210 +0x9c
+net/http.serverHandler.ServeHTTP(0x1400007a000, 0x1049557d0, 0x1400007a620, 0x14000210900)
+	/usr/local/go/src/net/http/server.go:2887 +0xbc
+net/http.(*conn).serve(0x14000204280, 0x104955d40, 0x140000244c0)
+	/usr/local/go/src/net/http/server.go:1952 +0x710
+created by net/http.(*Server).Serve
+	/usr/local/go/src/net/http/server.go:3013 +0x308
+yo2021/06/25 20:32:07 remote addr: [::1]:58630
+yo2021/06/25 20:32:07 Failed to upgrade to websocket
+yo2021/06/25 20:32:07 http: panic serving [::1]:58630: Failed to upgrade to websocket
+goroutine 38 [running]:
+net/http.(*conn).serve.func1(0x140001540a0)
+	/usr/local/go/src/net/http/server.go:1824 +0x108
+panic(0x1048ef8a0, 0x1400011a220)
+	/usr/local/go/src/runtime/panic.go:971 +0x3f4
+log.Panic(0x140000b59d8, 0x1, 0x1)
+	/usr/local/go/src/log/log.go:354 +0x98
+main.handleWebSocket(0x1049557d0, 0x14000106540, 0x14000136800)
+	/Users/earther/fun/0_tstream/server/main.go:38 +0x130
+net/http.HandlerFunc.ServeHTTP(0x10494b540, 0x1049557d0, 0x14000106540, 0x14000136800)
+	/usr/local/go/src/net/http/server.go:2069 +0x40
+github.com/gorilla/mux.(*Router).ServeHTTP(0x140000fe000, 0x1049557d0, 0x14000106540, 0x14000136600)
+	/Users/earther/go/pkg/mod/github.com/gorilla/mux@v1.8.0/mux.go:210 +0x9c
+net/http.serverHandler.ServeHTTP(0x1400007a000, 0x1049557d0, 0x14000106540, 0x14000136600)
+	/usr/local/go/src/net/http/server.go:2887 +0xbc
+net/http.(*conn).serve(0x140001540a0, 0x104955d40, 0x140001181c0)
+	/usr/local/go/src/net/http/server.go:1952 +0x710
+created by net/http.(*Server).Serve
+	/usr/local/go/src/net/http/server.go:3013 +0x308
+yo2021/06/25 20:32:22 remote addr: [::1]:58691
+yo2021/06/25 20:32:22 Failed to upgrade to websocket
+yo2021/06/25 20:32:22 http: panic serving [::1]:58691: Failed to upgrade to websocket
+goroutine 25 [running]:
+net/http.(*conn).serve.func1(0x140000b2f00)
+	/usr/local/go/src/net/http/server.go:1824 +0x108
+panic(0x1048ef8a0, 0x14000099150)
+	/usr/local/go/src/runtime/panic.go:971 +0x3f4
+log.Panic(0x140000bb9d8, 0x1, 0x1)
+	/usr/local/go/src/log/log.go:354 +0x98
+main.handleWebSocket(0x1049557d0, 0x1400019c540, 0x14000194b00)
+	/Users/earther/fun/0_tstream/server/main.go:38 +0x130
+net/http.HandlerFunc.ServeHTTP(0x10494b540, 0x1049557d0, 0x1400019c540, 0x14000194b00)
+	/usr/local/go/src/net/http/server.go:2069 +0x40
+github.com/gorilla/mux.(*Router).ServeHTTP(0x140000fe000, 0x1049557d0, 0x1400019c540, 0x14000194900)
+	/Users/earther/go/pkg/mod/github.com/gorilla/mux@v1.8.0/mux.go:210 +0x9c
+net/http.serverHandler.ServeHTTP(0x1400007a000, 0x1049557d0, 0x1400019c540, 0x14000194900)
+	/usr/local/go/src/net/http/server.go:2887 +0xbc
+net/http.(*conn).serve(0x140000b2f00, 0x104955d40, 0x140000d8580)
+	/usr/local/go/src/net/http/server.go:1952 +0x710
+created by net/http.(*Server).Serve
+	/usr/local/go/src/net/http/server.go:3013 +0x308
+yo2021/06/25 20:32:52 Something went wrong with the webserver: listen tcp 0.0.0.0:3001: bind: address already in use
+yo2021/06/25 20:32:54 Lady we have: {%!s(*os.file=&{{{0 0 0} 4 {0} <nil> 0 1 true true true} /dev/ptmx <nil> false false false})}
+yo2021/06/25 20:33:15 checking health
+yo2021/06/25 20:33:21 Something went wrong with the webserver: listen tcp 0.0.0.0:3001: bind: address already in use
+yo2021/06/25 20:33:30 Lady we have: {%!s(*os.file=&{{{0 0 0} 4 {0} <nil> 0 1 true true true} /dev/ptmx <nil> false false false})}
+yo2021/06/25 20:33:32 checking health
+yo2021/06/25 20:33:40 checking health
+yo2021/06/25 20:33:43 remote addr: [::1]:58905
+yo2021/06/25 20:33:43 &{0x140001383c0}
+yo2021/06/25 20:33:43 Failed to upgrade to websocket
+yo2021/06/25 20:33:43 http: panic serving [::1]:58905: Failed to upgrade to websocket
+goroutine 20 [running]:
+net/http.(*conn).serve.func1(0x1400012cd20)
+	/usr/local/go/src/net/http/server.go:1824 +0x108
+panic(0x100b478a0, 0x1400008e0c0)
+	/usr/local/go/src/runtime/panic.go:971 +0x3f4
+log.Panic(0x140000d19c8, 0x1, 0x1)
+	/usr/local/go/src/log/log.go:354 +0x98
+main.handleWebSocket(0x100bad7d0, 0x140000c60e0, 0x140000b0500)
+	/Users/earther/fun/0_tstream/server/main.go:39 +0x168
+net/http.HandlerFunc.ServeHTTP(0x100ba3540, 0x100bad7d0, 0x140000c60e0, 0x140000b0500)
+	/usr/local/go/src/net/http/server.go:2069 +0x40
+github.com/gorilla/mux.(*Router).ServeHTTP(0x14000176000, 0x100bad7d0, 0x140000c60e0, 0x14000192500)
+	/Users/earther/go/pkg/mod/github.com/gorilla/mux@v1.8.0/mux.go:210 +0x9c
+net/http.serverHandler.ServeHTTP(0x14000188000, 0x100bad7d0, 0x140000c60e0, 0x14000192500)
+	/usr/local/go/src/net/http/server.go:2887 +0xbc
+net/http.(*conn).serve(0x1400012cd20, 0x100badd40, 0x1400009c000)
+	/usr/local/go/src/net/http/server.go:1952 +0x710
+created by net/http.(*Server).Serve
+	/usr/local/go/src/net/http/server.go:3013 +0x308
+yo2021/06/25 20:33:43 remote addr: [::1]:59025
+yo2021/06/25 20:33:43 &{0x140001383c0}
+yo2021/06/25 20:33:43 Failed to upgrade to websocket
+yo2021/06/25 20:33:43 http: panic serving [::1]:59025: Failed to upgrade to websocket
+goroutine 5 [running]:
+net/http.(*conn).serve.func1(0x14000076000)
+	/usr/local/go/src/net/http/server.go:1824 +0x108
+panic(0x100b478a0, 0x140000120b0)
+	/usr/local/go/src/runtime/panic.go:971 +0x3f4
+log.Panic(0x140002119c8, 0x1, 0x1)
+	/usr/local/go/src/log/log.go:354 +0x98
+main.handleWebSocket(0x100bad7d0, 0x14000208000, 0x1400007a200)
+	/Users/earther/fun/0_tstream/server/main.go:39 +0x168
+net/http.HandlerFunc.ServeHTTP(0x100ba3540, 0x100bad7d0, 0x14000208000, 0x1400007a200)
+	/usr/local/go/src/net/http/server.go:2069 +0x40
+github.com/gorilla/mux.(*Router).ServeHTTP(0x14000176000, 0x100bad7d0, 0x14000208000, 0x1400007a000)
+	/Users/earther/go/pkg/mod/github.com/gorilla/mux@v1.8.0/mux.go:210 +0x9c
+net/http.serverHandler.ServeHTTP(0x14000188000, 0x100bad7d0, 0x14000208000, 0x1400007a000)
+	/usr/local/go/src/net/http/server.go:2887 +0xbc
+net/http.(*conn).serve(0x14000076000, 0x100badd40, 0x14000024080)
+	/usr/local/go/src/net/http/server.go:1952 +0x710
+created by net/http.(*Server).Serve
+	/usr/local/go/src/net/http/server.go:3013 +0x308
+yo2021/06/25 20:33:44 remote addr: [::1]:59030
+yo2021/06/25 20:33:44 &{0x140001383c0}
+yo2021/06/25 20:33:44 Failed to upgrade to websocket
+yo2021/06/25 20:33:44 http: panic serving [::1]:59030: Failed to upgrade to websocket
+goroutine 36 [running]:
+net/http.(*conn).serve.func1(0x140000f4000)
+	/usr/local/go/src/net/http/server.go:1824 +0x108
+panic(0x100b478a0, 0x1400008e170)
+	/usr/local/go/src/runtime/panic.go:971 +0x3f4
+log.Panic(0x1400012f9c8, 0x1, 0x1)
+	/usr/local/go/src/log/log.go:354 +0x98
+main.handleWebSocket(0x100bad7d0, 0x140000c62a0, 0x140000b0800)
+	/Users/earther/fun/0_tstream/server/main.go:39 +0x168
+net/http.HandlerFunc.ServeHTTP(0x100ba3540, 0x100bad7d0, 0x140000c62a0, 0x140000b0800)
+	/usr/local/go/src/net/http/server.go:2069 +0x40
+github.com/gorilla/mux.(*Router).ServeHTTP(0x14000176000, 0x100bad7d0, 0x140000c62a0, 0x140000b0600)
+	/Users/earther/go/pkg/mod/github.com/gorilla/mux@v1.8.0/mux.go:210 +0x9c
+net/http.serverHandler.ServeHTTP(0x14000188000, 0x100bad7d0, 0x140000c62a0, 0x140000b0600)
+	/usr/local/go/src/net/http/server.go:2887 +0xbc
+net/http.(*conn).serve(0x140000f4000, 0x100badd40, 0x1400009c1c0)
+	/usr/local/go/src/net/http/server.go:1952 +0x710
+created by net/http.(*Server).Serve
+	/usr/local/go/src/net/http/server.go:3013 +0x308
+yo2021/06/25 20:33:49 remote addr: [::1]:59051
+yo2021/06/25 20:33:49 &{0x140001383c0}
+yo2021/06/25 20:33:49 Failed to upgrade to websocket
+yo2021/06/25 20:33:49 http: panic serving [::1]:59051: Failed to upgrade to websocket
+goroutine 23 [running]:
+net/http.(*conn).serve.func1(0x1400012cdc0)
+	/usr/local/go/src/net/http/server.go:1824 +0x108
+panic(0x100b478a0, 0x14000112fc0)
+	/usr/local/go/src/runtime/panic.go:971 +0x3f4
+log.Panic(0x140001359c8, 0x1, 0x1)
+	/usr/local/go/src/log/log.go:354 +0x98
+main.handleWebSocket(0x100bad7d0, 0x14000188540, 0x14000192800)
+	/Users/earther/fun/0_tstream/server/main.go:39 +0x168
+net/http.HandlerFunc.ServeHTTP(0x100ba3540, 0x100bad7d0, 0x14000188540, 0x14000192800)
+	/usr/local/go/src/net/http/server.go:2069 +0x40
+github.com/gorilla/mux.(*Router).ServeHTTP(0x14000176000, 0x100bad7d0, 0x14000188540, 0x14000192600)
+	/Users/earther/go/pkg/mod/github.com/gorilla/mux@v1.8.0/mux.go:210 +0x9c
+net/http.serverHandler.ServeHTTP(0x14000188000, 0x100bad7d0, 0x14000188540, 0x14000192600)
+	/usr/local/go/src/net/http/server.go:2887 +0xbc
+net/http.(*conn).serve(0x1400012cdc0, 0x100badd40, 0x14000150340)
+	/usr/local/go/src/net/http/server.go:1952 +0x710
+created by net/http.(*Server).Serve
+	/usr/local/go/src/net/http/server.go:3013 +0x308
+yo2021/06/25 20:34:19 remote addr: [::1]:59170
+yo2021/06/25 20:34:19 &{0x140001383c0}
+yo2021/06/25 20:34:19 Failed to upgrade to websocket
+yo2021/06/25 20:34:19 http: panic serving [::1]:59170: Failed to upgrade to websocket
+goroutine 7 [running]:
+net/http.(*conn).serve.func1(0x140000760a0)
+	/usr/local/go/src/net/http/server.go:1824 +0x108
+panic(0x100b478a0, 0x14000012160)
+	/usr/local/go/src/runtime/panic.go:971 +0x3f4
+log.Panic(0x140002119c8, 0x1, 0x1)
+	/usr/local/go/src/log/log.go:354 +0x98
+main.handleWebSocket(0x100bad7d0, 0x140002081c0, 0x1400007a500)
+	/Users/earther/fun/0_tstream/server/main.go:39 +0x168
+net/http.HandlerFunc.ServeHTTP(0x100ba3540, 0x100bad7d0, 0x140002081c0, 0x1400007a500)
+	/usr/local/go/src/net/http/server.go:2069 +0x40
+github.com/gorilla/mux.(*Router).ServeHTTP(0x14000176000, 0x100bad7d0, 0x140002081c0, 0x1400007a300)
+	/Users/earther/go/pkg/mod/github.com/gorilla/mux@v1.8.0/mux.go:210 +0x9c
+net/http.serverHandler.ServeHTTP(0x14000188000, 0x100bad7d0, 0x140002081c0, 0x1400007a300)
+	/usr/local/go/src/net/http/server.go:2887 +0xbc
+net/http.(*conn).serve(0x140000760a0, 0x100badd40, 0x140000241c0)
+	/usr/local/go/src/net/http/server.go:1952 +0x710
+created by net/http.(*Server).Serve
+	/usr/local/go/src/net/http/server.go:3013 +0x308
+yo2021/06/25 20:34:36 Something went wrong with the webserver: listen tcp 0.0.0.0:3001: bind: address already in use
+yo2021/06/25 20:34:50 remote addr: [::1]:59293
+yo2021/06/25 20:34:50 &{0x140001383c0}
+yo2021/06/25 20:34:50 Failed to upgrade to websocket
+yo2021/06/25 20:34:50 http: panic serving [::1]:59293: Failed to upgrade to websocket
+goroutine 38 [running]:
+net/http.(*conn).serve.func1(0x140000f40a0)
+	/usr/local/go/src/net/http/server.go:1824 +0x108
+panic(0x100b478a0, 0x1400008e220)
+	/usr/local/go/src/runtime/panic.go:971 +0x3f4
+log.Panic(0x1400012f9c8, 0x1, 0x1)
+	/usr/local/go/src/log/log.go:354 +0x98
+main.handleWebSocket(0x100bad7d0, 0x140000c6460, 0x140000b0b00)
+	/Users/earther/fun/0_tstream/server/main.go:39 +0x168
+net/http.HandlerFunc.ServeHTTP(0x100ba3540, 0x100bad7d0, 0x140000c6460, 0x140000b0b00)
+	/usr/local/go/src/net/http/server.go:2069 +0x40
+github.com/gorilla/mux.(*Router).ServeHTTP(0x14000176000, 0x100bad7d0, 0x140000c6460, 0x140000b0900)
+	/Users/earther/go/pkg/mod/github.com/gorilla/mux@v1.8.0/mux.go:210 +0x9c
+net/http.serverHandler.ServeHTTP(0x14000188000, 0x100bad7d0, 0x140000c6460, 0x140000b0900)
+	/usr/local/go/src/net/http/server.go:2887 +0xbc
+net/http.(*conn).serve(0x140000f40a0, 0x100badd40, 0x1400009c2c0)
+	/usr/local/go/src/net/http/server.go:1952 +0x710
+created by net/http.(*Server).Serve
+	/usr/local/go/src/net/http/server.go:3013 +0x308
+yo2021/06/25 20:34:53 checking health
+yo2021/06/25 20:34:54 checking health
+yo2021/06/25 20:35:10 Lady we have: {%!s(*os.file=&{{{0 0 0} 4 {0} <nil> 0 1 true true true} /dev/ptmx <nil> false false false})}
+yo2021/06/25 20:35:11 checking health
+yo2021/06/25 20:35:12 checking health
+yo2021/06/25 20:35:12 checking health
+yo2021/06/25 20:36:27 Lady we have: {%!s(*os.file=&{{{0 0 0} 4 {0} <nil> 0 1 true true true} /dev/ptmx <nil> false false false})}
+2021/06/25 20:37:31 Serving at 0.0.0.0:3000
+2021/06/25 20:37:31 Lady we have: {%!s(*os.file=&{{{0 0 0} 4 {0} <nil> 0 1 true true true} /dev/ptmx <nil> false false false})}
+2021/06/25 20:38:37 checking health
+2021/06/25 20:39:51 Serving at 0.0.0.0:3000
+2021/06/25 20:39:51 1
+2021/06/25 20:39:51 2
+2021/06/25 20:39:51 3
+2021/06/25 20:39:51 4
+2021/06/25 20:39:51 Lady we have: {%!s(*os.file=&{{{0 0 0} 4 {0} <nil> 0 1 true true true} /dev/ptmx <nil> false false false})}
+2021/06/25 20:40:38 5
+2021/06/25 20:40:53 Serving at 0.0.0.0:3000
+2021/06/25 20:40:53 1
+2021/06/25 20:40:53 2
+2021/06/25 20:40:53 3
+2021/06/25 20:40:53 4
+2021/06/25 20:40:53 Lady we have: {%!s(*os.file=&{{{0 0 0} 4 {0} <nil> 0 1 true true true} /dev/ptmx <nil> false false false})}
+2021/06/26 08:03:16 Serving at 0.0.0.0:3000
+2021/06/26 08:03:16 1
+2021/06/26 08:03:16 2
+2021/06/26 08:03:23 checking health
+2021/06/26 08:56:19 checking health
+2021/06/26 09:01:32 Start server
+2021/06/26 09:01:32 Shell started
+2021/06/26 09:03:01 main.go:115: Start server
+2021/06/26 09:03:01 main.go:120: Shell started
+2021/06/26 09:06:15 main.go:115: Start server
+2021/06/26 09:06:15 main.go:120: Shell started
+2021/06/26 09:06:15 main.go:123: yo
+2021/06/26 09:06:15 main.go:125: yo1
+2021/06/26 09:06:15 main.go:129: yo2
+2021/06/26 09:07:20 main.go:115: Start server
+2021/06/26 09:07:20 main.go:120: Shell started
+2021/06/26 09:23:18 main.go:120: Start server
+2021/06/26 09:23:18 main.go:30: 1
+2021/06/26 09:23:18 main.go:37: 2
+2021/06/26 09:23:18 main.go:39: 3
+2021/06/26 09:23:18 main.go:45: 4
+2021/06/26 09:23:18 main.go:59: 5
+2021/06/26 09:23:18 main.go:64: 6
+2021/06/26 09:23:18 main.go:125: Shell started
+2021/06/26 09:23:54 main.go:114: Start server
+2021/06/26 09:23:54 main.go:119: Shell started
+2021/06/26 09:23:54 main.go:139: Stopped
+2021/06/26 09:24:23 main.go:114: Start server
+2021/06/26 09:24:23 main.go:119: Shell started
+2021/06/26 09:24:49 main.go:139: Stopped
+2021/06/26 09:25:15 main.go:114: Start server
+2021/06/26 09:25:15 main.go:119: Shell started
+2021/06/26 09:25:19 main.go:139: Stopped
+2021/06/26 09:25:43 main.go:114: Start server
+2021/06/26 09:25:43 main.go:119: Shell started
+2021/06/26 09:25:45 main.go:140: Stopped
+2021/06/26 09:26:17 main.go:114: Start server
+2021/06/26 09:26:17 main.go:119: Shell started
+2021/06/26 09:28:03 main.go:114: Start server
+2021/06/26 09:28:03 main.go:132: Shell started
+2021/06/26 09:28:06 main.go:107: checking health
+2021/06/26 09:28:12 main.go:144: Stopped
+2021/06/26 09:28:12 main.go:124: Something went wrong with the webserver: http: Server closed
+2021/06/26 09:28:37 main.go:114: Start server
+2021/06/26 09:28:37 main.go:132: Shell started
+2021/06/26 09:28:37 main.go:107: checking health
+2021/06/26 09:28:38 main.go:107: checking health
+2021/06/26 09:28:39 main.go:107: checking health
+2021/06/26 09:28:39 main.go:107: checking health
+2021/06/26 09:28:39 main.go:107: checking health
+2021/06/26 09:28:39 main.go:107: checking health
+2021/06/26 09:28:39 main.go:107: checking health
+2021/06/26 09:28:40 main.go:144: Stopped
+2021/06/26 09:28:40 main.go:124: Something went wrong with the webserver: http: Server closed
