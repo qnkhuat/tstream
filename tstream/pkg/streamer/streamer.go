@@ -1,11 +1,13 @@
 package streamer
 
 import (
+	"bufio"
+	"fmt"
 	"github.com/gorilla/websocket"
 	"github.com/qnkhuat/tstream/pkg/exWebSocket"
 	"github.com/qnkhuat/tstream/pkg/ptyMaster"
 	"io"
-	"log"
+	//"log"
 	"net/url"
 	"os"
 )
@@ -33,7 +35,8 @@ var httpUpgrader = websocket.Upgrader{
 
 func (s *Streamer) Start() error {
 	s.pty.StartShell()
-	log.Printf("Sucecssfully started shell")
+	fmt.Printf("Press Enter to continue!\n")
+	bufio.NewReader(os.Stdin).ReadString('\n')
 
 	// Connect socket to server
 	u := url.URL{Scheme: "ws", Host: "0.0.0.0:3000", Path: "/r/qnkhuat/wss"}
@@ -42,10 +45,30 @@ func (s *Streamer) Start() error {
 		return err
 	}
 	conn := exWebSocket.New(wsConn)
-	mw := io.MultiWriter(conn, os.Stdout)
 
-	go func() { io.Copy(s.pty.F(), os.Stdin) }() // Pipe what user type to terminal session
-	io.Copy(mw, s.pty.F())                       // Pipe command response to Pty and server
+	stopPtyAndRestore := func() {
+		s.pty.Stop()
+		s.pty.Restore()
+	}
+
+	go func() {
+		// Pipe command response to Pty and server
+		mw := io.MultiWriter(os.Stdout, conn)
+		_, err := io.Copy(mw, s.pty.F())
+		if err != nil {
+			stopPtyAndRestore()
+		}
+	}()
+
+	go func() {
+		// Pipe what user type to terminal session
+		_, err := io.Copy(s.pty.F(), os.Stdin)
+		if err != nil {
+			stopPtyAndRestore()
+		}
+	}()
+
+	s.pty.Wait()
 	return nil
 }
 

@@ -2,40 +2,42 @@ package server
 
 import (
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
-	"github.com/qnkhuat/tstream/pkg/exWebSocket"
-	//"github.com/qnkhuat/tstream/pkg/room"
+	"github.com/qnkhuat/tstream/pkg/message"
+	"github.com/qnkhuat/tstream/pkg/room"
 	"log"
 	"net/http"
 	"time"
 )
 
 type Server struct {
-	//rooms  map[string]*room.Room
+	rooms  map[string]*room.Room
 	addr   string
 	server *http.Server
 }
 
 func New(addr string) *Server {
-	//rooms := make(map[string]*room.Room, 0)
+	rooms := make(map[string]*room.Room)
 	return &Server{
-		addr: addr,
-		//rooms: rooms,
+		addr:  addr,
+		rooms: rooms,
 	}
 }
 
-func (s *Server) NewRoom(roomID string) {
-
+func (s *Server) NewRoom(roomID string) error {
+	if _, ok := s.rooms[roomID]; ok {
+		return fmt.Errorf("Room %s existed", roomID)
+	}
+	s.rooms[roomID] = room.New(roomID)
+	log.Printf("Created new Room: %s", roomID)
+	return nil
 }
 
 func handleHealth(w http.ResponseWriter, r *http.Request) {
 	log.Printf("health check")
 	fmt.Fprintf(w, "I'm fine, go away: %s\n", time.Now().String())
-}
-
-func handleWSViewer(w http.ResponseWriter, r *http.Request) {
-
 }
 
 // upgrade an http request to websocket
@@ -44,26 +46,52 @@ var httpUpgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
-func handleWSServer(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleWSViewer(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	log.Printf("%s", vars)
-	log.Println("Connecting")
+	roomID := vars["roomID"]
+	log.Printf("Client %s entered room: %s", r.RemoteAddr, roomID)
+	if _, ok := s.rooms[roomID]; !ok {
+		fmt.Fprintf(w, "Room not existed")
+		log.Printf("Room :%s not existed", roomID)
+		return
+	}
 	httpUpgrader.CheckOrigin = func(r *http.Request) bool { return true }
-	wsConn, err := httpUpgrader.Upgrade(w, r, nil)
+	conn, err := httpUpgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Panicf("Failed to upgrade to websocket: %s", err)
 	}
-	conn := exWebSocket.New(wsConn)
+
+	s.rooms[roomID].AddViewer(uuid.New().String(), conn)
+}
+
+func (s *Server) handleWSServer(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	roomID := vars["roomID"]
+	if _, ok := s.rooms[roomID]; !ok {
+		s.NewRoom(roomID)
+	}
+
+	log.Println("Connecting")
+	httpUpgrader.CheckOrigin = func(r *http.Request) bool { return true }
+	conn, err := httpUpgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Panicf("Failed to upgrade to websocket: %s", err)
+	}
 	defer conn.Close()
 
 	for {
-		_, message, err := conn.ReadMessage()
+		_, msg, err := conn.ReadMessage()
+		log.Printf("Recv: (%d)", len(msg))
 		if err != nil {
 			log.Printf("Failed to read message: %s", err)
 			conn.Close()
 			return
 		}
-		log.Printf("Recv: (%d)", len(message))
+		msgW := &message.Wrapper{
+			Type: "Write",
+			Data: msg,
+		}
+		s.rooms[roomID].Broadcast(msgW)
 	}
 
 	// TODO: turn this into a struct that implement READ/WRITE
@@ -94,8 +122,8 @@ func (s *Server) Start() {
 	router := mux.NewRouter()
 
 	router.HandleFunc("/health", handleHealth)
-	router.HandleFunc("/r/{roomID}/wss", handleWSServer) // for streamers
-	//router.HandleFunc("/r/{roomID}/wsv", handleWebSocket) // for viewers
+	router.HandleFunc("/r/{roomID}/wss", s.handleWSServer) // for streamers
+	router.HandleFunc("/r/{roomID}/wsv", s.handleWSViewer) // for viewers
 
 	s.server = &http.Server{Addr: s.addr, Handler: router}
 	log.Printf("Serving at: %s", s.addr)

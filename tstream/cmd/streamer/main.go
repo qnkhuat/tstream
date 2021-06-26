@@ -9,7 +9,7 @@ import (
 
 func main() {
 	logging.Config("/tmp/tstream.log", "STREAMER: ")
-	log.Println("YOOOOOOOOOOOOOO")
+	log.Println("Streamer started")
 	var server = flag.String("server", "0.0.0.0:3000", "Server endpoint")
 	var sessionID = "qnkhuat"
 	s := streamer.New(*server, sessionID)

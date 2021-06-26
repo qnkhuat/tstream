@@ -7,7 +7,7 @@ import 'xterm/css/xterm.css';
 import base64 from "./base64";
 
 ////const websocket = new WebSocket('ws://localhost:8002/s/local/ws');
-const websocket = new WebSocket('ws://0.0.0.0:3000/r/qnkhuat/wss');
+const websocket = new WebSocket('ws://0.0.0.0:3000/r/qnkhuat/wsv');
 
 function App() {
 

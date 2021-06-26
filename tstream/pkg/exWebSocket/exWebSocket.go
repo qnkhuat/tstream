@@ -14,12 +14,8 @@ type EXWebSocket struct {
 //}
 
 func (ws *EXWebSocket) Write(data []byte) (int, error) {
-	if len(data) > 0 {
-		err := ws.WriteMessage(websocket.TextMessage, data)
-		return len(data), err
-	} else {
-		return 0, nil
-	}
+	err := ws.WriteMessage(websocket.TextMessage, data)
+	return len(data), err
 }
 
 func New(conn *websocket.Conn) *EXWebSocket {
