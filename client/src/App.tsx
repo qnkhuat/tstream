@@ -28,7 +28,9 @@ function App() {
 
     websocket.onmessage = (ev: MessageEvent) => {
       console.log("Got event: ", ev);
+      console.log(ev.data);
       ev.data.text().then((msg: string) => {
+        console.log(msg.length);
         let msgObject = JSON.parse(msg)
         if (msgObject.Type === "Write") {
           var buffer = base64.base64ToArrayBuffer(msgObject.Data)
@@ -37,11 +39,6 @@ function App() {
       })
     }
 
-    
-
-
-    //const attachAddon = new AttachAddon(websocket);
-    //term.loadAddon(attachAddon);
     const terminalDiv = document.getElementById("terminal");
     if (terminalDiv) {
       term.open(terminalDiv);

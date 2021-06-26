@@ -110,30 +110,28 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
     log.Panicf("Failed to upgrade to websocket: %s", err)
   }
 
-  //go func() {
-    for {
-      buf := make([]byte, 1024)
-      read, err := pty.f.Read(buf)
-      log.Printf("Read byte: %x", buf)
+  // TODO: turn this into a struct that implement READ/WRITE 
+  for {// why this function run with a low frequency?
+    buf := make([]byte, 1024)
+    read, err := pty.f.Read(buf)
 
-      msg := MsgWrapper{
-        Data: buf[:read],
-        Type: "Write",
-      }
-      
-      payload, err := json.Marshal(msg)
-      if (err != nil) {
-        log.Panicf("Failed to Encode msg: ", err)
-      }
-      if err != nil {
-        conn.WriteMessage(websocket.TextMessage, []byte(err.Error()))
-        log.Panicf("Unable to read from pty/cmd: %s", err)
-        return
-      }
-      conn.WriteMessage(websocket.BinaryMessage, payload)
-      log.Println("Sent a buffer")
+    msg := MsgWrapper{
+      Data: buf[:read],
+      Type: "Write",
     }
-  //}()
+
+    payload, err := json.Marshal(msg)
+    if (err != nil) {
+      log.Panicf("Failed to Encode msg: ", err)
+    }
+    if err != nil {
+      conn.WriteMessage(websocket.TextMessage, []byte(err.Error()))
+      log.Panicf("Unable to read from pty/cmd: %s", err)
+      return
+    }
+    conn.WriteMessage(websocket.BinaryMessage, payload)
+    log.Println("Sent a buffer")
+  }
 }
 
 
@@ -143,6 +141,7 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 var pty *PtyMaster
+
 func main() {
   InitLog("log", "")
   var listen = flag.String("listen", "0.0.0.0:3000", "Host:port to listen on")
