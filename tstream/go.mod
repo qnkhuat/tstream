@@ -1,4 +1,4 @@
-module github.com/qnkhuat/stream/server
+module github.com/qnkhuat/tstream
 
 go 1.16
 
