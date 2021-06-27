@@ -8,6 +8,10 @@ type EXWebSocket struct {
 	websocket.Conn
 }
 
+func New(conn *websocket.Conn) *EXWebSocket {
+	return &EXWebSocket{*conn}
+}
+
 //func (ws *EXWebSocket) Write(data []byte) (int, error) {
 //	err := ws.WriteMessage(websocket.TextMessage, data)
 //	return len(data), err
@@ -16,8 +20,4 @@ type EXWebSocket struct {
 func (ws *EXWebSocket) Write(data []byte) (int, error) {
 	err := ws.WriteMessage(websocket.TextMessage, data)
 	return len(data), err
-}
-
-func New(conn *websocket.Conn) *EXWebSocket {
-	return &EXWebSocket{*conn}
 }

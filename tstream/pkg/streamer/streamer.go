@@ -46,10 +46,12 @@ func (s *Streamer) Start() error {
 	}
 	conn := exWebSocket.New(wsConn)
 
+	s.pty.MakeRaw()
 	stopPtyAndRestore := func() {
 		s.pty.Stop()
 		s.pty.Restore()
 	}
+	defer stopPtyAndRestore()
 
 	go func() {
 		// Pipe command response to Pty and server
