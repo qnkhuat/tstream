@@ -9,12 +9,12 @@ package ptyMaster
 import (
 	ptyDevice "github.com/creack/pty"
 	"golang.org/x/term"
-	//"log"
+	"log"
 	"os"
 	"os/exec"
 	"os/signal"
 	"syscall"
-	//"time"
+	"time"
 )
 
 type PtyMaster struct {
@@ -23,7 +23,7 @@ type PtyMaster struct {
 	terminalInitState *term.State
 }
 
-type onWindowChangedCB func(int, int)
+type onWindowChangedCB func(*ptyDevice.Winsize)
 
 // *** Getter/Setters ****
 func (pty *PtyMaster) F() *os.File {
@@ -42,25 +42,6 @@ func (pty *PtyMaster) Read(b []byte) (int, error) {
 	return pty.f.Read(b)
 }
 
-//func (pty *PtyMaster) Refresh() {
-//	// We wanna force the app to re-draw itself, but there doesn't seem to be a way to do that
-//	// so we fake it by resizing the window quickly, making it smaller and then back big
-//	winSize, err := pty.f.GetsizeFull(0)
-//	winSize.Rows -= 1
-//
-//	if err != nil {
-//		return
-//	}
-//
-//	pty.SetWinSize(winSize)
-//	winSize.Rows += 1
-//
-//	go func() {
-//		time.Sleep(time.Millisecond * 50)
-//		pty.SetWinSize(winSize)
-//	}()
-//}
-
 func (pty *PtyMaster) StartShell() error {
 	shell := os.Getenv("SHELL")
 	if shell == "" {
@@ -74,20 +55,13 @@ func (pty *PtyMaster) StartShell() error {
 	if err != nil {
 		return err
 	}
-
-	//err = pty.MakeRaw()
-	//if err != nil {
-	//	return err
-	//}
-
-	//pty.Restore()
-
 	// Set the initial window size
-	//winSize, err := term.GetFullSize(0)
-	//if err != nil {
-	//	log.Printf("Failed to get wisize: %s", err)
-	//}
-	//pty.SetWinSize(winSize)
+	winSize, _ := GetWinsize(0)
+	pty.SetWinsize(winSize)
+
+	pty.SetWinChangeCB(func(ws *ptyDevice.Winsize) {
+		pty.SetWinsize(ws)
+	})
 	return nil
 }
 
@@ -113,6 +87,37 @@ func (pty *PtyMaster) Stop() error {
 	return err
 }
 
+func (pty *PtyMaster) Restore() {
+	term.Restore(0, pty.terminalInitState)
+}
+
+func (pty *PtyMaster) Refresh() {
+	// We wanna force the app to re-draw itself, but there doesn't seem to be a way to do that
+	// so we fake it by resizing the window quickly, making it smaller and then back big
+	winSize, err := GetWinsize(0)
+	if err != nil {
+		return
+	}
+
+	winSize.Rows -= 1
+
+	if err != nil {
+		return
+	}
+
+	pty.SetWinsize(winSize)
+	winSize.Rows += 1
+
+	go func() {
+		time.Sleep(time.Millisecond * 50)
+		pty.SetWinsize(winSize)
+	}()
+}
+
+func (pty *PtyMaster) Wait() error {
+	return pty.cmd.Wait()
+}
+
 func (pty *PtyMaster) MakeRaw() error {
 	// Save the initial state of the terminal, before making it RAW. Note that this terminal is the
 	// terminal under which the tty-share command has been started, and it's identified via the
@@ -126,52 +131,58 @@ func (pty *PtyMaster) MakeRaw() error {
 	return err
 }
 
-func (pty *PtyMaster) Restore() {
-	term.Restore(0, pty.terminalInitState)
+func (pty *PtyMaster) SetWinsize(ws *ptyDevice.Winsize) {
+	ptyDevice.Setsize(pty.f, ws)
 }
 
-func (pty *PtyMaster) Wait() error {
-	return pty.cmd.Wait()
+func onWindowChanges(wcCB onWindowChangedCB) {
+	wcChan := make(chan os.Signal, 1)
+	signal.Notify(wcChan, syscall.SIGWINCH)
+	// The interface for getting window changes from the pty slave to its process, is via signals.
+	// In our case here, the tty-share command (built in this project) is the client, which should
+	// get notified if the terminal window in which it runs has changed. To get that, it needs to
+	// register for SIGWINCH signal, which is used by the kernel to tell process that the window
+	// has changed its dimentions.
+	// Read more here: https://www.linusakesson.net/programming/tty/
+	// Shortly, ioctl calls are used to communicate from the process to the pty slave device,
+	// and signals are used for the communiation in the reverse direction: from the pty slave
+	// device to the process.
+
+	for {
+		select {
+		case <-wcChan:
+			ws, err := GetWinsize(0)
+			if err == nil {
+				wcCB(ws)
+			} else {
+				log.Printf("Can't get window size: %s", err.Error())
+			}
+		}
+	}
 }
 
-//func (pty *PtyMaster) SetWinSize(rows, cols int) {
-//	ptyDevice.Setsize(pty.ptyFile, rows, cols)
-//}
-//
-//func onWindowChanges(wcCB onWindowChangedCB) {
-//	wcChan := make(chan os.Signal, 1)
-//	signal.Notify(wcChan, syscall.SIGWINCH)
-//	// The interface for getting window changes from the pty slave to its process, is via signals.
-//	// In our case here, the tty-share command (built in this project) is the client, which should
-//	// get notified if the terminal window in which it runs has changed. To get that, it needs to
-//	// register for SIGWINCH signal, which is used by the kernel to tell process that the window
-//	// has changed its dimentions.
-//	// Read more here: https://www.linusakesson.net/programming/tty/
-//	// Shortly, ioctl calls are used to communicate from the process to the pty slave device,
-//	// and signals are used for the communiation in the reverse direction: from the pty slave
-//	// device to the process.
-//
-//	for {
-//		select {
-//		case <-wcChan:
-//			cols, rows, err := term.GetSize(0)
-//			if err == nil {
-//				wcCB(cols, rows)
-//			} else {
-//				log.Warnf("Can't get window size: %s", err.Error())
-//			}
-//		}
-//	}
-//}
-//
-//func (pty *PtyMaster) SetWinChangeCB(winChangedCB onWindowChangedCB) {
-//	// Start listening for window changes
-//	go onWindowChanges(func(cols, rows int) {
-//		// TODO:policy: should the server decide here if we care about the size and set it
-//		// right here?
-//		pty.SetWinSize(rows, cols)
-//
-//		// Notify the PtyMaster user of the window changes, to be sent to the remote side
-//		winChangedCB(cols, rows)
-//	})
-//}
+func (pty *PtyMaster) SetWinChangeCB(winChangedCB onWindowChangedCB) {
+	// Start listening for window changes
+	go onWindowChanges(func(ws *ptyDevice.Winsize) {
+		pty.SetWinsize(ws)
+
+		// Notify the PtyMaster user of the window changes, to be sent to the remote side
+		winChangedCB(ws)
+	})
+}
+
+func GetWinsize(fd int) (*ptyDevice.Winsize, error) {
+	cols, rows, err := term.GetSize(fd)
+	if err != nil {
+		log.Printf("Failed to get winsize: %s", err)
+		return nil, err
+	}
+	ws := &ptyDevice.Winsize{
+		Rows: uint16(rows),
+		Cols: uint16(cols),
+		X:    uint16(0), // not used
+		Y:    uint16(0), // not used
+	}
+
+	return ws, nil
+}

@@ -36,6 +36,11 @@ function App() {
           var buffer = base64.base64ToArrayBuffer(msgObject.Data)
           term.writeUtf8(buffer);
         }
+        else if (msgObject.Type === "Resize") {
+          var buffer = base64.base64ToArrayBuffer(msgObject.Data)
+          term.resize(msgObject.Data.Cols, msgObject.Data.Rows)
+        }
+
       })
     }
 

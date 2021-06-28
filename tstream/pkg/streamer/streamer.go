@@ -16,7 +16,7 @@ type Streamer struct {
 	pty       *ptyMaster.PtyMaster
 	server    string
 	sessionID string
-	ws        *websocket.Conn
+	ws        *exWebSocket.EXWebSocket
 }
 
 func New(host, sessionID string) *Streamer {
@@ -45,20 +45,17 @@ func (s *Streamer) Start() error {
 		return err
 	}
 	conn := exWebSocket.New(wsConn)
+	s.ws = conn
 
 	s.pty.MakeRaw()
-	stopPtyAndRestore := func() {
-		s.pty.Stop()
-		s.pty.Restore()
-	}
-	defer stopPtyAndRestore()
+	defer s.Stop()
 
 	go func() {
 		// Pipe command response to Pty and server
 		mw := io.MultiWriter(os.Stdout, conn)
 		_, err := io.Copy(mw, s.pty.F())
 		if err != nil {
-			stopPtyAndRestore()
+			s.Stop()
 		}
 	}()
 
@@ -66,15 +63,17 @@ func (s *Streamer) Start() error {
 		// Pipe what user type to terminal session
 		_, err := io.Copy(s.pty.F(), os.Stdin)
 		if err != nil {
-			stopPtyAndRestore()
+			s.Stop()
 		}
 	}()
 
-	s.pty.Wait()
+	s.pty.Wait() // Blocking until user exit
 	return nil
 }
 
 func (s *Streamer) Stop() {
-	s.pty.Stop()
 	s.ws.Close()
+	s.pty.Stop()
+	s.pty.Restore()
+	fmt.Println("Bye!")
 }

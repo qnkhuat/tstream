@@ -46,6 +46,10 @@ var httpUpgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
+func (s *Server) UpdateWindowSize(rows, cols int) {
+
+}
+
 func (s *Server) handleWSViewer(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	roomID := vars["roomID"]
@@ -81,7 +85,6 @@ func (s *Server) handleWSServer(w http.ResponseWriter, r *http.Request) {
 
 	for {
 		_, msg, err := conn.ReadMessage()
-		log.Printf("Recv: (%d)", len(msg))
 		if err != nil {
 			log.Printf("Failed to read message: %s", err)
 			conn.Close()
@@ -91,7 +94,7 @@ func (s *Server) handleWSServer(w http.ResponseWriter, r *http.Request) {
 			Type: message.TWrite,
 			Data: msg,
 		}
-		s.rooms[roomID].Broadcast(msgW)
+		go s.rooms[roomID].Broadcast(msgW)
 	}
 }
 

@@ -9,6 +9,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/qnkhuat/tstream/pkg/message"
 	"log"
+	"sync"
 )
 
 type RoomStatus int
@@ -19,9 +20,10 @@ const (
 )
 
 type Room struct {
-	viewers map[string]*websocket.Conn
-	roomID  string
-	status  RoomStatus
+	mainRWLock sync.RWMutex
+	viewers    map[string]*websocket.Conn
+	roomID     string
+	status     RoomStatus
 }
 
 func New(roomID string) *Room {
@@ -55,6 +57,7 @@ func (r *Room) Broadcast(msg *message.Wrapper) {
 	}
 
 	for id, conn := range r.viewers {
+		// TODO: make this for loop run in parallel
 		err := conn.WriteMessage(websocket.BinaryMessage, payload)
 		log.Println("Sent a buffer")
 		if err != nil {
