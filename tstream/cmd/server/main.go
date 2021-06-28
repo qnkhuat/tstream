@@ -1,3 +1,8 @@
+/*
+Roles of server:
+- Receive the stdout of users terminal then broadcast to all users via websocket
+*/
+
 package main
 
 import (

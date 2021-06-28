@@ -1,3 +1,6 @@
+/*
+A room is virtual object that wrap one streamer and multiple viewers togethher
+*/
 package room
 
 import (
