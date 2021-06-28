@@ -1,25 +1,22 @@
-package exWebSocket // Extended websocket
+package exwebsocket
 
 import (
 	"github.com/gorilla/websocket"
+	"sync"
 )
 
-type EXWebSocket struct {
-	websocket.Conn
+type Conn struct {
+	*websocket.Conn
+	mu sync.Mutex
 }
 
-func New(conn *websocket.Conn) *EXWebSocket {
-	return &EXWebSocket{*conn}
+func New(conn *websocket.Conn) *Conn {
+	return &Conn{Conn: conn}
 }
 
-//func (ws *EXWebSocket) Write(data []byte) (int, error) {
-//	err := ws.WriteMessage(websocket.TextMessage, data)
-//	return len(data), err
-//}
-
-// Implement Writer interface for websocket
-// With this we can io.Copy() to websocket
-func (ws *EXWebSocket) Write(data []byte) (int, error) {
-	err := ws.WriteMessage(websocket.TextMessage, data)
-	return len(data), err
+func (ws *Conn) SafeWriteMessage(msgType int, data []byte) error {
+	ws.mu.Lock()
+	err := ws.WriteMessage(websocket.BinaryMessage, data)
+	ws.mu.Unlock()
+	return err
 }

@@ -5,7 +5,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
-	"github.com/qnkhuat/tstream/pkg/message"
 	"github.com/qnkhuat/tstream/pkg/room"
 	"log"
 	"net/http"
@@ -46,10 +45,6 @@ var httpUpgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
-func (s *Server) UpdateWindowSize(rows, cols int) {
-
-}
-
 func (s *Server) handleWSViewer(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	roomID := vars["roomID"]
@@ -84,17 +79,14 @@ func (s *Server) handleWSServer(w http.ResponseWriter, r *http.Request) {
 	defer conn.Close()
 
 	for {
-		_, msg, err := conn.ReadMessage()
+		msgType, msg, err := conn.ReadMessage()
+		log.Printf("Recv: (%d), msgType: %d, Type %T", len(msg), msgType, msg)
 		if err != nil {
-			log.Printf("Failed to read message: %s", err)
+			log.Printf("Failed to read message: %s, len: %d, msgType: %d", err, len(msg), msgType)
 			conn.Close()
 			return
 		}
-		msgW := &message.Wrapper{
-			Type: message.TWrite,
-			Data: msg,
-		}
-		go s.rooms[roomID].Broadcast(msgW)
+		go s.rooms[roomID].Broadcast(msg)
 	}
 }
 

@@ -27,18 +27,17 @@ function App() {
     }
 
     websocket.onmessage = (ev: MessageEvent) => {
-      console.log("Got event: ", ev);
-      console.log(ev.data);
+      console.log("got data: ", ev.data);
       ev.data.text().then((msg: string) => {
-        console.log(msg.length);
-        let msgObject = JSON.parse(msg)
+        let msgObject = JSON.parse(msg);
+        console.log("Got message ", msgObject.Type)
         if (msgObject.Type === "Write") {
           var buffer = base64.base64ToArrayBuffer(msgObject.Data)
           term.writeUtf8(buffer);
         }
-        else if (msgObject.Type === "Resize") {
-          var buffer = base64.base64ToArrayBuffer(msgObject.Data)
-          term.resize(msgObject.Data.Cols, msgObject.Data.Rows)
+        else if (msgObject.Type === "Winsize") {
+          let winSizeMsg = JSON.parse(window.atob(msgObject.Data))
+          term.resize(winSizeMsg.Cols, winSizeMsg.Rows)
         }
 
       })

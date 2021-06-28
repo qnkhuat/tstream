@@ -3,8 +3,8 @@ package streamer
 import (
 	"bufio"
 	"fmt"
+	ptyDevice "github.com/creack/pty"
 	"github.com/gorilla/websocket"
-	"github.com/qnkhuat/tstream/pkg/exWebSocket"
 	"github.com/qnkhuat/tstream/pkg/ptyMaster"
 	"io"
 	//"log"
@@ -16,7 +16,7 @@ type Streamer struct {
 	pty       *ptyMaster.PtyMaster
 	server    string
 	sessionID string
-	ws        *exWebSocket.EXWebSocket
+	sess      *Session
 }
 
 func New(host, sessionID string) *Streamer {
@@ -44,11 +44,15 @@ func (s *Streamer) Start() error {
 	if err != nil {
 		return err
 	}
-	conn := exWebSocket.New(wsConn)
-	s.ws = conn
+	conn := NewSession(wsConn)
+	s.sess = conn
 
 	s.pty.MakeRaw()
 	defer s.Stop()
+
+	s.pty.SetWinChangeCB(func(ws *ptyDevice.Winsize) {
+		conn.Winsize(ws.Rows, ws.Cols)
+	})
 
 	go func() {
 		// Pipe command response to Pty and server
@@ -72,7 +76,7 @@ func (s *Streamer) Start() error {
 }
 
 func (s *Streamer) Stop() {
-	s.ws.Close()
+	s.sess.Close()
 	s.pty.Stop()
 	s.pty.Restore()
 	fmt.Println("Bye!")

@@ -4,10 +4,9 @@ A room is virtual object that wrap one streamer and multiple viewers togethher
 package room
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/gorilla/websocket"
-	"github.com/qnkhuat/tstream/pkg/message"
+	"github.com/qnkhuat/tstream/pkg/exwebsocket"
 	"log"
 	"sync"
 )
@@ -21,13 +20,13 @@ const (
 
 type Room struct {
 	mainRWLock sync.RWMutex
-	viewers    map[string]*websocket.Conn
+	viewers    map[string]*exwebsocket.Conn
 	roomID     string
 	status     RoomStatus
 }
 
 func New(roomID string) *Room {
-	viewers := make(map[string]*websocket.Conn)
+	viewers := make(map[string]*exwebsocket.Conn)
 	return &Room{
 		roomID:  roomID,
 		viewers: viewers,
@@ -41,7 +40,8 @@ func (r *Room) AddViewer(viewerID string, conn *websocket.Conn) error {
 		return fmt.Errorf("Viewer %s existed", conn)
 	}
 
-	r.viewers[viewerID] = conn
+	exConn := exwebsocket.New(conn)
+	r.viewers[viewerID] = exConn
 	return nil
 }
 
@@ -49,16 +49,10 @@ func (r *Room) RemoveViewer(viewerID string) {
 	delete(r.viewers, viewerID)
 }
 
-func (r *Room) Broadcast(msg *message.Wrapper) {
-	payload, err := json.Marshal(msg)
-	if err != nil {
-		log.Printf("Failed to decode message: %s", err)
-		return
-	}
-
+func (r *Room) Broadcast(msg []uint8) {
 	for id, conn := range r.viewers {
 		// TODO: make this for loop run in parallel
-		err := conn.WriteMessage(websocket.BinaryMessage, payload)
+		err := conn.SafeWriteMessage(websocket.BinaryMessage, msg)
 		log.Println("Sent a buffer")
 		if err != nil {
 			log.Printf("Failed to board case to %s. Closing connection", id)
