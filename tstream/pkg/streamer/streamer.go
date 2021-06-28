@@ -50,6 +50,9 @@ func (s *Streamer) Start() error {
 	s.pty.MakeRaw()
 	defer s.Stop()
 
+	winSize, _ := ptyMaster.GetWinsize(0)
+	conn.Winsize(winSize.Rows, winSize.Cols)
+
 	s.pty.SetWinChangeCB(func(ws *ptyDevice.Winsize) {
 		conn.Winsize(ws.Rows, ws.Cols)
 	})

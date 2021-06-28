@@ -1,10 +1,12 @@
 package server
 
 import (
+	//"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
+	//"github.com/qnkhuat/tstream/pkg/message"
 	"github.com/qnkhuat/tstream/pkg/room"
 	"log"
 	"net/http"
@@ -36,7 +38,7 @@ func (s *Server) NewRoom(roomID string) error {
 
 func handleHealth(w http.ResponseWriter, r *http.Request) {
 	log.Printf("health check")
-	fmt.Fprintf(w, "I'm fine, go away: %s\n", time.Now().String())
+	fmt.Fprintf(w, "I'm fine: %s\n", time.Now().String())
 }
 
 // upgrade an http request to websocket
@@ -80,13 +82,14 @@ func (s *Server) handleWSServer(w http.ResponseWriter, r *http.Request) {
 
 	for {
 		msgType, msg, err := conn.ReadMessage()
-		log.Printf("Recv: (%d), msgType: %d, Type %T", len(msg), msgType, msg)
+		log.Printf("Got a message: %d", len(msg))
+
 		if err != nil {
 			log.Printf("Failed to read message: %s, len: %d, msgType: %d", err, len(msg), msgType)
 			conn.Close()
 			return
 		}
-		go s.rooms[roomID].Broadcast(msg)
+		s.rooms[roomID].Broadcast(msg)
 	}
 }
 

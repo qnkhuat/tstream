@@ -8,7 +8,8 @@ package ptyMaster
 
 import (
 	ptyDevice "github.com/creack/pty"
-	"golang.org/x/term"
+	//"golang.org/x/term"
+	term "golang.org/x/crypto/ssh/terminal"
 	"log"
 	"os"
 	"os/exec"

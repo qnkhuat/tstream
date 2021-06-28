@@ -4,9 +4,11 @@ A room is virtual object that wrap one streamer and multiple viewers togethher
 package room
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/gorilla/websocket"
 	"github.com/qnkhuat/tstream/pkg/exwebsocket"
+	"github.com/qnkhuat/tstream/pkg/message"
 	"log"
 	"sync"
 )
@@ -19,10 +21,11 @@ const (
 )
 
 type Room struct {
-	mainRWLock sync.RWMutex
-	viewers    map[string]*exwebsocket.Conn
-	roomID     string
-	status     RoomStatus
+	mainRWLock  sync.RWMutex
+	viewers     map[string]*exwebsocket.Conn
+	roomID      string
+	status      RoomStatus
+	lastWinsize *message.Winsize
 }
 
 func New(roomID string) *Room {
@@ -42,6 +45,21 @@ func (r *Room) AddViewer(viewerID string, conn *websocket.Conn) error {
 
 	exConn := exwebsocket.New(conn)
 	r.viewers[viewerID] = exConn
+
+	if r.lastWinsize != nil {
+		winsizeData, _ := json.Marshal(message.Winsize{
+			Rows: r.lastWinsize.Rows,
+			Cols: r.lastWinsize.Cols,
+		})
+
+		msg := &message.Wrapper{
+			Type: message.TWinsize,
+			Data: winsizeData,
+		}
+		payload, _ := message.Wrap(msg)
+
+		exConn.SafeWriteMessage(websocket.TextMessage, payload)
+	}
 	return nil
 }
 
@@ -50,12 +68,22 @@ func (r *Room) RemoveViewer(viewerID string) {
 }
 
 func (r *Room) Broadcast(msg []uint8) {
+	msgObj, err := message.Unwrap(msg)
+	log.Printf("Got an obj %s", msgObj)
+	if err == nil && msgObj.Type == message.TWinsize {
+		winsize := &message.Winsize{}
+		err := json.Unmarshal(msgObj.Data, winsize)
+		if err == nil {
+			r.lastWinsize = winsize
+			log.Printf("Got last winsize %s", winsize)
+		}
+	}
+
 	for id, conn := range r.viewers {
 		// TODO: make this for loop run in parallel
-		err := conn.SafeWriteMessage(websocket.BinaryMessage, msg)
-		log.Println("Sent a buffer")
+		err := conn.SafeWriteMessage(websocket.TextMessage, msg)
 		if err != nil {
-			log.Printf("Failed to board case to %s. Closing connection", id)
+			log.Printf("Failed to boardcast to %s. Closing connection", id)
 			conn.Close()
 			r.RemoveViewer(id)
 		}

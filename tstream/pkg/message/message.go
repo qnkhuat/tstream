@@ -5,6 +5,10 @@ Define message structs for communication
 */
 package message
 
+import (
+	"encoding/json"
+)
+
 type Type string
 
 const (
@@ -20,4 +24,14 @@ type Wrapper struct {
 type Winsize struct {
 	Rows uint16
 	Cols uint16
+}
+
+func Unwrap(buff []byte) (Wrapper, error) {
+	obj := Wrapper{}
+	err := json.Unmarshal(buff, &obj)
+	return obj, err
+}
+
+func Wrap(msg *Wrapper) ([]byte, error) {
+	return json.Marshal(msg)
 }

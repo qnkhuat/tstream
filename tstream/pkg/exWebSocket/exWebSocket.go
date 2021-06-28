@@ -16,7 +16,7 @@ func New(conn *websocket.Conn) *Conn {
 
 func (ws *Conn) SafeWriteMessage(msgType int, data []byte) error {
 	ws.mu.Lock()
-	err := ws.WriteMessage(websocket.BinaryMessage, data)
+	err := ws.WriteMessage(msgType, data)
 	ws.mu.Unlock()
 	return err
 }

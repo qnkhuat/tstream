@@ -17,12 +17,12 @@ func NewSession(conn *websocket.Conn) *Session {
 }
 
 func (ss *Session) sendMsg(msg *message.Wrapper) error {
-	payload, err := json.Marshal(msg)
+	payload, err := message.Wrap(msg)
 	if err != nil {
 		return err
 	}
 
-	err = ss.SafeWriteMessage(websocket.BinaryMessage, payload)
+	err = ss.SafeWriteMessage(websocket.TextMessage, payload)
 	return err
 }
 
