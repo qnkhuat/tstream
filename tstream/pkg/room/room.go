@@ -11,6 +11,7 @@ import (
 	"github.com/qnkhuat/tstream/pkg/message"
 	"log"
 	"sync"
+	"time"
 )
 
 type RoomStatus int
@@ -21,20 +22,30 @@ const (
 )
 
 type Room struct {
-	mainRWLock  sync.RWMutex
+	lock        sync.Mutex
 	viewers     map[string]*exwebsocket.Conn
 	roomID      string
 	status      RoomStatus
 	lastWinsize *message.Winsize
+	lastActive  time.Time
 }
 
 func New(roomID string) *Room {
 	viewers := make(map[string]*exwebsocket.Conn)
 	return &Room{
-		roomID:  roomID,
-		viewers: viewers,
-		status:  Live,
+		roomID:     roomID,
+		viewers:    viewers,
+		lastActive: time.Now(),
+		status:     Live,
 	}
+}
+
+func (r *Room) LastActive() time.Time {
+	return r.lastActive
+}
+
+func (r *Room) RoomID() string {
+	return r.roomID
 }
 
 func (r *Room) AddViewer(viewerID string, conn *websocket.Conn) error {
@@ -64,18 +75,20 @@ func (r *Room) AddViewer(viewerID string, conn *websocket.Conn) error {
 }
 
 func (r *Room) RemoveViewer(viewerID string) {
+	r.lock.Lock()
 	delete(r.viewers, viewerID)
+	r.lock.Unlock()
 }
 
 func (r *Room) Broadcast(msg []uint8) {
+	r.lastActive = time.Now()
+
 	msgObj, err := message.Unwrap(msg)
-	log.Printf("Got an obj %s", msgObj)
 	if err == nil && msgObj.Type == message.TWinsize {
 		winsize := &message.Winsize{}
 		err := json.Unmarshal(msgObj.Data, winsize)
 		if err == nil {
 			r.lastWinsize = winsize
-			log.Printf("Got last winsize %s", winsize)
 		}
 	}
 

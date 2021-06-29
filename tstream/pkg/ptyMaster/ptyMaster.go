@@ -1,5 +1,5 @@
 /*
-Wrapper around the pty (https://dev.to/napicella/linux-terminals-tty-pty-and-shell-192e)
+Wrapper around the pty
 Used to control (start, stop) and communicate with the terminal
 */
 

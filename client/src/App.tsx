@@ -1,8 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import './App.css';
 import { Terminal } from 'xterm';
-//import { FitAddon } from 'xterm-addon-fit';
-import { AttachAddon } from 'xterm-addon-attach';
+import { FitAddon } from 'xterm-addon-fit';
 import 'xterm/css/xterm.css';
 import base64 from './base64';
 
@@ -23,8 +22,9 @@ const websocket = new WebSocket('ws://0.0.0.0:3000/r/qnkhuat/wsv');
 
 function App() {
 
+  const [inputValue, setInputValue] = useState("");
   useEffect(() => {
-    console.log(websocket)
+    console.log("yuo");
     var term = new Terminal({
       cursorBlink: true,
       macOptionIsMeta: true,
@@ -51,17 +51,29 @@ function App() {
       }
     }
 
-    const terminalDiv = document.getElementById("terminal");
-    if (terminalDiv) {
-      term.open(terminalDiv);
+    const wrapperDiv = document.getElementById("terminal");
+    if (wrapperDiv != null) {
+      wrapperDiv.innerHTML = "";
+      const termDiv = document.createElement("div");
+      wrapperDiv.appendChild(termDiv)
+      term.open(termDiv);
     }
 
-  })
+  }, [])
 
   return (
     <div className="App">
       <h1>Yooooooooooooooo</h1>
       <div id="terminal"></div>
+      <input id="message" onChange={e => setInputValue(e.target.value)}></input>
+      <button onClick={e => {
+        console.log(inputValue);
+        websocket.send(inputValue);
+      }}>Send message</button>
+      <button onClick={e => {
+        websocket.close();
+      }}>Close connection</button>
+
     </div>
   );
 }
