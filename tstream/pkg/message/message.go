@@ -14,6 +14,7 @@ type Type string
 const (
 	TWrite   Type = "Write"
 	TWinsize      = "Winsize"
+	TClose        = "Close"
 )
 
 type Wrapper struct {

@@ -23,6 +23,7 @@ const (
 
 type Room struct {
 	lock        sync.Mutex
+	streamer    *exwebsocket.Conn
 	viewers     map[string]*exwebsocket.Conn
 	roomID      string
 	status      RoomStatus
@@ -48,14 +49,23 @@ func (r *Room) RoomID() string {
 	return r.roomID
 }
 
-func (r *Room) AddViewer(viewerID string, conn *websocket.Conn) error {
-	_, ok := r.viewers[viewerID]
+func (r *Room) AddStreamer(conn *websocket.Conn) error {
+	//if r.streamer != nil {
+	//	return fmt.Errorf("Streamer existed")
+	//}
+	exConn := exwebsocket.New(conn)
+	r.streamer = exConn
+	return nil
+}
+
+func (r *Room) AddViewer(ID string, conn *websocket.Conn) error {
+	_, ok := r.viewers[ID]
 	if ok {
 		return fmt.Errorf("Viewer %s existed", conn)
 	}
 
 	exConn := exwebsocket.New(conn)
-	r.viewers[viewerID] = exConn
+	r.viewers[ID] = exConn
 
 	if r.lastWinsize != nil {
 		winsizeData, _ := json.Marshal(message.Winsize{
@@ -74,10 +84,16 @@ func (r *Room) AddViewer(viewerID string, conn *websocket.Conn) error {
 	return nil
 }
 
-func (r *Room) RemoveViewer(viewerID string) {
+func (r *Room) RemoveViewer(ID string) error {
+	_, ok := r.viewers[ID]
+	if !ok {
+		return fmt.Errorf("Viewer %s not found", ID)
+	}
+
 	r.lock.Lock()
-	delete(r.viewers, viewerID)
+	delete(r.viewers, ID)
 	r.lock.Unlock()
+	return nil
 }
 
 func (r *Room) Broadcast(msg []uint8) {
@@ -102,3 +118,42 @@ func (r *Room) Broadcast(msg []uint8) {
 		}
 	}
 }
+
+func (r *Room) Close() {
+	for id, _ := range r.viewers {
+		r.RemoveViewer(id)
+	}
+}
+
+func (r *Room) ServeContent() {
+	for {
+		msgType, msg, err := r.streamer.ReadMessage()
+		log.Printf("Got a message: %d", len(msg))
+
+		if err != nil {
+			log.Printf("Failed to read message: %s, len: %d, msgType: %d", err, len(msg), msgType)
+			r.streamer.Close()
+			return
+		}
+		r.Broadcast(msg)
+	}
+}
+
+func (r *Room) ReadAndHandleViewerMessage(ID string) {
+	conn, ok := r.viewers[ID]
+	if !ok {
+		return
+	}
+	for {
+		msgType, msg, err := conn.ReadMessage()
+		log.Printf("Received a message: type:%d, %s", msgType, msg)
+
+		if err != nil {
+			log.Printf("Failed to read message: %s, len: %d, msgType: %d", err, len(msg), msgType)
+			conn.Close()
+			return
+		}
+	}
+}
+
+//func (r *Room)

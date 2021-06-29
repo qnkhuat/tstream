@@ -17,14 +17,18 @@ function base64ToArrayBuffer(input:string) {
 }
 
 
-////const websocket = new WebSocket('ws://localhost:8002/s/local/ws');
-const websocket = new WebSocket('ws://0.0.0.0:3000/r/qnkhuat/wsv');
-
 function App() {
 
-  const [inputValue, setInputValue] = useState("");
+  const [ inputValue, setInputValue ] = useState("");
+  const url = window.location.href;
+  const url_splits = url.split("/")
+  const sessionID = url_splits[url_splits.length - 1]
+  const ws = new WebSocket(`ws://0.0.0.0:3000/${sessionID}/wsv`);
+  const [ websocket, setWebSocket ] = useState(ws);
+
+
   useEffect(() => {
-    console.log("yuo");
+
     var term = new Terminal({
       cursorBlink: true,
       macOptionIsMeta: true,
@@ -34,12 +38,12 @@ function App() {
       fontFamily: 'SauceCodePro MonoWindows, courier-new, monospace',
     });
 
-    websocket.onopen = (e: Event) => {
+    ws.onopen = (e: Event) => {
       console.log("Socket open");
     }
 
-    websocket.onmessage = (ev: MessageEvent) => {
-      console.log("GOt message", ev.data);
+    ws.onmessage = (ev: MessageEvent) => {
+      console.log("Got message", ev.data);
       let msg = JSON.parse(ev.data);
       if (msg.Type === "Write") {
         var buffer = base64ToArrayBuffer(msg.Data)

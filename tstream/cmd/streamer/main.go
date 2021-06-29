@@ -27,8 +27,11 @@ func main() {
 	logging.Config("/tmp/tstream.log", "STREAMER: ")
 	log.Println("Streamer started")
 	var server = flag.String("server", "0.0.0.0:3000", "Server endpoint")
-	var sessionID = "qnkhuat"
-	s := streamer.New(*server, sessionID)
+	var session = flag.String("session", "qnkhuat", "Session name")
+	flag.Parse()
+
+	log.Printf("Got session: %s\n", *session)
+	s := streamer.New(*server, *session)
 	err := s.Start()
 	if err != nil {
 		log.Panicf("Failed to start stream: %s", err)
