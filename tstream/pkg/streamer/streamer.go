@@ -99,9 +99,12 @@ func (s *Streamer) Start() error {
 				log.Printf("Error while getting message from Out chan")
 				continue
 			}
+			// TODO: Don't close pty when connection failed
+			// This make users lose their work while streaming
 			err := s.conn.WriteMessage(websocket.TextMessage, msg)
 			if err != nil {
 				log.Printf("Failed to send message: %s", err)
+				s.Stop()
 				return
 			}
 		}
