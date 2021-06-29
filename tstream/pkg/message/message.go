@@ -15,6 +15,7 @@ const (
 	TWrite   Type = "Write"
 	TWinsize      = "Winsize"
 	TClose        = "Close"
+	TError        = "Error"
 )
 
 type Wrapper struct {

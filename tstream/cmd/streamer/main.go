@@ -25,7 +25,7 @@ import (
 
 func main() {
 	logging.Config("/tmp/tstream.log", "STREAMER: ")
-	log.Println("Streamer started")
+	log.Println("Streaming started")
 	var server = flag.String("server", "0.0.0.0:3000", "Server endpoint")
 	var session = flag.String("session", "qnkhuat", "Session name")
 	flag.Parse()

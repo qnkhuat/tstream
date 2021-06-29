@@ -25,6 +25,7 @@ function App() {
   const sessionID = url_splits[url_splits.length - 1]
   const ws = new WebSocket(`ws://0.0.0.0:3000/${sessionID}/wsv`);
   const [ websocket, setWebSocket ] = useState(ws);
+  console.log(ws);
 
 
   useEffect(() => {

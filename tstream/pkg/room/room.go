@@ -7,37 +7,30 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/websocket"
-	"github.com/qnkhuat/tstream/pkg/exwebsocket"
 	"github.com/qnkhuat/tstream/pkg/message"
+	"github.com/qnkhuat/tstream/pkg/viewer"
 	"log"
 	"sync"
 	"time"
 )
 
-type RoomStatus int
-
-const (
-	Live RoomStatus = iota
-	Stopped
-)
+var PING_STREAMER_INTERVAL = 10 // seconds
 
 type Room struct {
 	lock        sync.Mutex
-	streamer    *exwebsocket.Conn
-	viewers     map[string]*exwebsocket.Conn
+	streamer    *websocket.Conn
+	viewers     map[string]*viewer.Viewer
 	roomID      string
-	status      RoomStatus
 	lastWinsize *message.Winsize
 	lastActive  time.Time
 }
 
 func New(roomID string) *Room {
-	viewers := make(map[string]*exwebsocket.Conn)
+	viewers := make(map[string]*viewer.Viewer)
 	return &Room{
 		roomID:     roomID,
 		viewers:    viewers,
 		lastActive: time.Now(),
-		status:     Live,
 	}
 }
 
@@ -50,11 +43,18 @@ func (r *Room) RoomID() string {
 }
 
 func (r *Room) AddStreamer(conn *websocket.Conn) error {
-	//if r.streamer != nil {
-	//	return fmt.Errorf("Streamer existed")
-	//}
-	exConn := exwebsocket.New(conn)
-	r.streamer = exConn
+	// TODO: hanlde case when streamer already existed
+	if r.streamer != nil {
+		r.streamer.Close()
+		//return fmt.Errorf("Streamer existed")
+	}
+	log.Printf("New streamer")
+	r.streamer = conn
+	//r.streamer.SetPingHandler(func(appData string) error {
+	//	r.lastActive = time.Now()
+	//	return nil
+	//})
+
 	return nil
 }
 
@@ -64,9 +64,11 @@ func (r *Room) AddViewer(ID string, conn *websocket.Conn) error {
 		return fmt.Errorf("Viewer %s existed", conn)
 	}
 
-	exConn := exwebsocket.New(conn)
-	r.viewers[ID] = exConn
+	v := viewer.New(ID, conn)
+	r.viewers[ID] = v
+	go v.Start()
 
+	/// send winsize if existed
 	if r.lastWinsize != nil {
 		winsizeData, _ := json.Marshal(message.Winsize{
 			Rows: r.lastWinsize.Rows,
@@ -78,8 +80,7 @@ func (r *Room) AddViewer(ID string, conn *websocket.Conn) error {
 			Data: winsizeData,
 		}
 		payload, _ := message.Wrap(msg)
-
-		exConn.SafeWriteMessage(websocket.TextMessage, payload)
+		v.Out <- payload
 	}
 	return nil
 }
@@ -96,6 +97,32 @@ func (r *Room) RemoveViewer(ID string) error {
 	return nil
 }
 
+// Wait for request from streamer and broadcast those message to viewers
+func (r *Room) ServeContent() {
+
+	for {
+		_, msg, err := r.streamer.ReadMessage()
+		log.Printf("Got a message: %d", len(msg))
+		if err != nil {
+			log.Printf("Failed to reaceive message from streamer: %s. Closing", r.roomID)
+			r.streamer.Close()
+			return
+		}
+		r.Broadcast(msg)
+	}
+}
+
+func (r *Room) ReadAndHandleViewerMessage(ID string) {
+	viewer, ok := r.viewers[ID]
+	if !ok {
+		return
+	}
+	for {
+		msg, _ := <-viewer.In
+		log.Printf("Room got message: %d", len(msg))
+	}
+}
+
 func (r *Room) Broadcast(msg []uint8) {
 	r.lastActive = time.Now()
 
@@ -108,12 +135,12 @@ func (r *Room) Broadcast(msg []uint8) {
 		}
 	}
 
-	for id, conn := range r.viewers {
+	for id, viewer := range r.viewers {
 		// TODO: make this for loop run in parallel
-		err := conn.SafeWriteMessage(websocket.TextMessage, msg)
-		if err != nil {
+		if viewer.Alive() {
+			viewer.Out <- msg
+		} else {
 			log.Printf("Failed to boardcast to %s. Closing connection", id)
-			conn.Close()
 			r.RemoveViewer(id)
 		}
 	}
@@ -123,37 +150,7 @@ func (r *Room) Close() {
 	for id, _ := range r.viewers {
 		r.RemoveViewer(id)
 	}
+	r.lock.Lock()
+	r.streamer.Close()
+	r.lock.Unlock()
 }
-
-func (r *Room) ServeContent() {
-	for {
-		msgType, msg, err := r.streamer.ReadMessage()
-		log.Printf("Got a message: %d", len(msg))
-
-		if err != nil {
-			log.Printf("Failed to read message: %s, len: %d, msgType: %d", err, len(msg), msgType)
-			r.streamer.Close()
-			return
-		}
-		r.Broadcast(msg)
-	}
-}
-
-func (r *Room) ReadAndHandleViewerMessage(ID string) {
-	conn, ok := r.viewers[ID]
-	if !ok {
-		return
-	}
-	for {
-		msgType, msg, err := conn.ReadMessage()
-		log.Printf("Received a message: type:%d, %s", msgType, msg)
-
-		if err != nil {
-			log.Printf("Failed to read message: %s, len: %d, msgType: %d", err, len(msg), msgType)
-			conn.Close()
-			return
-		}
-	}
-}
-
-//func (r *Room)

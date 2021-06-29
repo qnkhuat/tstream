@@ -21,6 +21,7 @@ var httpUpgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
+// Websocket connetion from streamer
 func (s *Server) handleWSViewer(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	roomID := vars["roomID"]
@@ -45,14 +46,15 @@ func (s *Server) handleWSViewer(w http.ResponseWriter, r *http.Request) {
 	room.ReadAndHandleViewerMessage(viewerID) // Blocking call
 }
 
-func (s *Server) handleWSServer(w http.ResponseWriter, r *http.Request) {
+// Websocket connection from streamer
+// TODO: Add key checking to make sure only streamer can stream via this endpoint
+func (s *Server) handleWSStreamer(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	roomID := vars["roomID"]
 	if _, ok := s.rooms[roomID]; !ok {
 		s.NewRoom(roomID)
 	}
 
-	log.Println("Connecting")
 	httpUpgrader.CheckOrigin = func(r *http.Request) bool { return true }
 	conn, err := httpUpgrader.Upgrade(w, r, nil)
 	if err != nil {

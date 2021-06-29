@@ -2,29 +2,43 @@ package streamer
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	ptyDevice "github.com/creack/pty"
 	"github.com/gorilla/websocket"
+	"github.com/qnkhuat/tstream/pkg/message"
 	"github.com/qnkhuat/tstream/pkg/ptyMaster"
 	"io"
 	"log"
 	"net/url"
 	"os"
+	"time"
 )
 
 type Streamer struct {
 	pty        *ptyMaster.PtyMaster
 	serverAddr string
-	sessionID  string
-	sess       *Session
+	id         string
+	conn       *websocket.Conn
+	Out        chan []byte
+	In         chan []byte
 }
 
-func New(serverAddr, sessionID string) *Streamer {
+const (
+	REFRESH_PERIOD = 5 * time.Second
+)
+
+func New(serverAddr, id string) *Streamer {
 	pty := ptyMaster.New()
+	out := make(chan []byte, 256) // buffer 256 send requests
+	in := make(chan []byte, 256)  // buffer 256 send requests
+
 	return &Streamer{
 		pty:        pty,
 		serverAddr: serverAddr,
-		sessionID:  sessionID,
+		id:         id,
+		Out:        out,
+		In:         in,
 	}
 }
 
@@ -39,40 +53,69 @@ func (s *Streamer) Start() error {
 	bufio.NewReader(os.Stdin).ReadString('\n')
 
 	// Connect socket to server
-	url := url.URL{Scheme: "ws", Host: s.serverAddr, Path: fmt.Sprintf("/%s/wss", s.sessionID)}
+	url := url.URL{Scheme: "ws", Host: s.serverAddr, Path: fmt.Sprintf("/%s/wss", s.id)}
 	log.Printf("Openning socket at %s", url.String())
-	wsConn, _, err := websocket.DefaultDialer.Dial(url.String(), nil)
+	conn, _, err := websocket.DefaultDialer.Dial(url.String(), nil)
 	if err != nil {
 		log.Printf("Failed to open websocket: %s", err)
 		return err
 	}
-	session := NewSession(wsConn)
-	s.sess = session
+	s.conn = conn
 
 	s.pty.MakeRaw()
 	defer s.Stop()
 
 	winSize, _ := ptyMaster.GetWinsize(0)
-	session.Winsize(winSize.Rows, winSize.Cols)
+	s.Winsize(winSize.Rows, winSize.Cols)
 
 	s.pty.SetWinChangeCB(func(ws *ptyDevice.Winsize) {
-		session.Winsize(ws.Rows, ws.Cols)
+		s.Winsize(ws.Rows, ws.Cols)
 	})
 
+	// Pipe command response to Pty and server
 	go func() {
-		// Pipe command response to Pty and server
-		mw := io.MultiWriter(os.Stdout, session)
+		mw := io.MultiWriter(os.Stdout, s)
 		_, err := io.Copy(mw, s.pty.F())
 		if err != nil {
+			log.Printf("Failed to send pty to mw: %s", err)
 			s.Stop()
 		}
 	}()
 
+	// Pipe what user type to terminal session
 	go func() {
-		// Pipe what user type to terminal session
 		_, err := io.Copy(s.pty.F(), os.Stdin)
 		if err != nil {
+			log.Printf("Failed to send stin to pty: %s", err)
 			s.Stop()
+		}
+	}()
+
+	// Send message to server
+	go func() {
+		for {
+			msg, ok := <-s.Out
+			if !ok {
+				log.Printf("Error while getting message from Out chan")
+				continue
+			}
+			err := s.conn.WriteMessage(websocket.TextMessage, msg)
+			if err != nil {
+				log.Printf("Failed to send message: %s", err)
+				return
+			}
+		}
+	}()
+
+	// Periodcally refresh the pty to serve new user
+	// Also act as a ping
+	go func() {
+		ticker := time.NewTicker(REFRESH_PERIOD)
+		for {
+			select {
+			case <-ticker.C:
+				s.pty.Refresh()
+			}
 		}
 	}()
 
@@ -81,8 +124,42 @@ func (s *Streamer) Start() error {
 }
 
 func (s *Streamer) Stop() {
-	s.sess.Close()
+	s.conn.Close()
 	s.pty.Stop()
 	s.pty.Restore()
 	fmt.Println("Bye!")
+}
+
+// Default behavior of Write is to send Write message
+func (s *Streamer) Write(data []byte) (int, error) {
+	msg := &message.Wrapper{
+		Type: message.TWrite,
+		Data: data,
+	}
+
+	payload, err := message.Wrap(msg)
+	if err != nil {
+		log.Printf("Failed to wrap message: %s", err)
+	}
+	s.Out <- payload
+	return len(data), nil
+}
+
+func (s *Streamer) Winsize(rows, cols uint16) {
+	winsizeData, _ := json.Marshal(message.Winsize{
+		Rows: rows,
+		Cols: cols,
+	})
+
+	msg := &message.Wrapper{
+		Type: message.TWinsize,
+		Data: winsizeData,
+	}
+
+	payload, err := message.Wrap(msg)
+	if err != nil {
+		log.Printf("Failed to wrap message: %s", err)
+	}
+
+	s.Out <- payload
 }
