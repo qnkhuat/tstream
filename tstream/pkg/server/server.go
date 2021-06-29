@@ -10,6 +10,11 @@ import (
 	"time"
 )
 
+const (
+	CLEAN_INTERVAL  = 60      // Scan for idle room interval. Unit in seconds
+	CLEAN_THRESHOLD = 60 * 10 // Threshold to be classified as idle room. Unit in seconds
+)
+
 type Server struct {
 	lock   sync.RWMutex
 	rooms  map[string]*room.Room
@@ -37,15 +42,15 @@ func (s *Server) NewRoom(roomID string) error {
 func (s *Server) Start() {
 	router := mux.NewRouter()
 
-	router.HandleFunc("/health", handleHealth)
-	//router.HandleFunc("/rooms", s.handleWSServer)        // for streamers
+	router.HandleFunc("/api/health", handleHealth)
+	router.HandleFunc("/api/rooms", s.handleListRooms)
 	router.HandleFunc("/{roomID}/wss", s.handleWSStreamer) // for streamers
 	router.HandleFunc("/{roomID}/wsv", s.handleWSViewer)   // for viewers
 
 	s.server = &http.Server{Addr: s.addr, Handler: router}
 	log.Printf("Serving at: %s", s.addr)
 
-	go s.cleanRooms(60, 10*60) // Scan every 5 seconds and delete rooms that idle more than 10 minutes
+	go s.cleanRooms(CLEAN_INTERVAL, CLEAN_THRESHOLD) // Scan every 5 seconds and delete rooms that idle more than 10 minutes
 
 	if err := s.server.ListenAndServe(); err != nil { // blocking call
 		log.Panicf("Faield to start server: %s", err)
@@ -75,7 +80,7 @@ func (s *Server) scanAndCleanRooms(idleThreshold int) int {
 	threshold := time.Duration(idleThreshold) * time.Second
 	count := 0
 	for roomID, room := range s.rooms {
-		if time.Since(room.LastActive()) > threshold {
+		if time.Since(room.LastActiveTime()) > threshold {
 			s.deleteRoom(roomID)
 			count += 1
 			log.Printf("Removed room: %s because of Idle", roomID)

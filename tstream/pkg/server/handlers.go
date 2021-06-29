@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
@@ -19,6 +20,28 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 var httpUpgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
+}
+
+type Room struct {
+	ID             string    `json:"ID"`
+	LastActiveTime time.Time `json:"lastActiveTime"`
+	StartedTime    time.Time `json:"startedTime"`
+	NViewers       int       `json:"nViewers"`
+	Title          string    `json:"title"`
+}
+
+func (s *Server) handleListRooms(w http.ResponseWriter, r *http.Request) {
+	var data []Room
+	for _, room := range s.rooms {
+		data = append(data, Room{
+			ID:             room.ID,
+			LastActiveTime: room.LastActiveTime(),
+			StartedTime:    room.StartedTime(),
+			NViewers:       len(room.Viewers()),
+			Title:          "YOOOOOOO",
+		})
+	}
+	json.NewEncoder(w).Encode(data)
 }
 
 // Websocket connetion from streamer
@@ -66,5 +89,5 @@ func (s *Server) handleWSStreamer(w http.ResponseWriter, r *http.Request) {
 		log.Panicf("Failed to add streamer: %s", err)
 	}
 
-	s.rooms[roomID].ServeContent() // Blocking call
+	s.rooms[roomID].Start() // Blocking call
 }
