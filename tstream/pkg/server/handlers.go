@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
+	"github.com/qnkhuat/tstream/internal/cfg"
 	"log"
 	"net/http"
 	"time"
@@ -18,8 +19,8 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 
 // upgrade an http request to websocket
 var httpUpgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
+	ReadBufferSize:  cfg.SERVER_READ_BUFFER_SIZE,
+	WriteBufferSize: cfg.SERVER_WRITE_BBUFFER_SIZE,
 }
 
 type Room struct {
