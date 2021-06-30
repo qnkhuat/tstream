@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Home from './pages/home';
-import Room from './pages/room';
+import Room from './pages/[room]';
 import {
   BrowserRouter as Router,
   Switch,
@@ -14,8 +14,8 @@ function App() {
     <>
       <Router>
         <Switch>
-          <Route path="/:username" component={Room}></Route>
-          <Route path="/" component={Home}></Route>
+          <Route path="/:username" ><Room/></Route>
+          <Route path="/" ><Home/></Route>
         </Switch>
       </Router>
     </>
