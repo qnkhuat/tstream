@@ -7,14 +7,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/websocket"
+	"github.com/qnkhuat/tstream/internal/cfg"
 	"github.com/qnkhuat/tstream/pkg/message"
 	"github.com/qnkhuat/tstream/pkg/viewer"
 	"log"
 	"sync"
 	"time"
 )
-
-var PING_STREAMER_INTERVAL = 10 // seconds
 
 type Room struct {
 	lock           sync.Mutex
@@ -24,15 +23,18 @@ type Room struct {
 	lastWinsize    *message.Winsize
 	startedTime    time.Time
 	lastActiveTime time.Time
+	msgBuffer      [][]byte
 }
 
 func New(ID string) *Room {
 	viewers := make(map[string]*viewer.Viewer)
+	var buffer [][]byte
 	return &Room{
 		ID:             ID,
 		viewers:        viewers,
 		lastActiveTime: time.Now(),
 		startedTime:    time.Now(),
+		msgBuffer:      buffer,
 	}
 }
 
@@ -57,8 +59,8 @@ func (r *Room) AddStreamer(conn *websocket.Conn) error {
 	log.Printf("New streamer")
 	r.streamer = conn
 	//r.streamer.SetPingHandler(func(appData string) error {
-	//	r.lastActiveTime = time.Now()
-	//	return nil
+	//  r.lastActiveTime = time.Now()
+	//  return nil
 	//})
 
 	return nil
@@ -74,7 +76,7 @@ func (r *Room) AddViewer(ID string, conn *websocket.Conn) error {
 	r.viewers[ID] = v
 	go v.Start()
 
-	/// send winsize if existed
+	// send winsize if existed
 	if r.lastWinsize != nil {
 		winsizeData, _ := json.Marshal(message.Winsize{
 			Rows: r.lastWinsize.Rows,
@@ -87,6 +89,11 @@ func (r *Room) AddViewer(ID string, conn *websocket.Conn) error {
 		}
 		payload, _ := message.Wrap(msg)
 		v.Out <- payload
+	}
+
+	// Send msg buffer so viewers doesn't face a idle screen when first started
+	for _, msg := range r.msgBuffer {
+		v.Out <- msg
 	}
 	return nil
 }
@@ -113,8 +120,17 @@ func (r *Room) Start() {
 			r.streamer.Close()
 			return
 		}
+		r.addMsgBuffer(msg)
+		log.Printf("message in buffer %d, %d", len(r.msgBuffer), cap(r.msgBuffer))
 		r.Broadcast(msg)
 	}
+}
+
+func (r *Room) addMsgBuffer(msg []byte) {
+	if len(r.msgBuffer) > cfg.ROOM_BUFFER_SIZE {
+		r.msgBuffer = r.msgBuffer[1:]
+	}
+	r.msgBuffer = append(r.msgBuffer, msg)
 }
 
 func (r *Room) ReadAndHandleViewerMessage(ID string) {
