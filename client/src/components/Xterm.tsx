@@ -237,8 +237,16 @@ class Xterm extends React.Component<IProps> {
     if (this.terminal) this.terminal.write(text);
   }
 
+  writeUtf8(data: Uint8Array) {
+    if (this.terminal) this.terminal.writeUtf8(data);
+  }
+
   writeln(text: string) {
     if (this.terminal) this.terminal.writeln(text);
+  }
+
+  resize(cols:number, rows: number) {
+    if (this.terminal) this.terminal.resize(cols, rows);
   }
 
   prompt() {

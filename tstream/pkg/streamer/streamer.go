@@ -50,7 +50,7 @@ func (s *Streamer) Start() error {
 	bufio.NewReader(os.Stdin).ReadString('\n')
 
 	// Connect socket to server
-	url := url.URL{Scheme: "ws", Host: s.serverAddr, Path: fmt.Sprintf("/%s/wss", s.id)}
+	url := url.URL{Scheme: "ws", Host: s.serverAddr, Path: fmt.Sprintf("/ws/%s/streamer", s.id)}
 	log.Printf("Openning socket at %s", url.String())
 	conn, _, err := websocket.DefaultDialer.Dial(url.String(), nil)
 	if err != nil {

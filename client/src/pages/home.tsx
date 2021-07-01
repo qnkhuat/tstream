@@ -26,6 +26,12 @@ interface Room {
   title: string;
 }
 
+
+function getWsUrl(sessionID: string): string{
+  const wsHost: string = (process.env.REACT_APP_API_URL as string).replace("http", "ws");
+  return urljoin(wsHost, "ws", sessionID, "viewer");
+}
+
 function Home() {
 
   const [ rooms, setRooms ] = useState<Room[]>();
@@ -58,19 +64,25 @@ function Home() {
             </div>
 
             <div id="previews"
-              className="flex items-center justify-center">
-              <FormControl variant="standard"
-                className="w-96"
-                color="success">
-                <Input
-                  id="standard-adornment-amount"
-                  placeholder="Search"
-                  startAdornment={<InputAdornment position="start"><span className="font-bold pb-1 text-green-term">{'>'}</span></InputAdornment>}
-                />
-              </FormControl>
-              <div id="listings" >
+              className="flex-row items-center justify-center">
+              <div className="flex justify-center">
+                <FormControl variant="standard"
+                  className="w-96"
+                  color="success">
+                  <Input
+                    id="standard-adornment-amount"
+                    placeholder="Search"
+                    startAdornment={<InputAdornment position="start"><span className="font-bold pb-1 text-green-term">{'>'}</span></InputAdornment>}
+                  />
+                </FormControl>
+              </div>
+              <div id="listings" className="flex w-full">
                 {rooms?.map((r, i) =>
-                <StreamerPreview key={i} title={r.title} streamerID={r.streamerID} startedTime={r.startedTime} lastActiveTime={r.lastActiveTime}/>
+                <StreamerPreview
+                  key={i} title={r.title} streamerID={r.streamerID}
+                  startedTime={r.startedTime} lastActiveTime={r.lastActiveTime}
+                  wsUrl={getWsUrl(r.streamerID)}
+                />
                 )}
               </div>
             </div>
