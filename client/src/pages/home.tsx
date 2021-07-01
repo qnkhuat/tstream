@@ -48,12 +48,6 @@ function Home() {
         <div id="home" className="container m-auto text-white">
 
           <div id="navbar">
-            <ul>
-              <li>Github</li>
-              <li>Stream</li>
-              <li></li>
-              <li></li>
-            </ul>
           </div>
 
           <div id="body">
@@ -76,7 +70,7 @@ function Home() {
                   />
                 </FormControl>
               </div>
-              <div id="listings" className="flex w-full">
+              <div id="listings" className="flex w-full justify-between m-5">
                 {rooms?.map((r, i) =>
                 <StreamerPreview
                   key={i} title={r.title} streamerID={r.streamerID}

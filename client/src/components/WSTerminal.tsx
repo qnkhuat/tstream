@@ -4,6 +4,7 @@ import Xterm from "./Xterm";
 // TODO: add handle % and px
 interface Props {
   wsUrl: string;
+  className?: string;
   width?: number; // in pixel
   height?: number; // in pixel
 }
@@ -18,7 +19,7 @@ function base64ToArrayBuffer(input:string): Uint8Array {
   return bytes;
 }
 
-const WSTerminal: React.FC<Props> = ({ wsUrl, width=-1, height=-1 }) => {
+const WSTerminal: React.FC<Props> = ({ wsUrl, width=-1, height=-1, className=""}) => {
   const termRef = useRef<Xterm>(null);
   const divRef = useRef<HTMLDivElement>(null);
   const [ divSize, setDivSize ]= useState<number[]>([0, 0]); // store rendered size
@@ -69,10 +70,10 @@ const WSTerminal: React.FC<Props> = ({ wsUrl, width=-1, height=-1 }) => {
 
 
   return (
-    <div className="relative" style={{
+    <div className={`relative ${className}`} style={{
       width: width + "px",
         height: height + "px",
-    }}>
+      }}>
       <div ref={divRef}
         className="absolute top-1/2 left-1/2 origin-top-left">
         <Xterm

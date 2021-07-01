@@ -14,15 +14,16 @@ interface Props {
 
 const StreamerPreview: FC<Props> = ({ title, wsUrl, streamerID, startedTime, lastActiveTime }): ReactElement => {
   return (
-    <div className="border-2 border-red-400 w-full h-full">
-      <h3>{title}</h3>
-      <h3>{urljoin(process.env.REACT_APP_API_URL as string, "ws", streamerID as string, "viewer")}</h3>
-      <h3>{streamerID}</h3>
-      <h3>{wsUrl}</h3>
-      <h3>{startedTime}</h3>
-      <h3>{lastActiveTime}</h3>
+    <div className="relative p-4"
+    >
       <WSTerminal wsUrl={wsUrl as string}
+        width={600}
+        height={337}
+        className="bg-black"
       />
+      <div className="absolute bottom-0 left-0 w-full z-10 bg-gray-400 bg-opacity-50 p-4" >
+        <h3>{streamerID}</h3>
+      </div>
     </div>
   )
 
