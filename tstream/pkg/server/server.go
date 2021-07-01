@@ -42,8 +42,8 @@ func (s *Server) Start() {
 
 	router.HandleFunc("/api/health", handleHealth)
 	router.HandleFunc("/api/rooms", s.handleListRooms)
-	router.HandleFunc("/{roomID}/wss", s.handleWSStreamer) // for streamers
-	router.HandleFunc("/{roomID}/wsv", s.handleWSViewer)   // for viewers
+	router.HandleFunc("/ws/{roomID}/streamer", s.handleWSStreamer) // for streamers
+	router.HandleFunc("/ws/{roomID}/viewer", s.handleWSViewer)     // for viewers
 
 	s.server = &http.Server{Addr: s.addr, Handler: router}
 
