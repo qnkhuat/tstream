@@ -5,6 +5,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/qnkhuat/tstream/internal/cfg"
 	"github.com/qnkhuat/tstream/pkg/room"
+	"github.com/rs/cors"
 	"log"
 	"net/http"
 	"sync"
@@ -40,12 +41,13 @@ func (s *Server) Start() {
 	fmt.Printf("Serving at: %s\n", s.addr)
 	router := mux.NewRouter()
 
-	router.HandleFunc("/api/health", handleHealth)
-	router.HandleFunc("/api/rooms", s.handleListRooms)
+	router.HandleFunc("/api/health", handleHealth).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/rooms", s.handleListRooms).Methods("GET", "OPTIONS")
 	router.HandleFunc("/{roomID}/wss", s.handleWSStreamer) // for streamers
 	router.HandleFunc("/{roomID}/wsv", s.handleWSViewer)   // for viewers
+	handler := cors.Default().Handler(router)
 
-	s.server = &http.Server{Addr: s.addr, Handler: router}
+	s.server = &http.Server{Addr: s.addr, Handler: handler}
 
 	go s.cleanRooms(cfg.SERVER_CLEAN_INTERVAL, cfg.SERVER_CLEAN_THRESHOLD) // Scan every 5 seconds and delete rooms that idle more than 10 minutes
 

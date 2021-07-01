@@ -24,7 +24,7 @@ var httpUpgrader = websocket.Upgrader{
 }
 
 type Room struct {
-	ID             string    `json:"ID"`
+	StreamerID     string    `json:"streamerID"`
 	LastActiveTime time.Time `json:"lastActiveTime"`
 	StartedTime    time.Time `json:"startedTime"`
 	NViewers       int       `json:"nViewers"`
@@ -35,7 +35,7 @@ func (s *Server) handleListRooms(w http.ResponseWriter, r *http.Request) {
 	var data []Room
 	for _, room := range s.rooms {
 		data = append(data, Room{
-			ID:             room.ID,
+			StreamerID:     room.ID,
 			LastActiveTime: room.LastActiveTime(),
 			StartedTime:    room.StartedTime(),
 			NViewers:       len(room.Viewers()),

@@ -1,47 +1,82 @@
 import React, { useState, useEffect, useRef, RefObject } from "react";
-import Xterm from "../components/Xterm";
-import colors from "ansi-colors";
+import StreamerPreview from "../components/StreamerPreview";
+import urljoin from "url-join";
+import axios from "axios";
+
+import SearchIcon from '@material-ui/icons/Search';
+import FormControl from '@material-ui/core/FormControl';
+import InputLabel from '@material-ui/core/InputLabel';
+import TextField from '@material-ui/core/TextField';
+import Input from '@material-ui/core/Input';
+import InputAdornment from '@material-ui/core/InputAdornment';
+import { createTheme, ThemeProvider } from '@material-ui/core/styles';
+import CssBaseline from '@material-ui/core/CssBaseline';
+import Button from '@material-ui/core/Button';
+const darkTheme = createTheme({
+  palette: {
+    mode: "dark",
+  },
+});
+
+interface Room {
+  streamerID: string;
+  lastActiveTime: string;
+  startedTime:string;
+  nViewers: number;
+  title: string;
+}
 
 function Home() {
-  const term = React.useRef() as RefObject<Xterm>;
+
+  const [ rooms, setRooms ] = useState<Room[]>();
   useEffect(() => {
-    if (term) {
-      term.current?.writeln("sup bitchse");
-      term.current?.writeln(colors.red("YO"));
-      term.current?.writeln(colors.blue("YO"));
-      term.current?.prompt();
-    }
-  }, [term])
+    axios.get<Room[]>(urljoin(process.env.REACT_APP_API_URL as string, "/api/rooms")).then((res) => {
+      setRooms(res.data);
+    })
+  }, []);
+
   return (
     <>
-      <Xterm
-        ref={term}
-        onKey={(e) => {
-          const ev = e.domEvent;
-          const printable = !ev.altKey && !ev.ctrlKey && !ev.metaKey;
+      <ThemeProvider theme={darkTheme}>
+        <CssBaseline />
+        <div id="home" className="container m-auto text-white">
 
-          if (ev.keyCode === 13) {
-            term.current?.prompt();
-          } else if (ev.keyCode === 8) {
-            //if (term.current?.terminal.buffer.x > 2) {
-            term.current?.write('\b \b');
-            console.log(term.current?.terminal);
-            //}
-          } else if (printable) {
-            term.current?.write(e.key);
-          }
+          <div id="navbar">
+            <ul>
+              <li>Github</li>
+              <li>Stream</li>
+              <li></li>
+              <li></li>
+            </ul>
+          </div>
 
-        }}
-        onData={(data) => {
-          console.log("Get data: ", data);
-        }}
+          <div id="body">
+            <div id="intro">
+              <p className="text-center text-2xl text-green-term font-bold">TStream</p>
+              <p className="text-center text-xl text-green-term ">Streaming for hackers</p>
+              <img className="m-auto w-96" src="./demo.png" style={{width: "500px"}}/>
+            </div>
 
-        onLineFeed={() => {
-          console.log("Line feed");
-        }}
-
-      />
-      <h3>Home</h3>
+            <div id="previews"
+              className="flex items-center justify-center">
+              <FormControl variant="standard"
+                className="w-96"
+                color="success">
+                <Input
+                  id="standard-adornment-amount"
+                  placeholder="Search"
+                  startAdornment={<InputAdornment position="start"><span className="font-bold pb-1 text-green-term">{'>'}</span></InputAdornment>}
+                />
+              </FormControl>
+              <div id="listings" >
+                {rooms?.map((r, i) =>
+                <StreamerPreview key={i} title={r.title} streamerID={r.streamerID} startedTime={r.startedTime} lastActiveTime={r.lastActiveTime}/>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </ThemeProvider>
     </>
   )
 }
