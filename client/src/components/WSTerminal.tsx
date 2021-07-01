@@ -1,4 +1,4 @@
-import React, { ReactElement, useRef, useEffect, useState } from "react";
+import React, { ReactElement, useRef, useEffect, useState, CSSProperties } from "react";
 import Xterm from "./Xterm";
 
 // TODO: add handle % and px
@@ -19,14 +19,15 @@ function base64ToArrayBuffer(input:string): Uint8Array {
 }
 
 const WSTerminal: React.FC<Props> = ({ wsUrl, width=-1, height=-1 }) => {
-  const [ ws, setWs ] = useState<WebSocket | null>(null);
   const termRef = useRef<Xterm>(null);
   const divRef = useRef<HTMLDivElement>(null);
   const [ divSize, setDivSize ]= useState<number[]>([0, 0]); // store rendered size
+  const [ ws, setWs ] = useState<WebSocket | null>(null);
+  const [ transform, setTransform ] = useState<string>("");
 
   function resize() {
     if (divRef.current && (width > 0 || height > 0)) {
-      divRef.current.style.transform = ``; // reset to normal scale before compute initial size
+      //divRef.current.style.transform = ``; // reset to normal scale before compute initial size
       const xtermScreens = divRef.current.getElementsByClassName("xterm-screen");
       if (xtermScreens.length > 0) {
 
@@ -36,11 +37,9 @@ const WSTerminal: React.FC<Props> = ({ wsUrl, width=-1, height=-1 }) => {
           widthRatio = initialWidth / width,
           heightRatio = initialHeight / height;
 
-        if (initialWidth == width || initialHeight == height) return;
-
         let scale: number = 0;
-        scale = widthRatio > heightRatio ? width/initialWidth : height / initialHeight;
-        divRef.current.style.transform = `scale(${scale})`;
+        scale = widthRatio > heightRatio ? width / initialWidth : height / initialHeight;
+        divRef.current.style.transform = `scale(${scale}) translate(-50%, -50%)`;
         setDivSize([scale * initialWidth, scale*initialHeight])
       }
     }
@@ -63,6 +62,8 @@ const WSTerminal: React.FC<Props> = ({ wsUrl, width=-1, height=-1 }) => {
       }
     }
 
+    window.addEventListener('resize', () => {resize()});
+
     setWs(conn);
   }, [])
 
@@ -73,9 +74,9 @@ const WSTerminal: React.FC<Props> = ({ wsUrl, width=-1, height=-1 }) => {
         height: height + "px",
     }}>
       <div ref={divRef}
-        className="absolute top-0 left-0 origin-top-left"
-      >
+        className="absolute top-1/2 left-1/2 origin-top-left">
         <Xterm
+          options={{rightClickSelectsWord: false}}
           ref={termRef}/>
       </div>
     </div>
