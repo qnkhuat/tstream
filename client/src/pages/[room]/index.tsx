@@ -25,67 +25,14 @@ interface Params {
 function Room() {
   const params: Params = useParams();
   const [ inputValue, setInputValue ] = useState("");
-  const url = window.location.href;
-  const url_splits = url.split("/")
   const sessionID = params.username;
   const wsUrl = `ws://0.0.0.0:3000/ws/${sessionID}/viewer`;
-  const ws = new WebSocket(wsUrl);
-  const [ websocket, setWebSocket ] = useState(ws);
-
-  //useEffect(() => {
-  //  var term = new Terminal({
-  //    cursorBlink: true,
-  //    macOptionIsMeta: true,
-  //    scrollback: 1000,
-  //    fontSize: 12,
-  //    letterSpacing: 0,
-  //    fontFamily: 'SauceCodePro MonoWindows, courier-new, monospace',
-  //  });
-
-  //  ws.onopen = (e: Event) => {
-  //    console.log("Socket open");
-  //  }
-
-  //  ws.onmessage = (ev: MessageEvent) => {
-  //    //console.log("Got message", ev.data);
-  //    let msg = JSON.parse(ev.data);
-  //    if (msg.Type === "Write") {
-  //      var buffer = base64ToArrayBuffer(msg.Data)
-  //      term.writeUtf8(buffer);
-  //    }
-  //    else if (msg.Type === "Winsize") {
-  //      let winSizeMsg = JSON.parse(window.atob(msg.Data))
-  //      term.resize(winSizeMsg.Cols, winSizeMsg.Rows)
-  //    }
-  //  }
-
-  //  const wrapperDiv = document.getElementById("terminal");
-  //  if (wrapperDiv != null) {
-  //    wrapperDiv.innerHTML = "";
-  //    const termDiv = document.createElement("div");
-  //    wrapperDiv.appendChild(termDiv)
-  //    term.open(termDiv);
-  //  }
-
-  //}, [])
-  // <h1>Yooooooooooooooo</h1>
-  //     <h1>Room: {params.username}</h1>
-  //     <div id="terminal"></div>
-  //     <input id="message" onChange={e => setInputValue(e.target.value)}></input>
-  //     <button onClick={e => {
-  //       console.log(inputValue);
-  //       websocket.send(inputValue);
-  //       }}>Send message</button>
-  //     <button onClick={e => {
-  //       websocket.close();
-  //       }}>Close connection</button>
 
   return (
     <div className="App">
-      <WSTerminal wsUrl={wsUrl} height={300}/>
+      <WSTerminal wsUrl={wsUrl} width={400} height={300}/>
     </div>
   );
-
 
 }
 
