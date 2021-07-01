@@ -70,7 +70,7 @@ function Home() {
                   />
                 </FormControl>
               </div>
-              <div id="listings" className="flex w-full justify-between m-5">
+              <div id="listings" className="flex w-full justify-around m-5 flex-wrap">
                 {rooms?.map((r, i) =>
                 <StreamerPreview
                   key={i} title={r.title} streamerID={r.streamerID}
