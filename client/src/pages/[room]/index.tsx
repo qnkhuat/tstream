@@ -4,19 +4,9 @@ import { FitAddon } from 'xterm-addon-fit';
 import 'xterm/css/xterm.css';
 import { useParams } from "react-router-dom";
 import PubSub from "./../../lib/pubsub";
-
+import * as base64 from "./../../lib/base64";
 import WSTerminal from "../../components/WSTerminal";
 
-function base64ToArrayBuffer(input:string) {
-
-  var binary_string =  window.atob(input);
-  var len = binary_string.length;
-  var bytes = new Uint8Array( len );
-  for (var i = 0; i < len; i++)        {
-    bytes[i] = binary_string.charCodeAt(i);
-  }
-  return bytes;
-}
 
 
 interface Params {
@@ -25,26 +15,23 @@ interface Params {
 
 function Room() {
   const params: Params = useParams();
-  const [ inputValue, setInputValue ] = useState("");
   const sessionID = params.username;
+
   const wsUrl = `ws://0.0.0.0:3000/ws/${sessionID}/viewer`;
   const ws = new WebSocket(wsUrl);
+
+  const [ inputValue, setInputValue ] = useState("");
   const msgManager = new PubSub();
 
   useEffect(() => {
     ws.onmessage = (ev: MessageEvent) => {
       let msg = JSON.parse(ev.data);
-
       if (msg.Type === "Write") {
-
-        var buffer = base64ToArrayBuffer(msg.Data)
+        var buffer = base64.toArrayBuffer(msg.Data)
         msgManager.pub(msg.Type, buffer);
-
       } else if (msg.Type === "Winsize") {
-
         let winSizeMsg = JSON.parse(window.atob(msg.Data));
         msgManager.pub(msg.Type, winSizeMsg);
-
       }
     }
   }, [])

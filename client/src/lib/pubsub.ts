@@ -1,4 +1,5 @@
-const sep = "_"
+const sep = "_" // sepperator used for seperate topic prefix and aliased name
+
 export default class PubSub {
 
   // store callbaccks
@@ -35,9 +36,8 @@ export default class PubSub {
   pub(topic: string, msg: any) {
     if(this._strict) {
       if (topic in this._handlers) this._handlers[topic](msg)
-    }
-    else {
-      for (const k in this._handlers) if (k.startsWith(topic)) this._handlers[k](msg);
+    } else {
+      for (const k in this._handlers) if (k.startsWith(topic + sep) || topic == k) this._handlers[k](msg);
     }
   }
 }

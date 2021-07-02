@@ -63,6 +63,7 @@ const WSTerminal: React.FC<Props> = ({  msgManager, width=-1, height=-1, classNa
       rescale();
     })
 
+    //rescale();
     window.addEventListener('resize', () => {rescale()});
   }, [])
 
