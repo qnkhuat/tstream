@@ -1,12 +1,18 @@
 import React, { ReactElement, useRef, useEffect, useState, CSSProperties } from "react";
 import Xterm from "./Xterm";
+import PubSub from "./../lib/pubsub";
 
 // TODO: add handle % and px
 interface Props {
-  wsUrl: string;
+  msgManager: PubSub;
   className?: string;
   width?: number; // in pixel
   height?: number; // in pixel
+}
+
+interface Winsize {
+  Rows: number;
+  Cols: number;
 }
 
 function base64ToArrayBuffer(input:string): Uint8Array {
@@ -19,16 +25,15 @@ function base64ToArrayBuffer(input:string): Uint8Array {
   return bytes;
 }
 
-const WSTerminal: React.FC<Props> = ({ wsUrl, width=-1, height=-1, className=""}) => {
+const WSTerminal: React.FC<Props> = ({  msgManager, width=-1, height=-1, className=""}) => {
   const termRef = useRef<Xterm>(null);
   const divRef = useRef<HTMLDivElement>(null);
   const [ divSize, setDivSize ]= useState<number[]>([0, 0]); // store rendered size
-  const [ ws, setWs ] = useState<WebSocket | null>(null);
   const [ transform, setTransform ] = useState<string>("");
 
-  function resize() {
+  function rescale() {
     if (divRef.current && (width > 0 || height > 0)) {
-      //divRef.current.style.transform = ``; // reset to normal scale before compute initial size
+
       const xtermScreens = divRef.current.getElementsByClassName("xterm-screen");
       if (xtermScreens.length > 0) {
 
@@ -46,28 +51,20 @@ const WSTerminal: React.FC<Props> = ({ wsUrl, width=-1, height=-1, className=""}
     }
   }
 
+
   useEffect(() => {
-    const conn = new WebSocket(wsUrl as string);
-    conn.onmessage = (ev: MessageEvent) => {
-      let msg = JSON.parse(ev.data);
 
-      if (msg.Type === "Write") {
-        var buffer = base64ToArrayBuffer(msg.Data)
-        termRef.current?.writeUtf8(buffer);
-      } else if (msg.Type === "Winsize") {
-        let winSizeMsg = JSON.parse(window.atob(msg.Data))
-        termRef.current?.resize(winSizeMsg.Cols, winSizeMsg.Rows)
+    msgManager?.sub("Write", (buffer: Uint8Array) => {
+      termRef.current?.writeUtf8(buffer);
+    })
 
-        // resize to fit desired size
-        resize()
-      }
-    }
+    msgManager?.sub("Winsize", (winsize: Winsize) => {
+      termRef.current?.resize(winsize.Cols, winsize.Rows)
+      rescale();
+    })
 
-    window.addEventListener('resize', () => {resize()});
-
-    setWs(conn);
+    window.addEventListener('resize', () => {rescale()});
   }, [])
-
 
   return (
     <div className={`relative ${className}`} style={{
