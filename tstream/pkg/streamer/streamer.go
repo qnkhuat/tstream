@@ -6,6 +6,7 @@ import (
 	"fmt"
 	ptyDevice "github.com/creack/pty"
 	"github.com/gorilla/websocket"
+	"github.com/qnkhuat/tstream/internal/cfg"
 	"github.com/qnkhuat/tstream/pkg/message"
 	"github.com/qnkhuat/tstream/pkg/ptyMaster"
 	"io"
@@ -24,10 +25,6 @@ type Streamer struct {
 	In         chan []byte
 }
 
-const (
-	REFRESH_PERIOD = 5 * time.Second
-)
-
 func New(serverAddr, id string) *Streamer {
 	pty := ptyMaster.New()
 	out := make(chan []byte, 256) // buffer 256 send requests
@@ -43,8 +40,8 @@ func New(serverAddr, id string) *Streamer {
 }
 
 var httpUpgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
+	ReadBufferSize:  cfg.STREAMER_READ_BUFFER_SIZE,
+	WriteBufferSize: cfg.STREAMER_WRITE_BBUFFER_SIZE,
 }
 
 func (s *Streamer) Start() error {
@@ -53,7 +50,7 @@ func (s *Streamer) Start() error {
 	bufio.NewReader(os.Stdin).ReadString('\n')
 
 	// Connect socket to server
-	url := url.URL{Scheme: "ws", Host: s.serverAddr, Path: fmt.Sprintf("/%s/wss", s.id)}
+	url := url.URL{Scheme: "ws", Host: s.serverAddr, Path: fmt.Sprintf("/ws/%s/streamer", s.id)}
 	log.Printf("Openning socket at %s", url.String())
 	conn, _, err := websocket.DefaultDialer.Dial(url.String(), nil)
 	if err != nil {
@@ -113,10 +110,11 @@ func (s *Streamer) Start() error {
 	// Periodcally refresh the pty to serve new user
 	// Also act as a ping
 	go func() {
-		ticker := time.NewTicker(REFRESH_PERIOD)
+		ticker := time.NewTicker(cfg.STREAMER_REFRESH_INTERVAL * time.Second)
 		for {
 			select {
 			case <-ticker.C:
+				log.Printf("Refresh")
 				s.pty.Refresh()
 			}
 		}

@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
+	"github.com/qnkhuat/tstream/internal/cfg"
 	"log"
 	"net/http"
 	"time"
@@ -18,12 +19,12 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 
 // upgrade an http request to websocket
 var httpUpgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
+	ReadBufferSize:  cfg.SERVER_READ_BUFFER_SIZE,
+	WriteBufferSize: cfg.SERVER_WRITE_BBUFFER_SIZE,
 }
 
 type Room struct {
-	ID             string    `json:"ID"`
+	StreamerID     string    `json:"streamerID"`
 	LastActiveTime time.Time `json:"lastActiveTime"`
 	StartedTime    time.Time `json:"startedTime"`
 	NViewers       int       `json:"nViewers"`
@@ -34,7 +35,7 @@ func (s *Server) handleListRooms(w http.ResponseWriter, r *http.Request) {
 	var data []Room
 	for _, room := range s.rooms {
 		data = append(data, Room{
-			ID:             room.ID,
+			StreamerID:     room.ID,
 			LastActiveTime: room.LastActiveTime(),
 			StartedTime:    room.StartedTime(),
 			NViewers:       len(room.Viewers()),

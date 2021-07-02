@@ -3,16 +3,13 @@ package server
 import (
 	"fmt"
 	"github.com/gorilla/mux"
+	"github.com/qnkhuat/tstream/internal/cfg"
 	"github.com/qnkhuat/tstream/pkg/room"
+	"github.com/rs/cors"
 	"log"
 	"net/http"
 	"sync"
 	"time"
-)
-
-const (
-	CLEAN_INTERVAL  = 60      // Scan for idle room interval. Unit in seconds
-	CLEAN_THRESHOLD = 60 * 10 // Threshold to be classified as idle room. Unit in seconds
 )
 
 type Server struct {
@@ -40,17 +37,19 @@ func (s *Server) NewRoom(roomID string) error {
 }
 
 func (s *Server) Start() {
+	log.Printf("Serving at: %s", s.addr)
+	fmt.Printf("Serving at: %s\n", s.addr)
 	router := mux.NewRouter()
 
-	router.HandleFunc("/api/health", handleHealth)
-	router.HandleFunc("/api/rooms", s.handleListRooms)
-	router.HandleFunc("/{roomID}/wss", s.handleWSStreamer) // for streamers
-	router.HandleFunc("/{roomID}/wsv", s.handleWSViewer)   // for viewers
+	router.HandleFunc("/api/health", handleHealth).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/rooms", s.handleListRooms).Methods("GET", "OPTIONS")
+	router.HandleFunc("/ws/{roomID}/streamer", s.handleWSStreamer) // for streamers
+	router.HandleFunc("/ws/{roomID}/viewer", s.handleWSViewer)     // for viewers
+	handler := cors.Default().Handler(router)
 
-	s.server = &http.Server{Addr: s.addr, Handler: router}
-	log.Printf("Serving at: %s", s.addr)
+	s.server = &http.Server{Addr: s.addr, Handler: handler}
 
-	go s.cleanRooms(CLEAN_INTERVAL, CLEAN_THRESHOLD) // Scan every 5 seconds and delete rooms that idle more than 10 minutes
+	go s.cleanRooms(cfg.SERVER_CLEAN_INTERVAL, cfg.SERVER_CLEAN_THRESHOLD) // Scan every 5 seconds and delete rooms that idle more than 10 minutes
 
 	if err := s.server.ListenAndServe(); err != nil { // blocking call
 		log.Panicf("Faield to start server: %s", err)

@@ -84,7 +84,6 @@ func (pty *PtyMaster) Stop() error {
 	// (bash for example doesn't finish if only a SIGTERM has been sent)
 	err = pty.cmd.Process.Signal(syscall.SIGKILL)
 
-	err = pty.f.Close()
 	return err
 }
 

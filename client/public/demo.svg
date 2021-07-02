@@ -1,0 +1,86 @@
+<svg width="800" height="460" viewBox="0 0 800 460" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="tty-share-main">
+<g id="Browser-window">
+<g id="outside-rect" filter="url(#filter0_d)">
+<rect x="353" y="55" width="417" height="241" rx="5" fill="#E0E0E0"/>
+<rect x="353.5" y="55.5" width="416" height="240" rx="4.5" stroke="#0C1F27"/>
+</g>
+<rect id="inner-rect" x="354" y="90" width="415" height="205" rx="5" fill="white"/>
+<rect id="address-bar-rect" x="443" y="62" width="314" height="20" rx="8" fill="white"/>
+<text id="browser url" fill="black" xml:space="preserve" style="white-space: pre" font-family="Roboto" font-size="12" letter-spacing="0em"><tspan x="446" y="76.1016">https://go.tty-share.com/s/BrX6MvEy</tspan></text>
+<g id="refresh arrow">
+<g id="Ellipse 1">
+<g id="Ellipse 1_2">
+<mask id="path-10-inside-1" fill="white">
+<path d="M743 65.2941C741.736 65.2941 740.495 65.6366 739.409 66.2851C738.324 66.9337 737.435 67.8641 736.836 68.9776C736.236 70.0911 735.95 71.346 736.007 72.6091C736.064 73.8722 736.462 75.0963 737.159 76.1514C737.855 77.2065 738.825 78.0532 739.964 78.6016C741.104 79.1499 742.37 79.3794 743.629 79.2658C744.889 79.1521 746.094 78.6995 747.116 77.956C748.139 77.2124 748.941 76.2058 749.438 75.043L748.306 74.5598C747.897 75.5183 747.236 76.3479 746.393 76.9608C745.55 77.5736 744.557 77.9467 743.519 78.0404C742.481 78.1341 741.437 77.9449 740.498 77.4929C739.559 77.041 738.76 76.3431 738.185 75.4734C737.611 74.6038 737.283 73.5948 737.236 72.5537C737.189 71.5127 737.425 70.4783 737.919 69.5605C738.413 68.6428 739.146 67.8759 740.041 67.3413C740.935 66.8068 741.958 66.5245 743 66.5245L743 65.2941Z"/>
+</mask>
+<path d="M743 65.2941C741.736 65.2941 740.495 65.6366 739.409 66.2851C738.324 66.9337 737.435 67.8641 736.836 68.9776C736.236 70.0911 735.95 71.346 736.007 72.6091C736.064 73.8722 736.462 75.0963 737.159 76.1514C737.855 77.2065 738.825 78.0532 739.964 78.6016C741.104 79.1499 742.37 79.3794 743.629 79.2658C744.889 79.1521 746.094 78.6995 747.116 77.956C748.139 77.2124 748.941 76.2058 749.438 75.043L748.306 74.5598C747.897 75.5183 747.236 76.3479 746.393 76.9608C745.55 77.5736 744.557 77.9467 743.519 78.0404C742.481 78.1341 741.437 77.9449 740.498 77.4929C739.559 77.041 738.76 76.3431 738.185 75.4734C737.611 74.6038 737.283 73.5948 737.236 72.5537C737.189 71.5127 737.425 70.4783 737.919 69.5605C738.413 68.6428 739.146 67.8759 740.041 67.3413C740.935 66.8068 741.958 66.5245 743 66.5245L743 65.2941Z" stroke="black" stroke-width="4" mask="url(#path-10-inside-1)"/>
+</g>
+</g>
+<path id="Polygon 1" d="M742.701 64.2441L745.648 65.8998L742.701 67.5554L742.701 64.2441Z" fill="black"/>
+</g>
+<g id="close buttons">
+<g id="Ellipse 2">
+<circle cx="375" cy="71" r="5.5" fill="#6D6D6D"/>
+<circle cx="375" cy="71" r="5.5" fill="#8D8C92"/>
+<circle cx="375" cy="71" r="5.5" stroke="#727176"/>
+</g>
+<g id="Ellipse 3">
+<circle cx="391" cy="71" r="5.5" fill="#6D6D6D"/>
+<circle cx="391" cy="71" r="5.5" fill="#8D8C92"/>
+<circle cx="391" cy="71" r="5.5" stroke="#727176"/>
+</g>
+<g id="Ellipse 4">
+<circle cx="407" cy="71" r="5.5" fill="#6D6D6D"/>
+<circle cx="407" cy="71" r="5.5" fill="#8D8C92"/>
+<circle cx="407" cy="71" r="5.5" stroke="#727176"/>
+</g>
+</g>
+</g>
+<g id="iterm-in-browser">
+<rect id="Rectangle 3" x="357" y="92" width="248" height="153" rx="2" fill="#0C1F27"/>
+<g id="ls output">
+<text fill="#56C868" xml:space="preserve" style="white-space: pre" font-family="Monaco" font-size="9" letter-spacing="0em"><tspan x="404.242" y="134.375">tty-share</tspan></text>
+<text fill="#5691C8" xml:space="preserve" style="white-space: pre" font-family="Monaco" font-size="9" letter-spacing="0em"><tspan x="555.59" y="122.375">vendor&#10;</tspan><tspan x="398.837" y="134.375"> </tspan></text>
+<text fill="white" xml:space="preserve" style="white-space: pre" font-family="Monaco" font-size="9" letter-spacing="0em"><tspan x="361" y="110.375">$ ls&#10;</tspan><tspan x="361" y="122.375">doc     main.go     protocol.go     </tspan><tspan x="361" y="134.375">LICENCE</tspan></text>
+</g>
+</g>
+<g id="itermr window">
+<g id="Rectangle 2" filter="url(#filter1_d)">
+<rect x="197" y="213" width="391" height="240" rx="5" fill="#0C1F27"/>
+<rect x="197.5" y="213.5" width="390" height="239" rx="4.5" stroke="black"/>
+<rect x="197.5" y="213.5" width="390" height="239" rx="4.5" stroke="url(#paint0_linear)"/>
+</g>
+<text id="tty-share cmd out" fill="white" xml:space="preserve" style="white-space: pre" font-family="Monaco" font-size="12" letter-spacing="0em"><tspan x="225" y="255.5">$ tty-share&#10;</tspan><tspan x="225" y="271.5">Web terminal: https://go.tty-share.com/s/BrX6MvEy</tspan></text>
+<g id="$ ls doc main.go protocol.go vendor LICENCE tty-share">
+<text fill="white" xml:space="preserve" style="white-space: pre" font-family="Monaco" font-size="12" letter-spacing="0em"><tspan x="225" y="314.5">$ ls&#10;</tspan><tspan x="225" y="330.5">doc     main.go     protocol.go     </tspan><tspan x="225" y="346.5">LICENCE</tspan></text>
+<text fill="#5691C8" xml:space="preserve" style="white-space: pre" font-family="Monaco" font-size="12" letter-spacing="0em"><tspan x="484.453" y="330.5">vendor&#10;</tspan><tspan x="275.449" y="346.5"> </tspan></text>
+<text fill="#56C868" xml:space="preserve" style="white-space: pre" font-family="Monaco" font-size="12" letter-spacing="0em"><tspan x="282.656" y="346.5">tty-share</tspan></text>
+</g>
+</g>
+</g>
+<defs>
+<filter id="filter0_d" x="349" y="39" width="437" height="261" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"/>
+<feOffset dx="6" dy="-6"/>
+<feGaussianBlur stdDeviation="5"/>
+<feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0"/>
+<feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow"/>
+<feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow" result="shape"/>
+</filter>
+<filter id="filter1_d" x="193" y="197" width="411" height="260" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+<feFlood flood-opacity="0" result="BackgroundImageFix"/>
+<feColorMatrix in="SourceAlpha" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 127 0"/>
+<feOffset dx="6" dy="-6"/>
+<feGaussianBlur stdDeviation="5"/>
+<feColorMatrix type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.25 0"/>
+<feBlend mode="normal" in2="BackgroundImageFix" result="effect1_dropShadow"/>
+<feBlend mode="normal" in="SourceGraphic" in2="effect1_dropShadow" result="shape"/>
+</filter>
+<linearGradient id="paint0_linear" x1="392.5" y1="213" x2="392.5" y2="453" gradientUnits="userSpaceOnUse">
+<stop stop-color="white"/>
+<stop offset="1" stop-color="white" stop-opacity="0"/>
+</linearGradient>
+</defs>
+</svg>

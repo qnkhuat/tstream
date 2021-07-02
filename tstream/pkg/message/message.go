@@ -32,6 +32,7 @@ type Winsize struct {
 type Chat struct {
 	Name string
 	Content string
+	Time string
 }
 
 func Unwrap(buff []byte) (Wrapper, error) {
