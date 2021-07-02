@@ -10,6 +10,11 @@ interface Props {
   height?: number; // in pixel
 }
 
+interface Winsize {
+  Rows: number;
+  Cols: number;
+}
+
 function base64ToArrayBuffer(input:string): Uint8Array {
   var binary_string =  window.atob(input);
   var len = binary_string.length;
@@ -26,9 +31,9 @@ const WSTerminal: React.FC<Props> = ({  msgManager, width=-1, height=-1, classNa
   const [ divSize, setDivSize ]= useState<number[]>([0, 0]); // store rendered size
   const [ transform, setTransform ] = useState<string>("");
 
-  function resize() {
+  function rescale() {
     if (divRef.current && (width > 0 || height > 0)) {
-      //divRef.current.style.transform = ``; // reset to normal scale before compute initial size
+
       const xtermScreens = divRef.current.getElementsByClassName("xterm-screen");
       if (xtermScreens.length > 0) {
 
@@ -40,36 +45,26 @@ const WSTerminal: React.FC<Props> = ({  msgManager, width=-1, height=-1, classNa
 
         let scale: number = 0;
         scale = widthRatio > heightRatio ? width / initialWidth : height / initialHeight;
-        //divRef.current.style.transform = `scale(${scale}) translate(-50%, -50%)`;
-        divRef.current.style.transform = `scale(${scale})`;
+        divRef.current.style.transform = `scale(${scale}) translate(-50%, -50%)`;
         setDivSize([scale * initialWidth, scale*initialHeight])
       }
     }
   }
 
-  msgManager?.sub("Write", (buffer: Uint8Array) => {
-    termRef.current?.writeUtf8(buffer);
-  })
 
-  //useEffect(() => {
-  //  ws.onmessage = (ev: MessageEvent) => {
-  //    let msg = JSON.parse(ev.data);
+  useEffect(() => {
 
-  //    if (msg.Type === "Write") {
-  //      var buffer = base64ToArrayBuffer(msg.Data)
-  //      termRef.current?.writeUtf8(buffer);
-  //    } else if (msg.Type === "Winsize") {
-  //      let winSizeMsg = JSON.parse(window.atob(msg.Data))
-  //      termRef.current?.resize(winSizeMsg.Cols, winSizeMsg.Rows)
+    msgManager?.sub("Write", (buffer: Uint8Array) => {
+      termRef.current?.writeUtf8(buffer);
+    })
 
-  //      // resize to fit desired size
-  //      resize()
-  //    }
-  //  }
+    msgManager?.sub("Winsize", (winsize: Winsize) => {
+      termRef.current?.resize(winsize.Cols, winsize.Rows)
+      rescale();
+    })
 
-  //  window.addEventListener('resize', () => {resize()});
-
-  //}, [])
+    window.addEventListener('resize', () => {rescale()});
+  }, [])
 
   return (
     <div className={`relative ${className}`} style={{
@@ -77,8 +72,7 @@ const WSTerminal: React.FC<Props> = ({  msgManager, width=-1, height=-1, classNa
         height: height + "px",
       }}>
       <div ref={divRef}
-        //className="absolute top-1/2 left-1/2 origin-top-left">
-        className="absolute origin-top-left">
+        className="absolute top-1/2 left-1/2 origin-top-left">
         <Xterm
           options={{rightClickSelectsWord: false}}
           ref={termRef}/>

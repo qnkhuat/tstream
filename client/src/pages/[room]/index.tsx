@@ -33,24 +33,25 @@ function Room() {
 
   useEffect(() => {
     ws.onmessage = (ev: MessageEvent) => {
-      console.log("got message; ", ev.data);
       let msg = JSON.parse(ev.data);
 
       if (msg.Type === "Write") {
+
         var buffer = base64ToArrayBuffer(msg.Data)
         msgManager.pub(msg.Type, buffer);
+
       } else if (msg.Type === "Winsize") {
-        msgManager.pub(msg.Type, msg);
+
+        let winSizeMsg = JSON.parse(window.atob(msg.Data));
+        msgManager.pub(msg.Type, winSizeMsg);
+
       }
     }
-
-
   }, [])
 
   return (
     <div id="room">
-      <WSTerminal msgManager={msgManager} width={400} height={300}/>
-      <WSTerminal msgManager={msgManager} width={400} height={300}/>
+      <WSTerminal msgManager={msgManager} width={1000} height={300} />
     </div>
   );
 

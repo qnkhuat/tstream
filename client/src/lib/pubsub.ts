@@ -16,15 +16,15 @@ export default class PubSub {
       this._handlers[topic] = cb;
       return topic
     } else if (!this._strict) {
-      const topic_name = `topic${sep}${Math.floor(Math.random() * 1000)}`;
+      const topic_name = `${topic}${sep}${Math.floor(Math.random() * 1000)}`;
       return this.sub(topic_name, cb);
     } else { // topic already subscribed and strict is not set
-      return null;
+      throw `Topic ${topic} already subscribed`;
     }
   }
 
   // Unsubscribe a topic
-  // Provide all
+  // set all to true to unsubscribe all all topic. Only used when _strict is true
   unsub(topic: string, all: boolean = false) {
     if (this._handlers[topic]) delete this._handlers[topic] ;
 
@@ -37,7 +37,7 @@ export default class PubSub {
       if (topic in this._handlers) this._handlers[topic](msg)
     }
     else {
-      for (const k in this._handlers) if (k.startsWith(k)) this._handlers[k](msg);
+      for (const k in this._handlers) if (k.startsWith(topic)) this._handlers[k](msg);
     }
   }
 }
