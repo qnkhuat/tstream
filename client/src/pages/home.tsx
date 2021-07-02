@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, RefObject } from "react";
-import StreamerPreview from "../components/StreamerPreview";
+import StreamPreview from "../components/StreamPreview";
+import * as util from "../lib/util";
 import urljoin from "url-join";
 import axios from "axios";
 
@@ -12,6 +13,7 @@ import InputAdornment from '@material-ui/core/InputAdornment';
 import { createTheme, ThemeProvider } from '@material-ui/core/styles';
 import CssBaseline from '@material-ui/core/CssBaseline';
 import Button from '@material-ui/core/Button';
+
 const darkTheme = createTheme({
   palette: {
     mode: "dark",
@@ -24,12 +26,6 @@ interface Room {
   startedTime:string;
   nViewers: number;
   title: string;
-}
-
-
-function getWsUrl(sessionID: string): string{
-  const wsHost: string = (process.env.REACT_APP_API_URL as string).replace("http", "ws");
-  return urljoin(wsHost, "ws", sessionID, "viewer");
 }
 
 function Home() {
@@ -72,12 +68,12 @@ function Home() {
               </div>
               <div id="listings" className="flex w-full justify-around m-5 flex-wrap">
                 {rooms?.map((r, i) =>
-                <StreamerPreview
+                <StreamPreview
                   key={i} title={r.title} streamerID={r.streamerID}
                   startedTime={r.startedTime} lastActiveTime={r.lastActiveTime}
-                  wsUrl={getWsUrl(r.streamerID)}
-                />
-                )}
+                  wsUrl={util.getWsUrl(r.streamerID)}
+                  nViewers={r.nViewers}
+                />)}
               </div>
             </div>
           </div>
