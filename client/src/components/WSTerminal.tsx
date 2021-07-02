@@ -1,12 +1,18 @@
 import React, { ReactElement, useRef, useEffect, useState, CSSProperties } from "react";
 import Xterm from "./Xterm";
+import PubSub from "./../lib/pubsub";
 
 // TODO: add handle % and px
 interface Props {
-  wsUrl: string;
+  msgManager: PubSub;
   className?: string;
   width?: number; // in pixel
   height?: number; // in pixel
+}
+
+interface Winsize {
+  Rows: number;
+  Cols: number;
 }
 
 function base64ToArrayBuffer(input:string): Uint8Array {
@@ -19,63 +25,75 @@ function base64ToArrayBuffer(input:string): Uint8Array {
   return bytes;
 }
 
-const WSTerminal: React.FC<Props> = ({ wsUrl, width=-1, height=-1, className=""}) => {
+function proposeScale(boundWidth: number, boundHeight: number, realWidth: number, realHeight: number): number {
+  const widthRatio = realWidth / boundWidth,
+    heightRatio = realHeight / boundHeight;
+  if (boundWidth > 0 && boundHeight > 0 ) {
+    return  widthRatio > heightRatio ? boundWidth / realWidth : boundHeight / realHeight;
+  } else {
+    return boundWidth > 0 ? boundWidth / realWidth :  boundHeight / realHeight;
+  }
+}
+
+const WSTerminal: React.FC<Props> = ({  msgManager, width= -1, height= -1, className=""}) => {
+  console.log("Got: ", width, height);
   const termRef = useRef<Xterm>(null);
   const divRef = useRef<HTMLDivElement>(null);
-  const [ divSize, setDivSize ]= useState<number[]>([0, 0]); // store rendered size
-  const [ ws, setWs ] = useState<WebSocket | null>(null);
+  const [ divSize, setDivSize ]= useState<number[]>([0, 0]); // store rendered size (width, height)
   const [ transform, setTransform ] = useState<string>("");
 
-  function resize() {
+  function rescale() {
+    console.log("YOOOOOO");
+
     if (divRef.current && (width > 0 || height > 0)) {
-      //divRef.current.style.transform = ``; // reset to normal scale before compute initial size
+
       const xtermScreens = divRef.current.getElementsByClassName("xterm-screen");
+      console.log("Do you find me?");
       if (xtermScreens.length > 0) {
 
         const xtermScreen = xtermScreens[0] as HTMLDivElement;
         const initialWidth = xtermScreen.offsetWidth,
-          initialHeight = xtermScreen.offsetHeight,
-          widthRatio = initialWidth / width,
-          heightRatio = initialHeight / height;
+          initialHeight = xtermScreen.offsetHeight;
 
-        let scale: number = 0;
-        scale = widthRatio > heightRatio ? width / initialWidth : height / initialHeight;
-        divRef.current.style.transform = `scale(${scale}) translate(-50%, -50%)`;
+
+        let scale = proposeScale(width, height, initialWidth, initialHeight);
+        console.log("New scale: ", scale);
+        //divRef.current.style.transform = `scale(${scale}) translate(-50%, -50%)`;
+        divRef.current.style.transform = `scale(${scale})`;
         setDivSize([scale * initialWidth, scale*initialHeight])
+      } else {
+        console.log("Fuck no");
       }
+    } else {
+      console.log("Fuck no ooooooooooooooo: ", width, height);
     }
   }
 
+
   useEffect(() => {
-    const conn = new WebSocket(wsUrl as string);
-    conn.onmessage = (ev: MessageEvent) => {
-      let msg = JSON.parse(ev.data);
 
-      if (msg.Type === "Write") {
-        var buffer = base64ToArrayBuffer(msg.Data)
-        termRef.current?.writeUtf8(buffer);
-      } else if (msg.Type === "Winsize") {
-        let winSizeMsg = JSON.parse(window.atob(msg.Data))
-        termRef.current?.resize(winSizeMsg.Cols, winSizeMsg.Rows)
+    msgManager?.sub("Write", (buffer: Uint8Array) => {
+      termRef.current?.writeUtf8(buffer);
+    })
 
-        // resize to fit desired size
-        resize()
-      }
-    }
+    msgManager?.sub("Winsize", (winsize: Winsize) => {
+      termRef.current?.resize(winsize.Cols, winsize.Rows)
+      rescale();
+    })
 
-    window.addEventListener('resize', () => {resize()});
-
-    setWs(conn);
+    rescale();
+    window.addEventListener('resize', () => rescale());
   }, [])
 
 
   return (
     <div className={`relative ${className}`} style={{
-      width: width + "px",
-        height: height + "px",
+      width: width > 0 ? width + "px" : divSize[0] + "px",
+        height: height > 0 ? height + "px" : divSize[1] + "px",
       }}>
       <div ref={divRef}
-        className="absolute top-1/2 left-1/2 origin-top-left">
+        //className="divref absolute top-1/2 left-1/2 origin-top-left">
+        className="divref absolute origin-top-left">
         <Xterm
           options={{rightClickSelectsWord: false}}
           ref={termRef}/>
