@@ -53,31 +53,33 @@ function Chat(props: any) {
 
   return (
     <>
-      <input onChange={e => setInputUsername(e.target.value)}></input>
-      <input onChange={e => setInputValue(e.target.value)}></input>
-      <button onClick={e => {
-        console.log(inputValue);
-        var name = inputUsername;
-        var content = inputValue;
-        var time = new Date().toISOString();
-        var payload = JSON.stringify({
-          "name": name,
-          "content": content,
-          "time": time, 
-        }); 
-        if (ws !== null) {
-          console.log("Messenge Sent");
-          var tempMessengeData = messengeData as any;
-          tempMessengeData.push({
+      <div style={{display: 'flex', justifyContent: 'center'}}>
+        <input onChange={e => setInputUsername(e.target.value)} placeholder="name" style={{borderWidth: '2px'}}></input>
+        <input onChange={e => setInputValue(e.target.value)} placeholder="content" style={{borderWidth: '2px'}}></input>
+        <button style={{borderWidth: '2px', fontWeight: 'bold'}} onClick={e => {
+          console.log(inputValue);
+          var name = inputUsername;
+          var content = inputValue;
+          var time = new Date().toISOString();
+          var payload = JSON.stringify({
             "name": name,
             "content": content,
-            "time": time,
-          });
-          setMessengeData(tempMessengeData);
-          ws.send(payload);
-        }
-      }}>Send message</button>
-      {chatSection()}
+            "time": time, 
+          }); 
+          if (ws !== null) {
+            console.log("Messenge Sent");
+            var tempMessengeData = messengeData as any;
+            tempMessengeData.push({
+              "name": name,
+              "content": content,
+              "time": time,
+            });
+            setMessengeData(tempMessengeData);
+            ws.send(payload);
+          }
+        }}>Send message</button>
+      </div>
+     {chatSection()}
     </>
   );
 }
