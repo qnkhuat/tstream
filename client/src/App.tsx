@@ -16,9 +16,33 @@ function base64ToArrayBuffer(input:string) {
   return bytes;
 }
 
+function Chat(props: any) { 
+  function chatSection(messengeData: any) {
+    var data = messengeData as any;
+    let jsxMessenges: Array<any> = [];
+    console.log(data);
+    for (var i = data.length - 1; i >= 0; i--) {
+        jsxMessenges.push(
+          <div className="chat" key={i}>
+            <p className="username">{data[i].name}</p>
+            <p className="chat-content">{data[i].content}</p>
+          </div>
+        );
+    }
+    return <div id="chat-section">{jsxMessenges}</div>
+  }
+
+  return (
+    <>
+      {chatSection(props.messengeData)}
+    </>
+  );
+}
 
 function App() {
 
+  const [ messengeData, setMessengeData ] = useState([]);
+  const [ inputUsername, setInputUsername] = useState("");
   const [ inputValue, setInputValue ] = useState("");
   const url = window.location.href;
   const url_splits = url.split("/")
@@ -46,7 +70,16 @@ function App() {
     ws.onmessage = (ev: MessageEvent) => {
       console.log("Got message", ev.data);
       let msg = JSON.parse(ev.data);
-      if (msg.Type === "Write") {
+      if (msg.Type === "Chat") {
+        let messenge = JSON.parse(window.atob(msg.Data))
+        var tempMessengeData = messengeData as any;
+        tempMessengeData.push({
+          "name": messenge.name,
+          "content": messenge.content,
+        });
+        setMessengeData(tempMessengeData);
+      }
+      else if (msg.Type === "Write") {
         var buffer = base64ToArrayBuffer(msg.Data)
         term.writeUtf8(buffer);
       }
@@ -67,20 +100,27 @@ function App() {
   }, [])
 
   return (
+    <> 
     <div className="App">
       <h1>Yooooooooooooooo</h1>
       <div id="terminal"></div>
-      <input id="message" onChange={e => setInputValue(e.target.value)}></input>
+      <input onChange={e => setInputUsername(e.target.value)}></input>
+      <input onChange={e => setInputValue(e.target.value)}></input>
       <button onClick={e => {
         console.log(inputValue);
-        websocket.send(inputValue);
+        var payload = JSON.stringify({
+          "name": inputUsername,
+          "content": inputValue,
+        }); 
+        websocket.send(payload);
       }}>Send message</button>
       <button onClick={e => {
         websocket.close();
       }}>Close connection</button>
-
     </div>
-  );
+     <Chat messengeData={messengeData}/>
+    </>
+   );
 }
 
 export default App;

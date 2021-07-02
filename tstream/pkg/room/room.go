@@ -6,12 +6,13 @@ package room
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/gorilla/websocket"
-	"github.com/qnkhuat/tstream/pkg/message"
-	"github.com/qnkhuat/tstream/pkg/viewer"
 	"log"
 	"sync"
 	"time"
+
+	"github.com/gorilla/websocket"
+	"github.com/qnkhuat/tstream/pkg/message"
+	"github.com/qnkhuat/tstream/pkg/viewer"
 )
 
 var PING_STREAMER_INTERVAL = 10 // seconds
@@ -125,6 +126,7 @@ func (r *Room) ReadAndHandleViewerMessage(ID string) {
 	for {
 		msg, _ := <-viewer.In
 		log.Printf("Room got message: %d", len(msg))
+		r.BroadcastMessenge(msg, ID)
 	}
 }
 
@@ -144,6 +146,33 @@ func (r *Room) Broadcast(msg []uint8) {
 		// TODO: make this for loop run in parallel
 		if viewer.Alive() {
 			viewer.Out <- msg
+		} else {
+			log.Printf("Failed to boardcast to %s. Closing connection", id)
+			r.RemoveViewer(id)
+		}
+	}
+}
+
+func (r *Room) BroadcastMessenge (msg []uint8, sender string) {
+	r.lastActiveTime = time.Now()
+
+	data := &message.Wrapper{
+		Type: message.TChat,
+		Data: msg,
+	}
+
+	payload, err := message.Wrap(data)
+	if err != nil {
+		log.Printf("Failed to wrap message: %s", err)
+	}
+
+	for id, viewer := range r.viewers {
+		// TODO: make this for loop run in parallel
+		if (id == sender) {
+			continue	
+		}
+		if viewer.Alive() {
+			viewer.Out <- payload 
 		} else {
 			log.Printf("Failed to boardcast to %s. Closing connection", id)
 			r.RemoveViewer(id)

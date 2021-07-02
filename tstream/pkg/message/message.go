@@ -13,6 +13,7 @@ type Type string
 
 const (
 	TWrite   Type = "Write"
+	TChat         = "Chat"
 	TWinsize      = "Winsize"
 	TClose        = "Close"
 	TError        = "Error"
@@ -26,6 +27,11 @@ type Wrapper struct {
 type Winsize struct {
 	Rows uint16
 	Cols uint16
+}
+
+type Chat struct {
+	Name string
+	Content string
 }
 
 func Unwrap(buff []byte) (Wrapper, error) {
