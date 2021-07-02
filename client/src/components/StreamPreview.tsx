@@ -35,7 +35,6 @@ function getUpTime(time: dayjs.Dayjs): string {
 
 const StreamPreview: FC<Props> = ({ title, wsUrl, streamerID, nViewers, startedTime, lastActiveTime }): ReactElement => {
 
-
   const [ upTime, setUpTime ] = useState(getUpTime(dayjs(startedTime)));
 
   const msgManager = new PubSub();
@@ -59,14 +58,14 @@ const StreamPreview: FC<Props> = ({ title, wsUrl, streamerID, nViewers, startedT
   }, [])
 
   return (
-    <div className="relative px-4 pt-4 bg-black rounded overflow-hidden">
-      <WSTerminal msgManager={msgManager} width={500} height={300} />
+    <div className="relative px-4 pt-4 bg-black rounded">
+      <WSTerminal msgManager={msgManager} width={500} height={350} />
 
       <div className="p-1 bg-red-400 rounded absolute top-4 right-4">
         <p className="text-mdtext-whtie font-semibold">{upTime}</p>
       </div>
 
-      <div className="absolute bottom-0 left-0 w-full z-10 bg-gray-400 bg-opacity-30 p-4" >
+      <div className="absolute bottom-0 left-0 w-full rounded-b bg-gray-600 bg-opacity-90 p-4" >
 
         <p className="font-semibold">{title}</p>
         <div className="flex justify-between">
