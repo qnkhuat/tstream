@@ -3,6 +3,7 @@ import { Terminal } from 'xterm';
 import { FitAddon } from 'xterm-addon-fit';
 import 'xterm/css/xterm.css';
 import { useParams } from "react-router-dom";
+import PubSub from "./../../lib/pubsub";
 
 import WSTerminal from "../../components/WSTerminal";
 
@@ -27,10 +28,29 @@ function Room() {
   const [ inputValue, setInputValue ] = useState("");
   const sessionID = params.username;
   const wsUrl = `ws://0.0.0.0:3000/ws/${sessionID}/viewer`;
+  const ws = new WebSocket(wsUrl);
+  const msgManager = new PubSub();
+
+  useEffect(() => {
+    ws.onmessage = (ev: MessageEvent) => {
+      console.log("got message; ", ev.data);
+      let msg = JSON.parse(ev.data);
+
+      if (msg.Type === "Write") {
+        var buffer = base64ToArrayBuffer(msg.Data)
+        msgManager.pub(msg.Type, buffer);
+      } else if (msg.Type === "Winsize") {
+        msgManager.pub(msg.Type, msg);
+      }
+    }
+
+
+  }, [])
 
   return (
-    <div className="App">
-      <WSTerminal wsUrl={wsUrl} width={400} height={300}/>
+    <div id="room">
+      <WSTerminal msgManager={msgManager} width={400} height={300}/>
+      <WSTerminal msgManager={msgManager} width={400} height={300}/>
     </div>
   );
 
