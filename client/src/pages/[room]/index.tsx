@@ -5,8 +5,6 @@ import * as base64 from "../../lib/base64";
 import * as util from "../../lib/util";
 import WSTerminal from "../../components/WSTerminal";
 
-import StreamPreview from "../../components/StreamPreview";
-
 import * as constants from "../../lib/constants";
 import PubSub from "../../lib/pubsub";
 interface Params {
@@ -23,7 +21,6 @@ function Room() {
   const params: Params = useParams();
   const chatWinsize = 400; // px
 
-  const [ inputValue, setInputValue ] = useState("");
   const [ termSize, setTermSize ] = useState<Winsize>();
   const [ msgManager, setMsgManager ] = useState<PubSub>();
 

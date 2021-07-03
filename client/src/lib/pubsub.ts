@@ -1,5 +1,3 @@
-const sep = "_" // sepperator used for seperate topic prefix and aliased name
-
 export default class PubSub {
 
   // set to true if one topic can only have one subscriber
@@ -22,7 +20,7 @@ export default class PubSub {
       this._handlers[topic].push(cb);
       return this._handlers[topic].length - 1
     } else {
-      throw "Only one subscribeer allowed";
+      throw new Error("Only one subscribeer allowed");
     }
   }
 
