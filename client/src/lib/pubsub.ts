@@ -35,7 +35,13 @@ export default class PubSub {
 
   pub(topic: string, msg: any) {
     if(this._strict) {
-      if (topic in this._handlers) this._handlers[topic](msg)
+      if (topic in this._handlers) {
+
+        console.log("Yoooooooooooo")
+        this._handlers[topic](msg);
+
+      }
+      else {console.log("No comsumer")};
     } else {
       for (const k in this._handlers) if (k.startsWith(topic + sep) || topic == k) this._handlers[k](msg);
     }

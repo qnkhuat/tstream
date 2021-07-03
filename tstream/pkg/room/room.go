@@ -156,15 +156,18 @@ func (r *Room) Broadcast(msg []uint8) {
 		}
 	}
 
+	count := 0
 	for id, viewer := range r.viewers {
 		// TODO: make this for loop run in parallel
 		if viewer.Alive() {
+			count += 1
 			viewer.Out <- msg
 		} else {
 			log.Printf("Failed to boardcast to %s. Closing connection", id)
 			r.RemoveViewer(id)
 		}
 	}
+	log.Printf("Broadcasted to %d viewers", count)
 }
 
 func (r *Room) Close() {

@@ -1,6 +1,7 @@
 import React, { ReactElement, useRef, useEffect, useState, CSSProperties } from "react";
 import Xterm from "./Xterm";
 import PubSub from "./../lib/pubsub";
+import * as constants from "../constants";
 
 // TODO: add handle % and px
 interface Props {
@@ -43,7 +44,6 @@ const WSTerminal: React.FC<Props> = ({  msgManager, width= -1, height= -1, class
   const [ transform, setTransform ] = useState<string>("");
 
   function rescale() {
-    console.log("YOOOOOO");
 
     if (divRef.current && (width > 0 || height > 0)) {
 
@@ -58,25 +58,25 @@ const WSTerminal: React.FC<Props> = ({  msgManager, width= -1, height= -1, class
 
         let scale = proposeScale(width, height, initialWidth, initialHeight);
         console.log("New scale: ", scale);
-        //divRef.current.style.transform = `scale(${scale}) translate(-50%, -50%)`;
-        divRef.current.style.transform = `scale(${scale})`;
+        divRef.current.style.transform = `scale(${scale}) translate(-50%, -50%)`;
+        //divRef.current.style.transform = `scale(${scale})`;
         setDivSize([scale * initialWidth, scale*initialHeight])
       } else {
         console.log("Fuck no");
       }
     } else {
-      console.log("Fuck no ooooooooooooooo: ", width, height);
+      console.error("Parent div not found");
     }
   }
 
 
   useEffect(() => {
 
-    msgManager?.sub("Write", (buffer: Uint8Array) => {
+    msgManager?.sub(constants.MSG_TWRITE, async (buffer: Uint8Array) => {
       termRef.current?.writeUtf8(buffer);
     })
 
-    msgManager?.sub("Winsize", (winsize: Winsize) => {
+    msgManager?.sub(constants.MSG_TWINSIZE, async (winsize: Winsize) => {
       termRef.current?.resize(winsize.Cols, winsize.Rows)
       rescale();
     })
@@ -92,8 +92,9 @@ const WSTerminal: React.FC<Props> = ({  msgManager, width= -1, height= -1, class
         height: height > 0 ? height + "px" : divSize[1] + "px",
       }}>
       <div ref={divRef}
-        //className="divref absolute top-1/2 left-1/2 origin-top-left">
-        className="divref absolute origin-top-left">
+        className="divref absolute top-1/2 left-1/2 origin-top-left"
+        //className="divref absolute origin-top-left"
+      >
         <Xterm
           options={{rightClickSelectsWord: false}}
           ref={termRef}/>

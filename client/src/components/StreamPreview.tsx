@@ -3,8 +3,11 @@ import urljoin from "url-join";
 import WSTerminal from "./WSTerminal";
 import PubSub from "./../lib/pubsub";
 import * as base64 from "./../lib/base64";
+import * as constants from "./../constants";
+
 import dayjs from "dayjs";
 import customParseFormat from 'dayjs/plugin/customParseFormat';
+
 dayjs.extend(customParseFormat);
 
 interface Props {
@@ -43,10 +46,10 @@ const StreamPreview: FC<Props> = ({ title, wsUrl, streamerID, nViewers, startedT
 
     ws.onmessage = (ev: MessageEvent) => {
       let msg = JSON.parse(ev.data);
-      if (msg.Type === "Write") {
+      if (msg.Type === constants.MSG_TWRITE) {
         var buffer = base64.toArrayBuffer(msg.Data)
         msgManager.pub(msg.Type, buffer);
-      } else if (msg.Type === "Winsize") {
+      } else if (msg.Type === constants.MSG_TWINSIZE) {
         let winSizeMsg = JSON.parse(window.atob(msg.Data));
         msgManager.pub(msg.Type, winSizeMsg);
       }
