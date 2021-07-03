@@ -47,11 +47,11 @@ const StreamPreview: FC<Props> = ({ title, wsUrl, streamerID, nViewers, startedT
       }
     }
 
-    tempMsg.sub(constants.MSG_TREQUEST_WINSIZE, () => {
+    tempMsg.sub("request", (msgType: string) => {
 
       var payload_byte = base64.toArrayBuffer(window.btoa(""));
       var wrapper = JSON.stringify({
-        Type: constants.MSG_TREQUEST_WINSIZE,
+        Type: msgType,
         Data: Array.from(payload_byte),
       });
       const payload = base64.toArrayBuffer(window.btoa(wrapper))
