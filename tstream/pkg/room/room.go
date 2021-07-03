@@ -181,7 +181,6 @@ func (r *Room) ReadAndHandleViewerMessage(ID string) {
 }
 
 func (r *Room) Broadcast(msg []uint8, IDExclude []string) {
-	r.lastActiveTime = time.Now()
 
 	msgObj, err := message.Unwrap(msg)
 	if err == nil && msgObj.Type == message.TWinsize {
