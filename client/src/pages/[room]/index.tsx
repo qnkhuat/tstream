@@ -8,7 +8,6 @@ import * as base64 from "./../../lib/base64";
 import * as util from "./../../lib/util";
 import PubSub from "./../../lib/pubsub";
 import WSTerminal from "../../components/WSTerminal";
-import Chat from "../../components/ChatBox";
 
 interface Params {
   username: string;
@@ -52,8 +51,21 @@ function Room() {
       } else if (msg.Type === "Winsize") {
         let winSizeMsg = JSON.parse(window.atob(msg.Data));
         msgManager.pub(msg.Type, winSizeMsg);
+      } else if (msg.Type == "Client") {
+        let payload = JSON.parse(window.atob(msg.Data));
+        console.log("payload is: ", payload);
       }
     }
+    
+    setTimeout(() => {
+      ws.send(JSON.stringify({
+        type: "chat",
+        name: "manhcd",
+        content: "Yoooooo",
+        time: new Date().toISOString(),
+      }));
+      console.log("ws.send successfully");
+    }, 2000);
 
     window.addEventListener("resize", () => resize());
     resize();
