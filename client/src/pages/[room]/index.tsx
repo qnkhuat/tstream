@@ -1,12 +1,24 @@
-import React, { useEffect, useState } from 'react';
-import { useParams } from "react-router-dom";
+import React, { useEffect, useState, useRef } from 'react';
+import { useParams, Link } from "react-router-dom";
 
 import * as base64 from "../../lib/base64";
 import * as util from "../../lib/util";
 import WSTerminal from "../../components/WSTerminal";
+import Navbar from "../../components/Navbar";
 
 import * as constants from "../../lib/constants";
 import PubSub from "../../lib/pubsub";
+
+import { createTheme, ThemeProvider } from '@material-ui/core/styles';
+import CssBaseline from '@material-ui/core/CssBaseline';
+
+const darkTheme = createTheme({
+  palette: {
+    mode: "dark",
+  },
+});
+
+
 interface Params {
   username: string;
 }
@@ -23,13 +35,16 @@ function Room() {
 
   const [ termSize, setTermSize ] = useState<Winsize>();
   const [ msgManager, setMsgManager ] = useState<PubSub>();
-
+  const navbarRef = useRef<HTMLDivElement>(null);
 
   function resize() {
-    setTermSize({
-      Width: window.innerWidth - chatWinsize,
-      Height: window.innerHeight,
-    });
+    if (navbarRef.current) {
+      setTermSize({
+        Width: window.innerWidth - chatWinsize,
+        Height: window.innerHeight - navbarRef.current.offsetHeight,
+      });
+    }
+
   }
 
   useEffect(() => {
@@ -67,21 +82,23 @@ function Room() {
     setMsgManager(tempMsg);
     window.addEventListener("resize", () => resize());
     resize();
-  }, [])
+  }, [navbarRef])
 
   return (
     <div id="room">
-      <>
-        <>
-          {msgManager && termSize &&
-          <WSTerminal
-            className="bg-black"
-            msgManager={msgManager}
-            width={termSize?.Width ? termSize.Width : -1}
-            height={termSize?.Height ? termSize.Height : -1}
-          />}
-        </>
-      </>
+      <ThemeProvider theme={darkTheme}>
+        <CssBaseline />
+        <div ref={navbarRef}>
+          <Navbar />
+        </div>
+        {msgManager && termSize &&
+        <WSTerminal
+          className="bg-black"
+          msgManager={msgManager}
+          width={termSize?.Width ? termSize.Width : -1}
+          height={termSize?.Height ? termSize.Height : -1}
+        />}
+      </ThemeProvider>
     </div>
   );
 
