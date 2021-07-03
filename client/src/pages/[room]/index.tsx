@@ -4,6 +4,7 @@ import { useParams, Link } from "react-router-dom";
 import * as base64 from "../../lib/base64";
 import * as util from "../../lib/util";
 import WSTerminal from "../../components/WSTerminal";
+import Chat from "../../components/Chat";
 import Navbar from "../../components/Navbar";
 
 import * as constants from "../../lib/constants";
@@ -17,8 +18,6 @@ const darkTheme = createTheme({
     mode: "dark",
   },
 });
-
-
 interface Params {
   username: string;
 }
@@ -65,6 +64,13 @@ function Room() {
         let winSizeMsg = JSON.parse(window.atob(msg.Data));
         tempMsg.pub(msg.Type, winSizeMsg);
 
+      } else if (msg.Type === constants.MSG_TCHAT) {
+        let encoded_string = "";
+        for (let i = 0; i < msg.Data.length; i++) {
+          encoded_string = encoded_string.concat(String.fromCharCode(msg.Data[i]));
+        }
+        let chatMsg = JSON.parse(encoded_string);
+        tempMsg.pub(msg.Type, chatMsg);
       }
     }
 
@@ -79,6 +85,17 @@ function Room() {
       util.sendWhenConnected(ws, payload);
     })
 
+    tempMsg.sub(constants.MSG_TREQUEST_CHAT, (data) => {
+      var payload = JSON.stringify(data);
+      var payload_byte = base64.toArrayBuffer(window.btoa(payload));
+      var wrapper = JSON.stringify({
+        Type: constants.MSG_TCHAT,
+        Data: Array.from(payload_byte),
+      });
+      var msg = base64.toArrayBuffer(window.btoa(wrapper));
+      util.sendWhenConnected(ws, msg);
+    })
+
     setMsgManager(tempMsg);
     window.addEventListener("resize", () => resize());
     resize();
@@ -91,13 +108,19 @@ function Room() {
         <div ref={navbarRef}>
           <Navbar />
         </div>
+        <div className="flex">
         {msgManager && termSize &&
         <WSTerminal
-          className="bg-black"
+          className="bg-black flex-shrink-0"
           msgManager={msgManager}
           width={termSize?.Width ? termSize.Width : -1}
           height={termSize?.Height ? termSize.Height : -1}
         />}
+        {msgManager && 
+        <Chat 
+          msgManager={msgManager}
+        />}
+        </div>        
       </ThemeProvider>
     </div>
   );

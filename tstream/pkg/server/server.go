@@ -2,14 +2,15 @@ package server
 
 import (
 	"fmt"
-	"github.com/gorilla/mux"
-	"github.com/qnkhuat/tstream/internal/cfg"
-	"github.com/qnkhuat/tstream/pkg/room"
-	"github.com/rs/cors"
 	"log"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/gorilla/mux"
+	"github.com/qnkhuat/tstream/internal/cfg"
+	"github.com/qnkhuat/tstream/pkg/room"
+	"github.com/rs/cors"
 )
 
 type Server struct {
