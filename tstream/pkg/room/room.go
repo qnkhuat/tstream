@@ -99,7 +99,6 @@ func (r *Room) AddViewer(ID string, conn *websocket.Conn) error {
 			payload, _ := json.Marshal(msg)
 			v.Out <- payload
 		}
-
 	}
 
 	return nil

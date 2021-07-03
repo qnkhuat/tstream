@@ -79,6 +79,18 @@ function Room() {
       util.sendWhenConnected(ws, payload);
     })
 
+    tempMsg.sub(constants.MSG_TREQUEST_CACHE_MESSAGE, () => {
+
+      var payload_byte = base64.toArrayBuffer(window.btoa(""));
+      var wrapper = JSON.stringify({
+        Type: constants.MSG_TREQUEST_CACHE_MESSAGE,
+        Data: Array.from(payload_byte),
+      });
+      const payload = base64.toArrayBuffer(window.btoa(wrapper))
+      util.sendWhenConnected(ws, payload);
+    })
+
+
     setMsgManager(tempMsg);
     window.addEventListener("resize", () => resize());
     resize();
