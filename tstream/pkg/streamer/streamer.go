@@ -107,15 +107,14 @@ func (s *Streamer) Start() error {
 		}
 	}()
 
-	// Periodcally refresh the pty to serve new user
-	// Also act as a ping
+	// Periodcally send a winsize msg to keep alive
 	go func() {
 		ticker := time.NewTicker(cfg.STREAMER_REFRESH_INTERVAL * time.Second)
 		for {
 			select {
 			case <-ticker.C:
-				log.Printf("Refresh")
-				s.pty.Refresh()
+				winSize, _ := ptyMaster.GetWinsize(0)
+				s.Winsize(winSize.Rows, winSize.Cols)
 			}
 		}
 	}()
