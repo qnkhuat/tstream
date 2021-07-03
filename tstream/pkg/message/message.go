@@ -13,7 +13,7 @@ type Type string
 
 const (
 	TWrite   Type = "Write"
-	TChat         = "Chat"
+	TClient				= "Client"
 	TWinsize      = "Winsize"
 	TClose        = "Close"
 	TError        = "Error"
@@ -29,7 +29,8 @@ type Winsize struct {
 	Cols uint16
 }
 
-type Chat struct {
+type Client struct {
+	Type string
 	Name string
 	Content string
 	Time string

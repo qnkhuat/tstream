@@ -122,7 +122,7 @@ func (r *Room) Start() {
 		}
 		r.addMsgBuffer(msg)
 		log.Printf("message in buffer %d, %d", len(r.msgBuffer), cap(r.msgBuffer))
-		r.Broadcast(msg)
+		r.Broadcast(msg, nil)
 	}
 }
 
@@ -141,11 +141,44 @@ func (r *Room) ReadAndHandleViewerMessage(ID string) {
 	for {
 		msg, _ := <-viewer.In
 		log.Printf("Room got message: %d", len(msg))
-		r.BroadcastMessenge(msg, ID)
+		r.Broadcast(msg, &ID)
+		var payload map[string]interface{}
+		if e := json.Unmarshal(msg, &payload); e != nil {
+        panic(e)
+    }
+		var Type string = payload["type"].(string)
+		if (Type == "chat") {
+			var Name string = payload["name"].(string)
+			var Content string = payload["content"].(string)
+			var Time string = payload["time"].(string)
+			client_obj := &message.Client{
+				Type: Type, 
+				Name: Name, 
+				Content: Content, 
+				Time: Time,
+			} 
+			client_json, err := json.Marshal(client_obj)
+
+			if (err != nil) {
+				log.Printf("Error when jsonize the client_message: %v", err)
+			}
+
+			wrap_obj := &message.Wrapper{
+				Type: message.TClient, 
+				Data: client_json,
+			}
+			wrap_buffer, err := message.Wrap(wrap_obj)
+
+			if (err != nil) {
+				log.Printf("Error when jsonize the wrapper of the client_message: %v", err)
+			}
+
+			r.Broadcast(wrap_buffer, &ID)
+		}
 	}
 }
 
-func (r *Room) Broadcast(msg []uint8) {
+func (r *Room) Broadcast(msg []uint8, ID *string) {
 	r.lastActiveTime = time.Now()
 
 	msgObj, err := message.Unwrap(msg)
@@ -159,35 +192,11 @@ func (r *Room) Broadcast(msg []uint8) {
 
 	for id, viewer := range r.viewers {
 		// TODO: make this for loop run in parallel
+		if (ID != nil && id == *ID) {
+			continue
+		}
 		if viewer.Alive() {
 			viewer.Out <- msg
-		} else {
-			log.Printf("Failed to boardcast to %s. Closing connection", id)
-			r.RemoveViewer(id)
-		}
-	}
-}
-
-func (r *Room) BroadcastMessenge (msg []uint8, sender string) {
-	r.lastActiveTime = time.Now()
-
-	data := &message.Wrapper{
-		Type: message.TChat,
-		Data: msg,
-	}
-
-	payload, err := message.Wrap(data)
-	if err != nil {
-		log.Printf("Failed to wrap message: %s", err)
-	}
-
-	for id, viewer := range r.viewers {
-		// TODO: make this for loop run in parallel
-		if (id == sender) {
-			continue	
-		}
-		if viewer.Alive() {
-			viewer.Out <- payload 
 		} else {
 			log.Printf("Failed to boardcast to %s. Closing connection", id)
 			r.RemoveViewer(id)
