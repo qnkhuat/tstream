@@ -134,7 +134,7 @@ func (r *Room) Start() {
 		if wrapperMsg.Type == message.TWinsize || wrapperMsg.Type == message.TWrite {
 			r.lastActiveTime = time.Now()
 			r.addMsgBuffer(msg)
-			r.Broadcast(msg)
+			r.Broadcast(msg, []string{})
 		} else if wrapperMsg.Type == message.TStreamerConnect {
 			msgObject := &message.StreamerConnect{}
 			err := json.Unmarshal(wrapperMsg.Data, msgObject)
@@ -173,15 +173,10 @@ func (r *Room) ReadAndHandleViewerMessage(ID string) {
 		log.Printf("Got a message: %s", msgObj.Type)
 		if msgObj.Type == message.TRequestWinsize {
 
-			winsizeData, _ := json.Marshal(message.Winsize{
+			msg, _ := message.Wrap(message.TWinsize, message.Winsize{
 				Rows: r.lastWinsize.Rows,
 				Cols: r.lastWinsize.Cols,
 			})
-
-			msg := &message.Wrapper{
-				Type: message.TWinsize,
-				Data: winsizeData,
-			}
 			payload, _ := json.Marshal(msg)
 			viewer.Out <- payload
 
@@ -190,17 +185,24 @@ func (r *Room) ReadAndHandleViewerMessage(ID string) {
 			for _, msg := range r.msgBuffer {
 				viewer.Out <- msg
 			}
-		}
+		} else if msgObj.Type == message.TRequestRoomInfo {
+			msg, err := message.Wrap(message.TRoomInfo, message.RoomInfo{
+				Title:       r.Title(),
+				NViewers:    len(r.viewers),
+				StartedTime: r.StartedTime(),
+				StreamerID:  r.ID,
+			})
 
-		log.Printf("Room got message: %d", len(msg))
-		wrapper, err := message.Unwrap(msg)
-		if err != nil {
-			log.Printf("Error Unwrap data: %v", err)
-			continue
-		}
-		if wrapper.Type == "Chat" {
+			if err == nil {
+				payload, _ := json.Marshal(msg)
+				viewer.Out <- payload
+			} else {
+				log.Printf("Error wrapping room info message: %s", err)
+			}
+		} else if msgObj.Type == message.TChat {
 			r.Broadcast(msg, []string{ID})
 		}
+
 	}
 }
 

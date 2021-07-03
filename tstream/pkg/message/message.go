@@ -7,19 +7,25 @@ package message
 
 import (
 	"encoding/json"
+	"time"
 )
 
 type Type string
 
 const (
-	TWrite   Type = "Write"
-	TChat         = "Chat"
-	TWinsize      = "Winsize"
-	TClose        = "Close"
-	TError        = "Error"
+	TWrite    Type = "Write"
+	TChat          = "Chat"
+	TClose         = "Close"
+	TError         = "Error"
+	TRoomInfo      = "RoomInfo"
+
+	// When streamer resize their termianl
+	TWinsize = "Winsize"
 
 	// Viewer request server to send winsize
 	TRequestWinsize = "RequestWinsize"
+
+	TRequestRoomInfo = "RequestRoomInfo"
 
 	// When user first connect to server
 	TStreamerConnect = "StreamerConnect"
@@ -40,6 +46,13 @@ type Winsize struct {
 
 type StreamerConnect struct {
 	Title string
+}
+
+type RoomInfo struct {
+	NViewers    int
+	StartedTime time.Time
+	Title       string
+	StreamerID  string
 }
 
 func Unwrap(buff []byte) (Wrapper, error) {
