@@ -29,6 +29,15 @@ interface Winsize {
 
 }
 
+interface RoomInfo {
+  StreamerID: string;
+  StartedTime:string;
+  NViewers: number;
+  Title: string;
+}
+
+
+
 function Room() {
   const params: Params = useParams();
   const chatWinsize = 400; // px
@@ -36,6 +45,8 @@ function Room() {
   const [ termSize, setTermSize ] = useState<Winsize>();
   const [ msgManager, setMsgManager ] = useState<PubSub>();
   const navbarRef = useRef<HTMLDivElement>(null);
+  const [ updateState, setUpdate ] = useState(0);
+  const [ roomInfo, setRoomInfo ] = useState();
 
   function resize() {
     if (navbarRef.current) {
@@ -54,6 +65,7 @@ function Room() {
     const tempMsg = new PubSub();
     ws.onmessage = (ev: MessageEvent) => {
       let msg = JSON.parse(ev.data);
+      console.log("Got message: ", msg.Type);
 
       if (msg.Type === constants.MSG_TWRITE) {
 
@@ -65,24 +77,28 @@ function Room() {
         let winSizeMsg = JSON.parse(window.atob(msg.Data));
         tempMsg.pub(msg.Type, winSizeMsg);
 
+      } else if (msg.Type === constants.MSG_ROOM_INFO) {
+        let roomInfo = JSON.parse(window.atob(msg.Data));
+        setRoomInfo(roomInfo);
       }
     }
 
-    tempMsg.sub(constants.MSG_TREQUEST_WINSIZE, () => {
-
+    tempMsg.sub("request", (msgType: string) => {
       var payload_byte = base64.toArrayBuffer(window.btoa(""));
       var wrapper = JSON.stringify({
-        Type: constants.MSG_TREQUEST_WINSIZE,
+        Type: msgType,
         Data: Array.from(payload_byte),
       });
       const payload = base64.toArrayBuffer(window.btoa(wrapper))
       util.sendWhenConnected(ws, payload);
     })
 
+
     setMsgManager(tempMsg);
     window.addEventListener("resize", () => resize());
     resize();
   }, [navbarRef])
+  console.log("set update: ", updateState);
 
   return (
     <div id="room">
