@@ -1,9 +1,8 @@
 package viewer
 
 import (
-	"log"
-
 	"github.com/gorilla/websocket"
+	"log"
 )
 
 type Viewer struct {
