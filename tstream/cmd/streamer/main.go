@@ -28,10 +28,11 @@ func main() {
 	log.Println("Streaming started")
 	var server = flag.String("server", "0.0.0.0:3000", "Server endpoint")
 	var session = flag.String("session", "qnkhuat", "Session name")
+	var title = flag.String("title", "Building a hhing", "Stream title")
 	flag.Parse()
 
 	log.Printf("Got session: %s\n", *session)
-	s := streamer.New(*server, *session)
+	s := streamer.New(*server, *session, *title)
 	err := s.Start()
 	if err != nil {
 		log.Panicf("Failed to start stream: %s", err)
