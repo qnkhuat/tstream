@@ -1,6 +1,7 @@
-import React, { ReactElement, useRef, useEffect, useState, CSSProperties } from "react";
+import React, { useRef, useEffect, useState } from "react";
 import Xterm from "./Xterm";
-import PubSub from "./../lib/pubsub";
+import * as constants from "../lib/constants";
+import PubSub from "../lib/pubsub";
 
 // TODO: add handle % and px
 interface Props {
@@ -15,15 +16,6 @@ interface Winsize {
   Cols: number;
 }
 
-function base64ToArrayBuffer(input:string): Uint8Array {
-  var binary_string =  window.atob(input);
-  var len = binary_string.length;
-  var bytes = new Uint8Array( len );
-  for (var i = 0; i < len; i++)        {
-    bytes[i] = binary_string.charCodeAt(i);
-  }
-  return bytes;
-}
 
 function proposeScale(boundWidth: number, boundHeight: number, realWidth: number, realHeight: number): number {
   const widthRatio = realWidth / boundWidth,
@@ -35,67 +27,59 @@ function proposeScale(boundWidth: number, boundHeight: number, realWidth: number
   }
 }
 
-const WSTerminal: React.FC<Props> = ({  msgManager, width= -1, height= -1, className=""}) => {
-  console.log("Got: ", width, height);
+const WSTerminal: React.FC<Props> = ({ msgManager, width= -1, height= -1, className=""}) => {
   const termRef = useRef<Xterm>(null);
   const divRef = useRef<HTMLDivElement>(null);
-  const [ divSize, setDivSize ]= useState<number[]>([0, 0]); // store rendered size (width, height)
-  const [ transform, setTransform ] = useState<string>("");
+  const [ divSize, setDivSize ] = useState<number[]>([0, 0]); // store rendered size (width, height)
 
   function rescale() {
-    console.log("YOOOOOO");
-
     if (divRef.current && (width > 0 || height > 0)) {
 
       const xtermScreens = divRef.current.getElementsByClassName("xterm-screen");
-      console.log("Do you find me?");
       if (xtermScreens.length > 0) {
 
         const xtermScreen = xtermScreens[0] as HTMLDivElement;
         const initialWidth = xtermScreen.offsetWidth,
           initialHeight = xtermScreen.offsetHeight;
 
-
         let scale = proposeScale(width, height, initialWidth, initialHeight);
-        console.log("New scale: ", scale);
-        //divRef.current.style.transform = `scale(${scale}) translate(-50%, -50%)`;
-        divRef.current.style.transform = `scale(${scale})`;
-        setDivSize([scale * initialWidth, scale*initialHeight])
-      } else {
-        console.log("Fuck no");
+
+        divRef.current.style.transform = `scale(${scale}) translate(-50%, -50%)`;
+        setDivSize([scale * initialWidth, scale * initialHeight])
       }
     } else {
-      console.log("Fuck no ooooooooooooooo: ", width, height);
+      console.error("Parent div not found", );
     }
   }
 
-
   useEffect(() => {
-
-    msgManager?.sub("Write", (buffer: Uint8Array) => {
+    msgManager?.sub(constants.MSG_TWRITE, (buffer: Uint8Array) => {
       termRef.current?.writeUtf8(buffer);
     })
 
-    msgManager?.sub("Winsize", (winsize: Winsize) => {
+    msgManager?.sub(constants.MSG_TWINSIZE, (winsize: Winsize) => {
       termRef.current?.resize(winsize.Cols, winsize.Rows)
       rescale();
     })
 
-    rescale();
-    window.addEventListener('resize', () => rescale());
-  }, [])
+    msgManager?.pub(constants.MSG_TREQUEST_WINSIZE, null);
+  }, []);
 
+
+  const s = {
+    width: width > 0 ? width + "px" : divSize[0] + "px",
+    height: height > 0 ? height + "px" : divSize[1] + "px",
+  }
 
   return (
-    <div className={`relative ${className}`} style={{
-      width: width > 0 ? width + "px" : divSize[0] + "px",
-        height: height > 0 ? height + "px" : divSize[1] + "px",
-      }}>
+    <div className={`relative ${className}`} style={s}>
       <div ref={divRef}
-        //className="divref absolute top-1/2 left-1/2 origin-top-left">
-        className="divref absolute origin-top-left">
+        className="divref absolute top-1/2 left-1/2 origin-top-left"
+      >
         <Xterm
-          options={{rightClickSelectsWord: false}}
+          options={{
+            rightClickSelectsWord: false,
+          }}
           ref={termRef}/>
       </div>
     </div>
