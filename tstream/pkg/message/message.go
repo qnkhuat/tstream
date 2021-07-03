@@ -13,6 +13,7 @@ type Type string
 
 const (
 	TWrite   Type = "Write"
+	TChat         = "Chat"
 	TWinsize      = "Winsize"
 	TClose        = "Close"
 	TError        = "Error"

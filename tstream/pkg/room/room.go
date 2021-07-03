@@ -193,10 +193,18 @@ func (r *Room) ReadAndHandleViewerMessage(ID string) {
 		}
 
 		log.Printf("Room got message: %d", len(msg))
+		wrapper, err := message.Unwrap(msg)
+		if err != nil {
+			log.Printf("Error Unwrap data: %v", err)
+			continue
+		}
+		if wrapper.Type == "Chat" {
+			r.Broadcast(msg, []string{ID})
+		}
 	}
 }
 
-func (r *Room) Broadcast(msg []uint8) {
+func (r *Room) Broadcast(msg []uint8, IDExclude []string) {
 
 	msgObj, err := message.Unwrap(msg)
 	if err == nil && msgObj.Type == message.TWinsize {
@@ -210,6 +218,16 @@ func (r *Room) Broadcast(msg []uint8) {
 	count := 0
 	for id, viewer := range r.viewers {
 		// TODO: make this for loop run in parallel
+		var isExcluded bool = false
+		for _, idExclude := range IDExclude {
+			if id == idExclude {
+				isExcluded = true
+			}
+		}
+		if isExcluded {
+			continue
+		}
+
 		if viewer.Alive() {
 			count += 1
 			viewer.Out <- msg
