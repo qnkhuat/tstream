@@ -44,7 +44,7 @@ function Room() {
         {termSize &&
         <>
           <WSTerminal
-            className="bg-black-900"
+            className="bg-black"
             wsUrl={wsUrl}
             width={termSize?.Width ? termSize.Width : -1}
             height={termSize?.Height ? termSize.Height : -1}
