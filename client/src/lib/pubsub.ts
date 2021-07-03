@@ -2,42 +2,39 @@ const sep = "_" // sepperator used for seperate topic prefix and aliased name
 
 export default class PubSub {
 
-  // store callbaccks
-  _handlers: {[key: string]: (data: any) => void} = {};
+  // set to true if one topic can only have one subscriber
+  _one = false;
 
-  // set to true if want allow multiple consumers for one topic
-  _strict: boolean = false;
-
-  constructor(strict: boolean = false) {
-    this._strict = strict;
+  constructor(one:boolean = false){
+    this._one = one;
   }
 
-  sub(topic: string, cb: (data: any) => void): string | null {
+  // store callbaccks
+  _handlers: {[key: string]: ((data: any) => void)[]} = {};
+
+  // return the index of callback in list
+  // used to delete if needed
+  sub(topic: string, cb: (data: any) => void): number {
     if (!this._handlers[topic]) {
-      this._handlers[topic] = cb;
-      return topic
-    } else if (!this._strict) {
-      const topic_name = `${topic}${sep}${Math.floor(Math.random() * 1000)}`;
-      return this.sub(topic_name, cb);
-    } else { // topic already subscribed and strict is not set
-      throw `Topic ${topic} already subscribed`;
+      this._handlers[topic] = [cb];
+      return 0;
+    } else if (!this._one){
+      this._handlers[topic].push(cb);
+      return this._handlers[topic].length - 1
+    } else {
+      throw "Only one subscribeer allowed";
     }
   }
 
   // Unsubscribe a topic
-  // set all to true to unsubscribe all all topic. Only used when _strict is true
-  unsub(topic: string, all: boolean = false) {
-    if (this._handlers[topic]) delete this._handlers[topic] ;
-
-    // search for all hanlders with topic as prefix and delete it
-    if (!this._strict && all) for (const k in this._handlers) if ( k.startsWith(`${topic}${sep}`) ) delete this._handlers[k];
+  // provide index if want to unsub a specific subscribe
+  // otherwise will unsubscribe all
+  unsub(topic: string, index: (number | null) = null) {
+    if (index == null) delete this._handlers[topic]
+    else delete this._handlers[topic][index]
   }
 
   pub(topic: string, msg: any) {
-    if(this._strict) {
-      if (topic in this._handlers) this._handlers[topic](msg)
-    } else {
-      for (const k in this._handlers) if (k.startsWith(topic + sep) || topic == k) this._handlers[k](msg);
-    }
+    if (this._handlers[topic]) this._handlers[topic].forEach((handler) => handler(msg))
   }
 }

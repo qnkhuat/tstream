@@ -2,9 +2,12 @@ import { FC, ReactElement, useState, useEffect } from "react";
 import urljoin from "url-join";
 import WSTerminal from "./WSTerminal";
 import PubSub from "./../lib/pubsub";
-import * as base64 from "./../lib/base64";
+import * as base64 from "../lib/base64";
+import * as constants from "../lib/constants";
+
 import dayjs from "dayjs";
 import customParseFormat from 'dayjs/plugin/customParseFormat';
+
 dayjs.extend(customParseFormat);
 
 interface Props {
@@ -37,21 +40,7 @@ const StreamPreview: FC<Props> = ({ title, wsUrl, streamerID, nViewers, startedT
 
   const [ upTime, setUpTime ] = useState(getUpTime(dayjs(startedTime)));
 
-  const msgManager = new PubSub();
   useEffect(() => {
-    const ws = new WebSocket(wsUrl as string);
-
-    ws.onmessage = (ev: MessageEvent) => {
-      let msg = JSON.parse(ev.data);
-      if (msg.Type === "Write") {
-        var buffer = base64.toArrayBuffer(msg.Data)
-        msgManager.pub(msg.Type, buffer);
-      } else if (msg.Type === "Winsize") {
-        let winSizeMsg = JSON.parse(window.atob(msg.Data));
-        msgManager.pub(msg.Type, winSizeMsg);
-      }
-    }
-
     setInterval(() => {
       setUpTime(getUpTime(dayjs(startedTime)));
     }, 1000);
@@ -59,7 +48,7 @@ const StreamPreview: FC<Props> = ({ title, wsUrl, streamerID, nViewers, startedT
 
   return (
     <div className="relative px-4 pt-4 bg-black rounded">
-      <WSTerminal msgManager={msgManager} width={500} height={350} />
+      <WSTerminal wsUrl={wsUrl} height={350} width={500}/>
 
       <div className="p-1 bg-red-400 rounded absolute top-4 right-4">
         <p className="text-mdtext-whtie font-semibold">{upTime}</p>
