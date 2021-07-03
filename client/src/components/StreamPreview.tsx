@@ -1,8 +1,8 @@
 import { FC, ReactElement, useState, useEffect } from "react";
-import urljoin from "url-join";
 import WSTerminal from "./WSTerminal";
 import PubSub from "./../lib/pubsub";
 import * as base64 from "../lib/base64";
+import * as util from "../lib/util";
 import * as constants from "../lib/constants";
 
 import dayjs from "dayjs";
@@ -39,17 +39,54 @@ function getUpTime(time: dayjs.Dayjs): string {
 const StreamPreview: FC<Props> = ({ title, wsUrl, streamerID, nViewers, startedTime, lastActiveTime }): ReactElement => {
 
   const [ upTime, setUpTime ] = useState(getUpTime(dayjs(startedTime)));
+  const [ msgManager, setMsgManager ] = useState<PubSub>();
 
   useEffect(() => {
+    const ws = new WebSocket(wsUrl);
+
+    const tempMsg = new PubSub();
+    ws.onmessage = (ev: MessageEvent) => {
+      let msg = JSON.parse(ev.data);
+
+      if (msg.Type === constants.MSG_TWRITE) {
+
+        var buffer = base64.toArrayBuffer(msg.Data)
+        tempMsg.pub(msg.Type, buffer);
+
+      } else if (msg.Type === constants.MSG_TWINSIZE) {
+
+        let winSizeMsg = JSON.parse(window.atob(msg.Data));
+        tempMsg.pub(msg.Type, winSizeMsg);
+
+      }
+    }
+
+    tempMsg.sub(constants.MSG_TREQUEST_WINSIZE, () => {
+
+      var payload_byte = base64.toArrayBuffer(window.btoa(""));
+      var wrapper = JSON.stringify({
+        Type: constants.MSG_TREQUEST_WINSIZE,
+        Data: Array.from(payload_byte),
+      });
+      const payload = base64.toArrayBuffer(window.btoa(wrapper))
+      util.sendWhenConnected(ws, payload);
+    })
+
+    setMsgManager(tempMsg);
+
     setInterval(() => {
       setUpTime(getUpTime(dayjs(startedTime)));
     }, 1000);
+
   }, [])
 
-  return (
-    <div className="relative px-4 pt-4 bg-black rounded">
-      <WSTerminal wsUrl={wsUrl} height={350} width={500}/>
 
+
+  return (
+    <div className="relative bg-black rounded">
+      {msgManager &&
+      <WSTerminal msgManager={msgManager} height={350} width={500}/>
+      }
       <div className="p-1 bg-red-400 rounded absolute top-4 right-4">
         <p className="text-mdtext-whtie font-semibold">{upTime}</p>
       </div>
