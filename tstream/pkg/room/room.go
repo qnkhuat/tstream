@@ -19,6 +19,7 @@ type Room struct {
 	lock           sync.Mutex
 	streamer       *websocket.Conn
 	viewers        map[string]*viewer.Viewer
+	chats          map[string]*viewer.Viewer
 	ID             string
 	lastWinsize    *message.Winsize
 	startedTime    time.Time
@@ -58,10 +59,10 @@ func (r *Room) AddStreamer(conn *websocket.Conn) error {
 	}
 	log.Printf("New streamer")
 	r.streamer = conn
-	//r.streamer.SetPingHandler(func(appData string) error {
-	//  r.lastActiveTime = time.Now()
-	//  return nil
-	//})
+	r.streamer.SetPingHandler(func(appData string) error {
+		r.lastActiveTime = time.Now()
+		return nil
+	})
 
 	return nil
 }
@@ -116,10 +117,11 @@ func (r *Room) Start() {
 		_, msg, err := r.streamer.ReadMessage()
 		log.Printf("Got a message: %d", len(msg))
 		if err != nil {
-			log.Printf("Failed to reaceive message from streamer: %s. Closing", r.ID)
+			log.Printf("Failed to reaceive message from streamer: %s. Closing. Error: %s", r.ID, err)
 			r.streamer.Close()
 			return
 		}
+		r.lastActiveTime = time.Now()
 		r.addMsgBuffer(msg)
 		log.Printf("message in buffer %d, %d", len(r.msgBuffer), cap(r.msgBuffer))
 		r.Broadcast(msg, nil)
@@ -140,6 +142,31 @@ func (r *Room) ReadAndHandleViewerMessage(ID string) {
 	}
 	for {
 		msg, _ := <-viewer.In
+
+		msgObj, err := message.Unwrap(msg)
+		if err != nil {
+			log.Printf("Failed to decode msg", err)
+		}
+
+		log.Printf("Got a message: %s", msgObj.Type)
+		if msgObj.Type == message.TRequestWinsize {
+
+			log.Printf("====================================================================================")
+
+			winsizeData, _ := json.Marshal(message.Winsize{
+				Rows: r.lastWinsize.Rows,
+				Cols: r.lastWinsize.Cols,
+			})
+
+			msg := &message.Wrapper{
+				Type: message.TWinsize,
+				Data: winsizeData,
+			}
+			payload, _ := message.Wrap(msg)
+			viewer.Out <- payload
+
+		}
+
 		log.Printf("Room got message: %d", len(msg))
 		wrapper, err := message.Unwrap(msg)
 		if err != nil {
@@ -164,6 +191,7 @@ func (r *Room) Broadcast(msg []uint8, IDExclude []string) {
 		}
 	}
 
+	count := 0
 	for id, viewer := range r.viewers {
 		// TODO: make this for loop run in parallel
 		var isExcluded bool = false
@@ -177,12 +205,14 @@ func (r *Room) Broadcast(msg []uint8, IDExclude []string) {
 		}
 
 		if viewer.Alive() {
+			count += 1
 			viewer.Out <- msg
 		} else {
 			log.Printf("Failed to boardcast to %s. Closing connection", id)
 			r.RemoveViewer(id)
 		}
 	}
+	log.Printf("Broadcasted to %d viewers", count)
 }
 
 func (r *Room) Close() {

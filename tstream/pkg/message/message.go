@@ -12,11 +12,12 @@ import (
 type Type string
 
 const (
-	TWrite   Type = "Write"
-	TChat         = "Chat"
-	TWinsize      = "Winsize"
-	TClose        = "Close"
-	TError        = "Error"
+	TWrite          Type = "Write"
+	TWinsize             = "Winsize"
+	TClose               = "Close"
+	TError               = "Error"
+	TRequestWinsize      = "RequestWinsize"
+	TChat				 = "Chat"
 )
 
 type Wrapper struct {
