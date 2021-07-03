@@ -48,7 +48,6 @@ const WSTerminal: React.FC<Props> = ({ wsUrl, width= -1, height= -1, className="
 
   function rescale() {
 
-    console.log("re scale trigger");
     if (divRef.current && (width > 0 || height > 0)) {
 
       const xtermScreens = divRef.current.getElementsByClassName("xterm-screen");

@@ -19,6 +19,7 @@ type Room struct {
 	lock           sync.Mutex
 	streamer       *websocket.Conn
 	viewers        map[string]*viewer.Viewer
+	chats          map[string]*viewer.Viewer
 	ID             string
 	lastWinsize    *message.Winsize
 	startedTime    time.Time

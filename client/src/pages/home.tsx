@@ -44,6 +44,7 @@ function Home() {
         <div id="home" className="container m-auto text-white">
 
           <div id="navbar">
+
           </div>
 
           <div id="body">

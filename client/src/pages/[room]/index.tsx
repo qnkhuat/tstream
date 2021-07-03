@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams } from "react-router-dom";
 
 import * as base64 from "../../lib/base64";
@@ -25,33 +25,36 @@ function Room() {
   const [ inputValue, setInputValue ] = useState("");
   const [ termSize, setTermSize ] = useState<Winsize>();
 
+  const parentDiv = useRef<HTMLDivElement>(null);
+  const layoutRef = useRef<HTMLDivElement>(null);
+
   function resize() {
-    setTermSize({
-      Width: window.innerWidth - chatWinsize,
-      Height: window.innerHeight,
-    });
+    if (parentDiv.current) {
+      setTermSize({
+        Width: parentDiv.current.offsetWidth - chatWinsize,
+        Height: parentDiv.current.offsetHeight,
+      });
+    }
   }
 
   const wsUrl = util.getWsUrl(params.username);
   useEffect(() => {
     window.addEventListener("resize", () => resize());
     resize();
-  }, [])
+  }, [parentDiv])
 
   return (
-    <div id="room">
-      <>
-        {termSize &&
-        <>
-          <WSTerminal
-            className="bg-black"
-            wsUrl={wsUrl}
-            width={termSize?.Width ? termSize.Width : -1}
-            height={termSize?.Height ? termSize.Height : -1}
-          />
-        </>
-        }
-      </>
+    <div id="room"
+      className ="h-screen w-screen"
+      ref={parentDiv}>
+      {termSize &&
+      <WSTerminal
+        className="bg-red-500"
+        wsUrl={wsUrl}
+        width={termSize?.Width ? termSize.Width : -1}
+        height={termSize?.Height ? termSize.Height : -1}
+      />
+      }
     </div>
   );
 

@@ -45,6 +45,7 @@ func (s *Server) Start() {
 	router.HandleFunc("/api/rooms", s.handleListRooms).Methods("GET", "OPTIONS")
 	router.HandleFunc("/ws/{roomID}/streamer", s.handleWSStreamer) // for streamers
 	router.HandleFunc("/ws/{roomID}/viewer", s.handleWSViewer)     // for viewers
+	router.HandleFunc("/ws/{roomID}/chat", s.handleWSChat)         // for viewers
 	handler := cors.Default().Handler(router)
 
 	s.server = &http.Server{Addr: s.addr, Handler: handler}
