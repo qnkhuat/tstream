@@ -113,8 +113,8 @@ func (s *Streamer) Start() error {
 		for {
 			select {
 			case <-ticker.C:
-				winSize, _ := ptyMaster.GetWinsize(0)
-				s.Winsize(winSize.Rows, winSize.Cols)
+				var emptyByteArray []byte
+				s.conn.WriteControl(websocket.PingMessage, emptyByteArray, time.Time{})
 			}
 		}
 	}()

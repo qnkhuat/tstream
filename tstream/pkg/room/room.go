@@ -58,10 +58,10 @@ func (r *Room) AddStreamer(conn *websocket.Conn) error {
 	}
 	log.Printf("New streamer")
 	r.streamer = conn
-	//r.streamer.SetPingHandler(func(appData string) error {
-	//  r.lastActiveTime = time.Now()
-	//  return nil
-	//})
+	r.streamer.SetPingHandler(func(appData string) error {
+		r.lastActiveTime = time.Now()
+		return nil
+	})
 
 	return nil
 }
@@ -116,10 +116,11 @@ func (r *Room) Start() {
 		_, msg, err := r.streamer.ReadMessage()
 		log.Printf("Got a message: %d", len(msg))
 		if err != nil {
-			log.Printf("Failed to reaceive message from streamer: %s. Closing", r.ID)
+			log.Printf("Failed to reaceive message from streamer: %s. Closing. Error: %s", r.ID, err)
 			r.streamer.Close()
 			return
 		}
+		r.lastActiveTime = time.Now()
 		r.addMsgBuffer(msg)
 		log.Printf("message in buffer %d, %d", len(r.msgBuffer), cap(r.msgBuffer))
 		r.Broadcast(msg)
@@ -145,7 +146,6 @@ func (r *Room) ReadAndHandleViewerMessage(ID string) {
 }
 
 func (r *Room) Broadcast(msg []uint8) {
-	r.lastActiveTime = time.Now()
 
 	msgObj, err := message.Unwrap(msg)
 	if err == nil && msgObj.Type == message.TWinsize {
