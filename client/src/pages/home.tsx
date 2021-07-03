@@ -32,6 +32,7 @@ interface Room {
 function Home() {
 
   const [ rooms, setRooms ] = useState<Room[]>();
+  console.log(process.env.REACT_APP_API_URL);
   useEffect(() => {
     axios.get<Room[]>(urljoin(process.env.REACT_APP_API_URL as string, "/api/rooms")).then((res) => {
       setRooms(res.data);
