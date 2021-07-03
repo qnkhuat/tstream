@@ -57,41 +57,31 @@ function Room() {
     }
 
     tempMsg.sub(constants.MSG_TREQUEST_WINSIZE, () => {
-      setTimeout(() => {
-        var payload = JSON.stringify({
-        });
 
-        var payload_byte = base64.toArrayBuffer(window.btoa(payload));
-        var wrapper = JSON.stringify({
-          Type: constants.MSG_TREQUEST_WINSIZE,
-          Data: Array.from(payload_byte),
-        });
-        var test = JSON.parse(wrapper);
-        const temp = base64.toArrayBuffer(window.btoa(wrapper))
-        ws.send(temp);
-      }, 100);
+      var payload_byte = base64.toArrayBuffer(window.btoa(""));
+      var wrapper = JSON.stringify({
+        Type: constants.MSG_TREQUEST_WINSIZE,
+        Data: Array.from(payload_byte),
+      });
+      const payload = base64.toArrayBuffer(window.btoa(wrapper))
+      util.sendWhenConnected(ws, payload);
     })
 
     setMsgManager(tempMsg);
+    window.addEventListener("resize", () => resize());
+    resize();
   }, [])
-
-  //useEffect(() => {
-  //  window.addEventListener("resize", () => resize());
-  //  resize();
-  //}, [])
 
   return (
     <div id="room">
       <>
         <>
-          {msgManager &&
+          {msgManager && termSize &&
           <WSTerminal
             className="bg-black"
             msgManager={msgManager}
-            width={1000}
-            height={400}
-            //width={termSize?.Width ? termSize.Width : -1}
-            //height={termSize?.Height ? termSize.Height : -1}
+            width={termSize?.Width ? termSize.Width : -1}
+            height={termSize?.Height ? termSize.Height : -1}
           />}
         </>
       </>
