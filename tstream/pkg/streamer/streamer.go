@@ -136,6 +136,7 @@ func (s *Streamer) Start() error {
 			case <-ticker.C:
 				var emptyByteArray []byte
 				s.conn.WriteControl(websocket.PingMessage, emptyByteArray, time.Time{})
+				s.pty.Refresh()
 			}
 		}
 	}()
