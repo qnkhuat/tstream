@@ -140,6 +140,31 @@ func (r *Room) ReadAndHandleViewerMessage(ID string) {
 	}
 	for {
 		msg, _ := <-viewer.In
+
+		msgObj, err := message.Unwrap(msg)
+		if err != nil {
+			log.Printf("Failed to decode msg", err)
+		}
+
+		log.Printf("Got a message: %s", msgObj.Type)
+		if msgObj.Type == message.TRequestWinsize {
+
+			log.Printf("====================================================================================")
+
+			winsizeData, _ := json.Marshal(message.Winsize{
+				Rows: r.lastWinsize.Rows,
+				Cols: r.lastWinsize.Cols,
+			})
+
+			msg := &message.Wrapper{
+				Type: message.TWinsize,
+				Data: winsizeData,
+			}
+			payload, _ := message.Wrap(msg)
+			viewer.Out <- payload
+
+		}
+
 		log.Printf("Room got message: %d", len(msg))
 	}
 }

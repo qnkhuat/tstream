@@ -39,16 +39,34 @@ function getUpTime(time: dayjs.Dayjs): string {
 const StreamPreview: FC<Props> = ({ title, wsUrl, streamerID, nViewers, startedTime, lastActiveTime }): ReactElement => {
 
   const [ upTime, setUpTime ] = useState(getUpTime(dayjs(startedTime)));
+  const msgManager = new PubSub();
 
   useEffect(() => {
+    const ws = new WebSocket(wsUrl);
+    msgManager.sub("RequestMessage", () => {
+      var payload = JSON.stringify({
+      });
+
+      var payload_byte = base64.toArrayBuffer(window.btoa(payload));
+      var wrapper = JSON.stringify({
+        Type: "RequestWinsize",
+        Data: Array.from(payload_byte),
+      });
+      var test = JSON.parse(wrapper);
+      const temp = base64.toArrayBuffer(window.btoa(wrapper))
+      ws.send(temp);
+      console.log("ws.send successfully");
+    });
+
+
     setInterval(() => {
       setUpTime(getUpTime(dayjs(startedTime)));
     }, 1000);
   }, [])
 
+  //<WSTerminal wsUrl={wsUrl} height={350} width={500}/>
   return (
     <div className="relative px-4 pt-4 bg-black rounded">
-      <WSTerminal wsUrl={wsUrl} height={350} width={500}/>
 
       <div className="p-1 bg-red-400 rounded absolute top-4 right-4">
         <p className="text-mdtext-whtie font-semibold">{upTime}</p>
