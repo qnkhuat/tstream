@@ -1,10 +1,15 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, useCallback } from "react";
 import * as constants from "../lib/constants";
 import PubSub from "../lib/pubsub";
 import * as base64 from "../lib/base64";
 
 interface Props {
   msgManager: PubSub;
+}
+
+interface State{
+  msgList: ChatMsg[];
+  inputContent: string;
 }
 
 interface ChatMsg {
@@ -30,8 +35,8 @@ const ChatSection: React.FC<ChatInfo> = ({ Msg, isMe }) => {
   return (
     <>
       <div style={{overflowWrap: "anywhere"}} className={`${isMe ? 'justify-end ml-auto mr-0' : ''} w-3/4 flex p-2`}>
-        {!isMe && <div style={{color: Msg.Color}}>{Msg.Name}: </div>}
-        {unescape(encodeURIComponent(Msg.Content))}
+        {!isMe && <div className="w-28" style={{color: Msg.Color}}>{Msg.Name}: </div>}
+        <div>{Msg.Content}</div>
       </div>
     </>
   )
