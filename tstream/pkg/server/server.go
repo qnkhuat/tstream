@@ -27,6 +27,24 @@ func New(addr string) *Server {
 		rooms: rooms,
 	}
 }
+func CORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		// Set headers
+		w.Header().Set("Access-Control-Allow-Headers:", "*")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "*")
+
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		// Next
+		next.ServeHTTP(w, r)
+		return
+	})
+}
 
 func (s *Server) NewRoom(roomID string) error {
 	if _, ok := s.rooms[roomID]; ok {
@@ -41,12 +59,15 @@ func (s *Server) Start() {
 	log.Printf("Serving at: %s", s.addr)
 	fmt.Printf("Serving at: %s\n", s.addr)
 	router := mux.NewRouter()
+	router.Use(CORS)
 
 	router.HandleFunc("/api/health", handleHealth).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/rooms", s.handleListRooms).Methods("GET", "OPTIONS")
 	router.HandleFunc("/ws/{roomID}/streamer", s.handleWSStreamer) // for streamers
 	router.HandleFunc("/ws/{roomID}/viewer", s.handleWSViewer)     // for viewers
 	handler := cors.Default().Handler(router)
+
+	//router.Use(mux.CORSMethodMiddleware(router))
 
 	s.server = &http.Server{Addr: s.addr, Handler: handler}
 

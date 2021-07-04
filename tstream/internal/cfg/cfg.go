@@ -7,7 +7,7 @@ const (
 	// streamer
 	STREAMER_READ_BUFFER_SIZE   = 1024 // streamer websocket read buffer size
 	STREAMER_WRITE_BBUFFER_SIZE = 1024 // streamer websocket write buffer size
-	STREAMER_REFRESH_INTERVAL   = 60   // Interval to refresh streamer pty. Unit in seconds
+	STREAMER_REFRESH_INTERVAL   = 30   // Interval to refresh streamer pty. Unit in seconds
 
 	// Server
 	SERVER_CLEAN_INTERVAL     = 60      // Scan for idle room interval. Unit in seconds
