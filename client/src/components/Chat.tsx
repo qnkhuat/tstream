@@ -7,11 +7,6 @@ interface Props {
   msgManager: PubSub;
 }
 
-interface State{
-  msgList: ChatMsg[];
-  inputContent: string;
-}
-
 interface ChatMsg {
   Name: string;
   Content: string;
@@ -24,14 +19,14 @@ interface ChatInfo {
 }
 
 interface State {
-  msgList: Array<ChatInfo>;
+  msgList: ChatInfo[];
   inputContent: string;
   name: string;
   color: string;
 }
 
 const ChatSection: React.FC<ChatInfo> = ({ Msg, isMe }) => {
-  
+
   return (
     <>
       <div style={{overflowWrap: "anywhere"}} className={`${isMe ? 'justify-end ml-auto mr-0' : ''} w-3/4 flex p-2`}>
@@ -43,7 +38,7 @@ const ChatSection: React.FC<ChatInfo> = ({ Msg, isMe }) => {
 }
 
 class Chat extends React.Component<Props, State> {
-  
+
   constructor(props: Props) {
     super(props);
     this.state = {
@@ -53,9 +48,9 @@ class Chat extends React.Component<Props, State> {
       color: '',
     }
   }
-  
+
   addNewMsg(chatInfo: ChatInfo) {
-    let newMsgList = this.state.msgList as Array<ChatInfo>;
+    let newMsgList = this.state.msgList as ChatInfo[];
     newMsgList.push(chatInfo);
     this.setState({
       msgList: newMsgList,
@@ -68,27 +63,27 @@ class Chat extends React.Component<Props, State> {
         Msg: chatMsg,
         isMe: false,
       }
-      this.addNewMsg(chatInfo); 
+      this.addNewMsg(chatInfo);
     })
-    var person = 
+    var person =
       prompt("Please enter your name (It must not be empty or have more than 10 characters). \
-             If your name is invalid, it is automatically changed to Anonymous.", "");
-      var color: string = constants.COLOR_LIST[Math.floor(Math.random() * (constants.COLOR_LIST.length))]; 
-      
-      var name: string = '';
+        If your name is invalid, it is automatically changed to Anonymous.", "");
+        var color: string = constants.COLOR_LIST[Math.floor(Math.random() * (constants.COLOR_LIST.length))];
 
-      if (person === null || person.length === 0 || person.length > 10) {
-        name = "Anonymous";
-      } else {
-        name = person;
-      }
-      
-      console.log(color, name);
+        var name: string = '';
 
-      this.setState({
-        color: color,
-        name: name,
-      })
+        if (person === null || person.length === 0 || person.length > 10) {
+          name = "Anonymous";
+        } else {
+          name = person;
+        }
+
+    console.log(color, name);
+
+    this.setState({
+      color: color,
+      name: name,
+    })
   }
 
   onSendMsg(content: string, clearInput: boolean) {
@@ -104,8 +99,8 @@ class Chat extends React.Component<Props, State> {
     if (clearInput) {
       this.setState({
         inputContent: "",
-      }); 
-    } 
+      });
+    }
     var chatInfo : ChatInfo = {
       Msg: data,
       isMe: true,
@@ -121,31 +116,31 @@ class Chat extends React.Component<Props, State> {
           {this.state.msgList.slice(0).reverse().map((item, index) => <ChatSection Msg={item.Msg} isMe={item.isMe}/>)}
         </div>
         <div className="absolute bottom-0 transform w-full">
-         <div className="h-20 border-b border-gray-500 flex-shrink-0 flex items-center justify-between pr-2">
-            <input 
-              className="text-white px-3 py-3 flex-grow mr-2" 
-              placeholder={"Chat with everyone..."} 
-              style={{backgroundColor: '#121212'}} 
-              value={this.state.inputContent} 
+          <div className="h-20 border-b border-gray-500 flex-shrink-0 flex items-center justify-between pr-2">
+            <input
+              className="text-white px-3 py-3 flex-grow mr-2"
+              placeholder={"Chat with everyone..."}
+              style={{backgroundColor: '#121212'}}
+              value={this.state.inputContent}
               onChange={(e) => {
                 this.setState({
                   inputContent: e.target.value,
                 });
-              }} 
+              }}
               onKeyPress={(e) => {
                 var code = e.keyCode || e.which;
                 if (code === 13) {
                   this.onSendMsg(this.state.inputContent, true);
                 }
               }}
-            /> 
+            />
             {/* <button className="text-3xl transform hover:scale-125 duration-100" onClick={() => this.onSendMsg('&#128540;', false)}>&#128540;</button> */}
           </div>
           <div className="h-20 flex-shrink-0 flex flex-row-reverse items-center justify-between px-5 py-3">
             {/* <div className="flex-grow">
               <button className="text-red-600 text-4xl transform hover:scale-125 duration-100">&#9829;</button>
             </div> */}
-            <button 
+            <button
               className="px-10 py-2 bg-red-600 text-white rounded flex-shrink-0"
               onClick = {() => this.onSendMsg(this.state.inputContent, true)}
             >
