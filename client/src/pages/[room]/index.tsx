@@ -102,7 +102,7 @@ function Room() {
   }, [navbarRef])
 
   return (
-    <div id="room">
+    <div id="room" className="h-screen">
       <ThemeProvider theme={darkTheme}>
         <CssBaseline />
         <div ref={navbarRef}>
