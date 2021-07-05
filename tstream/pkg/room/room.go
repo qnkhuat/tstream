@@ -6,13 +6,14 @@ package room
 import (
 	"encoding/json"
 	"fmt"
+	"log"
+	"sync"
+	"time"
+
 	"github.com/gorilla/websocket"
 	"github.com/qnkhuat/tstream/internal/cfg"
 	"github.com/qnkhuat/tstream/pkg/message"
 	"github.com/qnkhuat/tstream/pkg/viewer"
-	"log"
-	"sync"
-	"time"
 )
 
 type Room struct {
