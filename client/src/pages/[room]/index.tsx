@@ -162,16 +162,26 @@ class Room extends React.Component<Props, State> {
     })();
   }
 
-  componentDidMount() {
+  resizeTerminal() {
     if (this.navbarRef.current) {
       this.setState({termSize: {
         Width: window.innerWidth - this.chatWinsize,
         Height: window.innerHeight - this.navbarRef.current.offsetHeight,
       }})
+
     }
+  }
+  componentDidMount() {
+
+    this.resizeTerminal();
+
+    window.addEventListener('resize', () => {
+      this.resizeTerminal();
+    })
   }
 
   render() {
+    console.log("termsize", this.state.termSize);
     return (
       <ThemeProvider theme={darkTheme}>
         <CssBaseline />
@@ -186,7 +196,7 @@ class Room extends React.Component<Props, State> {
             {this.state.roomInfo &&
             <div id="info">
               <div
-                className={`top-0 left-0 w-full absolute z-10 px-4 py-2 bg-opacity-20 bg-gray-400 ${this.state.mouseMove ? "visible" : "hidden"}`}>
+                className={`top-0 left-0 w-full absolute z-10 px-4 py-2 bg-opacity-80 bg-gray-400 ${this.state.mouseMove ? "visible" : "hidden"}`}>
                 <p className="text-2xl">{this.state.roomInfo.Title}</p>
                 <p className="text-md">@{this.state.roomInfo.StreamerID}</p>
               </div>

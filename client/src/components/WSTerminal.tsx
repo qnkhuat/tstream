@@ -28,6 +28,7 @@ function proposeScale(boundWidth: number, boundHeight: number, realWidth: number
 }
 
 const WSTerminal: React.FC<Props> = ({ msgManager, width= -1, height= -1, className=""}) => {
+  console.log("WSterminal: ", width, height);
   const termRef = useRef<Xterm>(null);
   const divRef = useRef<HTMLDivElement>(null);
   const [ divSize, setDivSize ] = useState<number[]>([0, 0]); // store rendered size (width, height)
@@ -65,6 +66,12 @@ const WSTerminal: React.FC<Props> = ({ msgManager, width= -1, height= -1, classN
     msgManager?.pub("request", constants.MSG_TREQUEST_WINSIZE );
     msgManager?.pub("request", constants.MSG_TREQUEST_CACHE_MESSAGE );
   }, []);
+
+
+  useEffect(() => {
+    rescale();
+  }, [width, height]);
+
 
 
   const s = {
