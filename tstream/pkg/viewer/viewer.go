@@ -44,8 +44,6 @@ func (v *Viewer) Start() {
 				if err != nil {
 					log.Printf("Failed to boardcast to %s. Closing connection", v.id)
 					v.Close()
-				} else {
-					log.Printf("I sent something to viewer %s", msg)
 				}
 			} else {
 				v.Close()

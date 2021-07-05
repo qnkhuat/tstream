@@ -203,7 +203,6 @@ func (r *Room) ReadAndHandleViewerMessage(ID string) {
 		} else if msgObj.Type == message.TChat {
 			r.Broadcast(msg, []string{ID})
 		}
-
 	}
 }
 
