@@ -57,17 +57,20 @@ interface State {
   roomInfo: RoomInfo | null;
   ws: WebSocket | null;
   upTimeStr: string | null;
+  mouseMove: boolean;
 }
 
 class Room extends React.Component<Props, State> {
 
   navbarRef: React.RefObject<HTMLDivElement>;
   chatWinsize: number = 400; // TODO: implement dynamic chat win size
+  mouseMovetimeout: ReturnType<typeof setTimeout> | null;
 
   constructor(props: Props) {
     super(props);
 
     this.navbarRef = React.createRef<HTMLDivElement>();
+    this.mouseMovetimeout = null;
 
     const wsUrl = util.getWsUrl(this.props.match.params.username);
     const ws: WebSocket = new WebSocket(wsUrl);
@@ -143,9 +146,20 @@ class Room extends React.Component<Props, State> {
       roomInfo: null,
       ws: ws,
       upTimeStr: null,
+      mouseMove:false,
     };
 
+  }
 
+  flashTitle() {
+    this.setState({ mouseMove: true });
+
+    (() => {
+      if (this.mouseMovetimeout) clearTimeout(this.mouseMovetimeout);
+      this.mouseMovetimeout = setTimeout(() => {
+        this.setState({mouseMove:false})
+      }, 500);
+    })();
   }
 
   componentDidMount() {
@@ -166,10 +180,16 @@ class Room extends React.Component<Props, State> {
         </div>
         {this.state.msgManager && this.state.termSize &&
         <div id="room" className="flex">
-          <div id="terminal-view" className="relative">
-
+          <div id="terminal-view" className="relative"
+            onMouseMove={() => this.flashTitle()}
+          >
             {this.state.roomInfo &&
-            <>
+            <div id="info">
+              <div
+                className={`top-0 left-0 w-full absolute z-10 px-4 py-2 bg-opacity-20 bg-gray-400 ${this.state.mouseMove ? "visible" : "hidden"}`}>
+                <p className="text-2xl">{this.state.roomInfo.Title}</p>
+                <p className="text-md">@{this.state.roomInfo.StreamerID}</p>
+              </div>
               <div id="info-uptime" className="p-1 bg-red-400 rounded absolute top-4 right-4 z-10">
                 <Uptime className="text-md text-white font-semibold" startTime={new Date(this.state.roomInfo.StartedTime)} />
               </div>
@@ -177,9 +197,7 @@ class Room extends React.Component<Props, State> {
               <div id="info-nviewers" className="p-1 bg-gray-400 rounded absolute bottom-4 right-4 z-10">
                 <p className="text-mdtext-whtie font-semibold"><PersonIcon/> {this.state.roomInfo.NViewers}</p>
               </div>
-
-            </>
-            }
+            </div>}
 
             <WSTerminal
               className="bg-black"
@@ -189,6 +207,7 @@ class Room extends React.Component<Props, State> {
             />
 
           </div>
+
           <Chat
             msgManager={this.state.msgManager}
           />

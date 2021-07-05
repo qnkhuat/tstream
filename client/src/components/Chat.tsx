@@ -65,19 +65,19 @@ class Chat extends React.Component<Props, State> {
       }
       this.addNewMsg(chatInfo);
     })
-    //var person =
-    //  prompt("Please enter your name (It must not be empty or have more than 10 characters). \
-    //    If your name is invalid, it is automatically changed to Anonymous.", "");
-    var person = "yo";
-    var color: string = constants.COLOR_LIST[Math.floor(Math.random() * (constants.COLOR_LIST.length))];
+    var person =
+      prompt("Please enter your name (It must not be empty or have more than 10 characters). \
+        If your name is invalid, it is automatically changed to Anonymous.", "");
+        //var person = "yo";
+        var color: string = constants.COLOR_LIST[Math.floor(Math.random() * (constants.COLOR_LIST.length))];
 
-    var name: string = '';
+        var name: string = '';
 
-    if (person === null || person.length === 0 || person.length > 10) {
-      name = "Anonymous";
-    } else {
-      name = person;
-    }
+        if (person === null || person.length === 0 || person.length > 10) {
+          name = "Anonymous";
+        } else {
+          name = person;
+        }
 
     console.log(color, name);
 
@@ -126,13 +126,13 @@ class Chat extends React.Component<Props, State> {
               onChange={(e) => {
                 this.setState({
                   inputContent: e.target.value,
-              });
+                });
               }}
               onKeyPress={(e) => {
                 var code = e.keyCode || e.which;
                 if (code === 13) {
                   this.onSendMsg(this.state.inputContent, true);
-              }
+                }
               }}
             />
             {/* <button className="text-3xl transform hover:scale-125 duration-100" onClick={() => this.onSendMsg('&#128540;', false)}>&#128540;</button> */}
