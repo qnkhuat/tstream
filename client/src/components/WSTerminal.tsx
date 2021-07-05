@@ -6,14 +6,19 @@ import PubSub from "../lib/pubsub";
 // TODO: add handle % and px
 interface Props {
   msgManager: PubSub;
+  width: number; // in pixel
+  height: number; // in pixel
   className?: string;
-  width?: number; // in pixel
-  height?: number; // in pixel
 }
 
 interface Winsize {
   Rows: number;
   Cols: number;
+}
+
+interface Size {
+  Width: number;
+  Height: number;
 }
 
 
@@ -27,64 +32,89 @@ function proposeScale(boundWidth: number, boundHeight: number, realWidth: number
   }
 }
 
-const WSTerminal: React.FC<Props> = ({ msgManager, width= -1, height= -1, className=""}) => {
-  const termRef = useRef<Xterm>(null);
-  const divRef = useRef<HTMLDivElement>(null);
-  const [ divSize, setDivSize ] = useState<number[]>([0, 0]); // store rendered size (width, height)
+interface State {
+}
 
-  function rescale() {
-    if (divRef.current && (width > 0 || height > 0)) {
+class WSTerminal extends React.Component<Props, State> {
 
-      const xtermScreens = divRef.current.getElementsByClassName("xterm-screen");
-      if (xtermScreens.length > 0) {
+  static defaultProps = {
+    width: -1,
+    height: -1,
+    className: "",
+  }
 
-        const xtermScreen = xtermScreens[0] as HTMLDivElement;
-        const initialWidth = xtermScreen.offsetWidth,
-          initialHeight = xtermScreen.offsetHeight;
+  termRef : React.RefObject<Xterm>;
+  divRef: React.RefObject<HTMLDivElement>;
 
-        let scale = proposeScale(width, height, initialWidth, initialHeight);
+  constructor(props: Props) {
+    super(props)
+    this.termRef = React.createRef<Xterm>();
+    this.divRef = React.createRef<HTMLDivElement>();
 
-        divRef.current.style.transform = `scale(${scale}) translate(-50%, -50%)`;
-        setDivSize([scale * initialWidth, scale * initialHeight])
-      }
-    } else {
-      console.error("Parent div not found", );
+  }
+
+
+  componentDidMount() {
+    this.props.msgManager.sub(constants.MSG_TWRITE, (buffer: Uint8Array) => {
+      this.termRef.current?.writeUtf8(buffer);
+    })
+
+    this.props.msgManager.sub(constants.MSG_TWINSIZE, (winsize: Winsize) => {
+      this.termRef.current?.resize(winsize.Cols, winsize.Rows)
+      this.rescale();
+    })
+
+    this.props.msgManager.pub("request", constants.MSG_TREQUEST_WINSIZE );
+    this.props.msgManager.pub("request", constants.MSG_TREQUEST_CACHE_MESSAGE );
+
+    window.addEventListener("resize", () => this.rescale());
+    this.rescale();
+
+  }
+
+  componentWillUnmount() {
+    this.props.msgManager.unsub(constants.MSG_TWRITE);
+    this.props.msgManager.unsub(constants.MSG_TWINSIZE);
+  }
+
+
+  rescale() {
+    if (this.termRef.current && this.divRef.current && (this.props.width! > 0 || this.props.height! > 0)) {
+      const core = (this.termRef.current?.terminal as any)._core;
+      const cellWidth = core._renderService.dimensions.actualCellWidth,
+        cellHeight = core._renderService.dimensions.actualCellHeight,
+        currentFontSize = this.termRef.current.terminal.getOption('fontSize'),
+        rows = this.termRef.current.terminal.rows,
+        cols = this.termRef.current.terminal.cols,
+        hFontSizeMultiplier = this.props.height! / (cellHeight * rows),
+        wFontSizeMultiplier = this.props.width! / (cellWidth * cols),
+        // This method doesn't ensure termianl will fully fit the required size since fontsize are discrete
+        // Another method is to transform scale to fit the window
+        // But I haven't figured out why the scaled version sometimes make terminal deformed after multiple times of apply scale transformation
+        newFontSize = Math.floor(hFontSizeMultiplier > wFontSizeMultiplier ? currentFontSize * wFontSizeMultiplier : currentFontSize * hFontSizeMultiplier);
+
+      this.termRef.current.terminal.setOption('fontSize', newFontSize);
+
     }
   }
 
-  useEffect(() => {
-    msgManager?.sub(constants.MSG_TWRITE, (buffer: Uint8Array) => {
-      termRef.current?.writeUtf8(buffer);
-    })
 
-    msgManager?.sub(constants.MSG_TWINSIZE, (winsize: Winsize) => {
-      termRef.current?.resize(winsize.Cols, winsize.Rows)
-      rescale();
-    })
-
-    msgManager?.pub("request", constants.MSG_TREQUEST_WINSIZE );
-    msgManager?.pub("request", constants.MSG_TREQUEST_CACHE_MESSAGE );
-  }, []);
-
-
-  const s = {
-    width: width > 0 ? width + "px" : divSize[0] + "px",
-    height: height > 0 ? height + "px" : divSize[1] + "px",
+  render() {
+    return (
+      <div className={`relative ${this.props.className} overflow-hidden`}
+        style={{width: this.props.width!, height: this.props.height!}}>
+        <div ref={this.divRef}
+          className="divref absolute top-1/2 left-1/2 origin-top-left transform -translate-x-1/2 -translate-y-1/2 overflow-hidden">
+          <Xterm
+            options={{
+              rightClickSelectsWord: false,
+            }}
+            ref={this.termRef}/>
+        </div>
+      </div>
+    )
   }
 
-  return (
-    <div className={`relative ${className}`} style={s}>
-      <div ref={divRef}
-        className="divref absolute top-1/2 left-1/2 origin-top-left"
-      >
-        <Xterm
-          options={{
-            rightClickSelectsWord: false,
-          }}
-          ref={termRef}/>
-      </div>
-    </div>
-  )
 }
 
 export default WSTerminal;

@@ -68,6 +68,7 @@ class Chat extends React.Component<Props, State> {
     var person =
       prompt("Please enter your name (It must not be empty or have more than 10 characters). \
         If your name is invalid, it is automatically changed to Anonymous.", "");
+        //var person = "Ngoc";
         //var person = "yo";
         var color: string = constants.COLOR_LIST[Math.floor(Math.random() * (constants.COLOR_LIST.length))];
 

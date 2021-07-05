@@ -20,7 +20,7 @@ export default class PubSub {
       this._handlers[topic].push(cb);
       return this._handlers[topic].length - 1
     } else {
-      throw new Error("Only one subscribeer allowed");
+      throw new Error(`Only one subscribeer allowed: ${topic}`);
     }
   }
 
