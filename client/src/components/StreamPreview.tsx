@@ -21,24 +21,10 @@ interface Props {
   height?: number; // in pixel
 }
 
-function getUpTime(time: dayjs.Dayjs): string {
-  const now = dayjs();
-  let diff = now.diff(time, "second");
-
-  let hours = Math.floor(diff / 3600);
-  diff = diff - 3600 * hours;
-
-  let minutes = Math.floor(diff / 60);
-  diff = diff - minutes * 60;
-
-  let seconds = diff;
-
-  return `${hours}:${minutes > 9 ? minutes : `0${minutes}` }:${seconds> 9 ? seconds: `0${seconds}` }`;
-}
 
 const StreamPreview: FC<Props> = ({ title, wsUrl, streamerID, nViewers, startedTime, lastActiveTime }): ReactElement => {
 
-  const [ upTime, setUpTime ] = useState(getUpTime(dayjs(startedTime)));
+  const [ upTime, setUpTime ] = useState(util.getUpTime(dayjs(startedTime)));
   const [ msgManager, setMsgManager ] = useState<PubSub>();
 
   useEffect(() => {
@@ -61,11 +47,11 @@ const StreamPreview: FC<Props> = ({ title, wsUrl, streamerID, nViewers, startedT
       }
     }
 
-    tempMsg.sub(constants.MSG_TREQUEST_WINSIZE, () => {
+    tempMsg.sub("request", (msgType: string) => {
 
       var payload_byte = base64.toArrayBuffer(window.btoa(""));
       var wrapper = JSON.stringify({
-        Type: constants.MSG_TREQUEST_WINSIZE,
+        Type: msgType,
         Data: Array.from(payload_byte),
       });
       const payload = base64.toArrayBuffer(window.btoa(wrapper))
@@ -75,7 +61,7 @@ const StreamPreview: FC<Props> = ({ title, wsUrl, streamerID, nViewers, startedT
     setMsgManager(tempMsg);
 
     setInterval(() => {
-      setUpTime(getUpTime(dayjs(startedTime)));
+      setUpTime(util.getUpTime(dayjs(startedTime)));
     }, 1000);
 
   }, [])

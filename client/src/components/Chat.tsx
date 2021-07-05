@@ -7,11 +7,6 @@ interface Props {
   msgManager: PubSub;
 }
 
-interface State{
-  msgList: ChatMsg[];
-  inputContent: string;
-}
-
 interface ChatMsg {
   Name: string;
   Content: string;
@@ -118,7 +113,7 @@ class Chat extends React.Component<Props, State> {
     return (
       <div className="w-full flex flex-col border-l border-gray-500 relative" style={{width: "400px"}}>
         <div className="bg-black overflow-y-auto overflow-x-none p-2 flex flex-col-reverse" style={{height: "calc(100vh - 10rem - 57px)"}}>
-          {this.state.msgList.slice(0).reverse().map((item, index) => <ChatSection Msg={item.Msg} isMe={item.isMe}/>)}
+          {this.state.msgList.slice(0).reverse().map((item) => <ChatSection Msg={item.Msg} isMe={item.isMe}/>)}
         </div>
         <div className="absolute bottom-0 transform w-full">
          <div className="h-20 border-b border-gray-500 flex-shrink-0 flex items-center justify-between pr-2">

@@ -13,6 +13,7 @@ import (
 	"log"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -20,12 +21,13 @@ type Streamer struct {
 	pty        *ptyMaster.PtyMaster
 	serverAddr string
 	id         string
+	title      string
 	conn       *websocket.Conn
 	Out        chan []byte
 	In         chan []byte
 }
 
-func New(serverAddr, id string) *Streamer {
+func New(serverAddr, id, title string) *Streamer {
 	pty := ptyMaster.New()
 	out := make(chan []byte, 256) // buffer 256 send requests
 	in := make(chan []byte, 256)  // buffer 256 send requests
@@ -34,6 +36,7 @@ func New(serverAddr, id string) *Streamer {
 		pty:        pty,
 		serverAddr: serverAddr,
 		id:         id,
+		title:      title,
 		Out:        out,
 		In:         in,
 	}
@@ -50,8 +53,15 @@ func (s *Streamer) Start() error {
 	bufio.NewReader(os.Stdin).ReadString('\n')
 
 	// Connect socket to server
-	url := url.URL{Scheme: "ws", Host: s.serverAddr, Path: fmt.Sprintf("/ws/%s/streamer", s.id)}
+	scheme := "wss"
+	if strings.HasPrefix(s.serverAddr, "http://") {
+		scheme = "ws"
+	}
+	host := strings.Replace(strings.Replace(s.serverAddr, "http://", "", 1), "https://", "", 1)
+	url := url.URL{Scheme: scheme, Host: host, Path: fmt.Sprintf("/ws/%s/streamer", s.id)}
 	log.Printf("Openning socket at %s", url.String())
+	fmt.Printf("Openning socket at %s\n", url.String())
+
 	conn, _, err := websocket.DefaultDialer.Dial(url.String(), nil)
 	if err != nil {
 		log.Printf("Failed to open websocket: %s", err)
@@ -62,12 +72,23 @@ func (s *Streamer) Start() error {
 	s.pty.MakeRaw()
 	defer s.Stop()
 
+	// Send a winsize message at first
 	winSize, _ := ptyMaster.GetWinsize(0)
 	s.Winsize(winSize.Rows, winSize.Cols)
 
+	// Send a winsize message when ever terminal change size
 	s.pty.SetWinChangeCB(func(ws *ptyDevice.Winsize) {
 		s.Winsize(ws.Rows, ws.Cols)
 	})
+
+	// Send room title
+	msg, err := message.Wrap(message.TStreamerConnect, &message.StreamerConnect{Title: s.title})
+	if err == nil {
+		payload, _ := json.Marshal(msg)
+		conn.WriteMessage(websocket.TextMessage, payload)
+	} else {
+		log.Printf("Failed to wrap connect message: %s", err)
+	}
 
 	// Pipe command response to Pty and server
 	go func() {
@@ -115,6 +136,7 @@ func (s *Streamer) Start() error {
 			case <-ticker.C:
 				var emptyByteArray []byte
 				s.conn.WriteControl(websocket.PingMessage, emptyByteArray, time.Time{})
+				s.pty.Refresh()
 			}
 		}
 	}()
@@ -137,7 +159,7 @@ func (s *Streamer) Write(data []byte) (int, error) {
 		Data: data,
 	}
 
-	payload, err := message.Wrap(msg)
+	payload, err := json.Marshal(msg)
 	if err != nil {
 		log.Printf("Failed to wrap message: %s", err)
 	}
@@ -146,17 +168,8 @@ func (s *Streamer) Write(data []byte) (int, error) {
 }
 
 func (s *Streamer) Winsize(rows, cols uint16) {
-	winsizeData, _ := json.Marshal(message.Winsize{
-		Rows: rows,
-		Cols: cols,
-	})
-
-	msg := &message.Wrapper{
-		Type: message.TWinsize,
-		Data: winsizeData,
-	}
-
-	payload, err := message.Wrap(msg)
+	msg, err := message.Wrap(message.TWinsize, message.Winsize{Rows: rows, Cols: cols})
+	payload, err := json.Marshal(msg)
 	if err != nil {
 		log.Printf("Failed to wrap message: %s", err)
 	}

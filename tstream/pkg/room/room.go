@@ -22,6 +22,7 @@ type Room struct {
 	viewers        map[string]*viewer.Viewer
 	chats          map[string]*viewer.Viewer
 	ID             string
+	title          string
 	lastWinsize    *message.Winsize
 	startedTime    time.Time
 	lastActiveTime time.Time
@@ -52,6 +53,14 @@ func (r *Room) Viewers() map[string]*viewer.Viewer {
 	return r.viewers
 }
 
+func (r *Room) SetTitle(title string) {
+	r.title = title
+}
+
+func (r *Room) Title() string {
+	return r.title
+}
+
 func (r *Room) AddStreamer(conn *websocket.Conn) error {
 	// TODO: hanlde case when streamer already existed
 	if r.streamer != nil {
@@ -80,23 +89,19 @@ func (r *Room) AddViewer(ID string, conn *websocket.Conn) error {
 
 	// send winsize if existed
 	if r.lastWinsize != nil {
-		winsizeData, _ := json.Marshal(message.Winsize{
+		msg, err := message.Wrap(message.TWinsize, message.Winsize{
 			Rows: r.lastWinsize.Rows,
 			Cols: r.lastWinsize.Cols,
 		})
 
-		msg := &message.Wrapper{
-			Type: message.TWinsize,
-			Data: winsizeData,
+		if err != nil {
+			log.Printf("Failed to decode message: %s", err)
+		} else {
+			payload, _ := json.Marshal(msg)
+			v.Out <- payload
 		}
-		payload, _ := message.Wrap(msg)
-		v.Out <- payload
 	}
 
-	// Send msg buffer so viewers doesn't face a idle screen when first started
-	for _, msg := range r.msgBuffer {
-		v.Out <- msg
-	}
 	return nil
 }
 
@@ -122,10 +127,27 @@ func (r *Room) Start() {
 			r.streamer.Close()
 			return
 		}
-		r.lastActiveTime = time.Now()
-		r.addMsgBuffer(msg)
-		log.Printf("message in buffer %d, %d", len(r.msgBuffer), cap(r.msgBuffer))
-		r.Broadcast(msg, nil)
+		wrapperMsg, err := message.Unwrap(msg)
+		if err != nil {
+			log.Printf("Unable to decode message: %s", err)
+			continue
+		}
+		if wrapperMsg.Type == message.TWinsize || wrapperMsg.Type == message.TWrite {
+			r.lastActiveTime = time.Now()
+			r.addMsgBuffer(msg)
+			r.Broadcast(msg, []string{})
+		} else if wrapperMsg.Type == message.TStreamerConnect {
+			msgObject := &message.StreamerConnect{}
+			err := json.Unmarshal(wrapperMsg.Data, msgObject)
+			if err != nil {
+				log.Printf("Failed to decode message: %s", err)
+			} else {
+				r.SetTitle(msgObject.Title)
+			}
+
+		} else {
+			log.Printf("Unknown message type: %s", wrapperMsg.Type)
+		}
 	}
 }
 
@@ -152,31 +174,36 @@ func (r *Room) ReadAndHandleViewerMessage(ID string) {
 		log.Printf("Got a message: %s", msgObj.Type)
 		if msgObj.Type == message.TRequestWinsize {
 
-			log.Printf("====================================================================================")
-
-			winsizeData, _ := json.Marshal(message.Winsize{
+			msg, _ := message.Wrap(message.TWinsize, message.Winsize{
 				Rows: r.lastWinsize.Rows,
 				Cols: r.lastWinsize.Cols,
 			})
-
-			msg := &message.Wrapper{
-				Type: message.TWinsize,
-				Data: winsizeData,
-			}
-			payload, _ := message.Wrap(msg)
+			payload, _ := json.Marshal(msg)
 			viewer.Out <- payload
 
-		}
+		} else if msgObj.Type == message.TRequestCacheMessage {
+			// Send msg buffer so viewers doesn't face a idle screen when first started
+			for _, msg := range r.msgBuffer {
+				viewer.Out <- msg
+			}
+		} else if msgObj.Type == message.TRequestRoomInfo {
+			msg, err := message.Wrap(message.TRoomInfo, message.RoomInfo{
+				Title:       r.Title(),
+				NViewers:    len(r.viewers),
+				StartedTime: r.StartedTime(),
+				StreamerID:  r.ID,
+			})
 
-		log.Printf("Room got message: %d", len(msg))
-		wrapper, err := message.Unwrap(msg)
-		if err != nil {
-			log.Printf("Error Unwrap data: %v", err)
-			continue
-		}
-		if wrapper.Type == "Chat" {
+			if err == nil {
+				payload, _ := json.Marshal(msg)
+				viewer.Out <- payload
+			} else {
+				log.Printf("Error wrapping room info message: %s", err)
+			}
+		} else if msgObj.Type == message.TChat {
 			r.Broadcast(msg, []string{ID})
 		}
+
 	}
 }
 

@@ -39,7 +39,7 @@ func (s *Server) handleListRooms(w http.ResponseWriter, r *http.Request) {
 			LastActiveTime: room.LastActiveTime(),
 			StartedTime:    room.StartedTime(),
 			NViewers:       len(room.Viewers()),
-			Title:          "YOOOOOOO",
+			Title:          room.Title(),
 		})
 	}
 	json.NewEncoder(w).Encode(data)
