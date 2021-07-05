@@ -64,7 +64,6 @@ const WSTerminal: React.FC<Props> = ({ msgManager, width= -1, height= -1, classN
 
     msgManager?.pub("request", constants.MSG_TREQUEST_WINSIZE );
     msgManager?.pub("request", constants.MSG_TREQUEST_CACHE_MESSAGE );
-    msgManager?.pub("request", constants.MSG_TREQUEST_ROOM_INFO);
   }, []);
 
 
