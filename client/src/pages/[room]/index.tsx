@@ -48,15 +48,11 @@ interface Params {
 }
 
 interface Props extends RouteComponentProps<Params> {
-
 }
 
 interface State {
   termSize: Winsize | null;
-  msgManager: PubSub | null;
   roomInfo: RoomInfo | null;
-  ws: WebSocket | null;
-  upTimeStr: string | null;
   mouseMove: boolean;
 }
 
@@ -65,18 +61,58 @@ class Room extends React.Component<Props, State> {
   navbarRef: React.RefObject<HTMLDivElement>;
   chatWinsize: number = 400; // TODO: implement dynamic chat win size
   mouseMovetimeout: ReturnType<typeof setTimeout> | null;
+  ws: WebSocket | null;
+  msgManager: PubSub | null;
 
   constructor(props: Props) {
     super(props);
+    console.log("props");
 
     this.navbarRef = React.createRef<HTMLDivElement>();
     this.mouseMovetimeout = null;
+    this.ws = null;
+    this.msgManager = null;
 
+
+    this.state = {
+      termSize: null,
+      roomInfo: null,
+      mouseMove:false,
+    };
+
+  }
+
+  flashTitle() {
+    this.setState({ mouseMove: true });
+
+    (() => {
+      if (this.mouseMovetimeout) clearTimeout(this.mouseMovetimeout);
+      this.mouseMovetimeout = setTimeout(() => {
+        this.setState({mouseMove:false})
+      }, 500);
+    })();
+  }
+
+  resizeTerminal() {
+    if (this.navbarRef.current) {
+      this.setState({termSize: {
+        Width: window.innerWidth - this.chatWinsize,
+        Height: window.innerHeight - this.navbarRef.current.offsetHeight,
+      }})
+
+    }
+  }
+
+  componentWillUnmount() {
+    this.ws?.close();
+  }
+
+
+  componentDidMount() {
     const wsUrl = util.getWsUrl(this.props.match.params.username);
-    const ws: WebSocket = new WebSocket(wsUrl);
-
     const msgManager = new PubSub();
 
+    const ws =  new WebSocket(wsUrl);
     ws.onmessage = (ev: MessageEvent) => {
       let msg = JSON.parse(ev.data);
 
@@ -103,8 +139,6 @@ class Room extends React.Component<Props, State> {
 
         let roomInfo = JSON.parse(window.atob(msg.Data));
         this.setState({roomInfo: roomInfo});
-        console.log("Got room info: ", roomInfo);
-
 
       }
     }
@@ -132,6 +166,7 @@ class Room extends React.Component<Props, State> {
       util.sendWhenConnected(ws, msg);
     })
 
+
     msgManager.pub("request", constants.MSG_TREQUEST_ROOM_INFO);
     // TODO: remove this manual request from viewer by actively sending from server
     // refresh roomInfo every seconds to update number of viewers
@@ -139,56 +174,23 @@ class Room extends React.Component<Props, State> {
       msgManager.pub("request", constants.MSG_TREQUEST_ROOM_INFO);
     }, 10000);
 
-
-    this.state = {
-      termSize: null,
-      msgManager: msgManager,
-      roomInfo: null,
-      ws: ws,
-      upTimeStr: null,
-      mouseMove:false,
-    };
-
-  }
-
-  flashTitle() {
-    this.setState({ mouseMove: true });
-
-    (() => {
-      if (this.mouseMovetimeout) clearTimeout(this.mouseMovetimeout);
-      this.mouseMovetimeout = setTimeout(() => {
-        this.setState({mouseMove:false})
-      }, 500);
-    })();
-  }
-
-  resizeTerminal() {
-    if (this.navbarRef.current) {
-      this.setState({termSize: {
-        Width: window.innerWidth - this.chatWinsize,
-        Height: window.innerHeight - this.navbarRef.current.offsetHeight,
-      }})
-
-    }
-  }
-  componentDidMount() {
+    this.msgManager = msgManager;
+    this.ws = ws;
 
     this.resizeTerminal();
-
     window.addEventListener('resize', () => {
       this.resizeTerminal();
     })
   }
 
   render() {
-    console.log("termsize", this.state.termSize);
     return (
       <ThemeProvider theme={darkTheme}>
         <CssBaseline />
         <div ref={this.navbarRef}>
           <Navbar />
         </div>
-        {this.state.msgManager && this.state.termSize &&
+        {this.msgManager && this.state.termSize &&
         <div id="room" className="flex">
           <div id="terminal-view" className="relative"
             onMouseMove={() => this.flashTitle()}
@@ -211,7 +213,7 @@ class Room extends React.Component<Props, State> {
 
             <WSTerminal
               className="bg-black"
-              msgManager={this.state.msgManager}
+              msgManager={this.msgManager}
               width={this.state.termSize?.Width ? this.state.termSize.Width : -1}
               height={this.state.termSize?.Height ? this.state.termSize.Height : -1}
             />
@@ -219,7 +221,7 @@ class Room extends React.Component<Props, State> {
           </div>
 
           <Chat
-            msgManager={this.state.msgManager}
+            msgManager={this.msgManager}
           />
         </div>
         }
