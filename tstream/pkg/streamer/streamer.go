@@ -52,25 +52,14 @@ func (s *Streamer) Start() error {
 	fmt.Printf("Press Enter to continue!\n")
 	bufio.NewReader(os.Stdin).ReadString('\n')
 
-	// Connect socket to server
-	scheme := "wss"
-	if strings.HasPrefix(s.serverAddr, "http://") {
-		scheme = "ws"
-	}
-	host := strings.Replace(strings.Replace(s.serverAddr, "http://", "", 1), "https://", "", 1)
-	url := url.URL{Scheme: scheme, Host: host, Path: fmt.Sprintf("/ws/%s/streamer", s.id)}
-	log.Printf("Openning socket at %s", url.String())
-	fmt.Printf("Openning socket at %s\n", url.String())
-
-	conn, _, err := websocket.DefaultDialer.Dial(url.String(), nil)
+	err := s.ConnectWS()
 	if err != nil {
-		log.Printf("Failed to open websocket: %s", err)
-		return err
+		log.Println(err)
+		s.Stop("Failed to connect to server")
 	}
-	s.conn = conn
 
 	s.pty.MakeRaw()
-	defer s.Stop()
+	defer s.Stop("Bye!")
 
 	// Send a winsize message at first
 	winSize, _ := ptyMaster.GetWinsize(0)
@@ -85,7 +74,7 @@ func (s *Streamer) Start() error {
 	msg, err := message.Wrap(message.TStreamerConnect, &message.StreamerConnect{Title: s.title})
 	if err == nil {
 		payload, _ := json.Marshal(msg)
-		conn.WriteMessage(websocket.TextMessage, payload)
+		s.conn.WriteMessage(websocket.TextMessage, payload)
 	} else {
 		log.Printf("Failed to wrap connect message: %s", err)
 	}
@@ -96,7 +85,7 @@ func (s *Streamer) Start() error {
 		_, err := io.Copy(mw, s.pty.F())
 		if err != nil {
 			log.Printf("Failed to send pty to mw: %s", err)
-			s.Stop()
+			s.Stop("Failed to connect pty with server\n")
 		}
 	}()
 
@@ -104,8 +93,8 @@ func (s *Streamer) Start() error {
 	go func() {
 		_, err := io.Copy(s.pty.F(), os.Stdin)
 		if err != nil {
-			log.Printf("Failed to send stin to pty: %s", err)
-			s.Stop()
+			log.Printf("Failed to send stdin to pty: %s", err)
+			s.Stop("Failed to get user input\n")
 		}
 	}()
 
@@ -121,9 +110,15 @@ func (s *Streamer) Start() error {
 			// This make users lose their work while streaming
 			err := s.conn.WriteMessage(websocket.TextMessage, msg)
 			if err != nil {
-				log.Printf("Failed to send message: %s", err)
-				s.Stop()
-				return
+				log.Printf("Failed to send message. Streamer closing: %s", err)
+				time.Sleep(5 * time.Second)
+				log.Printf("Reconnecting...")
+				err = s.ConnectWS()
+				if err != nil {
+					log.Printf("Failed to retry connection. Closing connection: %s", err)
+					s.Stop("Failed to send message to server\n")
+					return
+				}
 			}
 		}
 	}()
@@ -145,11 +140,30 @@ func (s *Streamer) Start() error {
 	return nil
 }
 
-func (s *Streamer) Stop() {
+func (s *Streamer) ConnectWS() error {
+	scheme := "wss"
+	if strings.HasPrefix(s.serverAddr, "http://") {
+		scheme = "ws"
+	}
+
+	host := strings.Replace(strings.Replace(s.serverAddr, "http://", "", 1), "https://", "", 1)
+	url := url.URL{Scheme: scheme, Host: host, Path: fmt.Sprintf("/ws/%s/streamer", s.id)}
+	log.Printf("Openning socket at %s", url.String())
+
+	conn, _, err := websocket.DefaultDialer.Dial(url.String(), nil)
+	if err != nil {
+		return fmt.Errorf("Failed to connected to websocket: %s", err)
+	}
+	s.conn = conn
+
+	return nil
+}
+
+func (s *Streamer) Stop(msg string) {
 	s.conn.Close()
 	s.pty.Stop()
 	s.pty.Restore()
-	fmt.Println("Bye!")
+	fmt.Println(msg)
 }
 
 // Default behavior of Write is to send Write message
