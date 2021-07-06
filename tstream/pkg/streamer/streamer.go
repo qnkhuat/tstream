@@ -42,6 +42,7 @@ func New(serverAddr, id, title string) *Streamer {
 	}
 }
 
+var emptyByteArray []byte
 var httpUpgrader = websocket.Upgrader{
 	ReadBufferSize:  cfg.STREAMER_READ_BUFFER_SIZE,
 	WriteBufferSize: cfg.STREAMER_WRITE_BBUFFER_SIZE,
@@ -53,13 +54,13 @@ func (s *Streamer) Start() error {
 	bufio.NewReader(os.Stdin).ReadString('\n')
 
 	err := s.ConnectWS()
+
 	if err != nil {
 		log.Println(err)
 		s.Stop("Failed to connect to server")
 	}
 
 	s.pty.MakeRaw()
-	defer s.Stop("Bye!")
 
 	// Send a winsize message at first
 	winSize, _ := ptyMaster.GetWinsize(0)
@@ -116,10 +117,20 @@ func (s *Streamer) Start() error {
 				err = s.ConnectWS()
 				if err != nil {
 					log.Printf("Failed to retry connection. Closing connection: %s", err)
-					s.Stop("Failed to send message to server\n")
+					s.Stop("Failed to connect with server! Please try again later\n")
 					return
 				}
 			}
+		}
+	}()
+
+	// Read and handle message from server
+	// Current for ping message only
+	// TODO: secure this, otherwise server can control streamer terminal
+	go func() {
+		_, _, err := s.conn.ReadMessage()
+		if err != nil {
+			log.Printf("Failed to receive message from server: %s", err)
 		}
 	}()
 
@@ -129,7 +140,7 @@ func (s *Streamer) Start() error {
 		for {
 			select {
 			case <-ticker.C:
-				var emptyByteArray []byte
+				log.Printf("streaming pingging")
 				s.conn.WriteControl(websocket.PingMessage, emptyByteArray, time.Time{})
 				s.pty.Refresh()
 			}
@@ -137,6 +148,7 @@ func (s *Streamer) Start() error {
 	}()
 
 	s.pty.Wait() // Blocking until user exit
+	s.Stop("Bye!")
 	return nil
 }
 
@@ -154,15 +166,24 @@ func (s *Streamer) ConnectWS() error {
 	if err != nil {
 		return fmt.Errorf("Failed to connected to websocket: %s", err)
 	}
-	s.conn = conn
 
+	// Handle server ping
+	conn.SetPingHandler(func(appData string) error {
+		log.Printf("Got ping message")
+		//return s.conn.WriteControl(websocket.PongMessage, emptyByteArray, time.Time{})
+		return nil
+	})
+
+	s.conn = conn
 	return nil
 }
 
 func (s *Streamer) Stop(msg string) {
+	s.conn.WriteControl(websocket.CloseMessage, emptyByteArray, time.Time{})
 	s.conn.Close()
 	s.pty.Stop()
 	s.pty.Restore()
+	fmt.Println()
 	fmt.Println(msg)
 }
 

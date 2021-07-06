@@ -23,6 +23,8 @@ var httpUpgrader = websocket.Upgrader{
 	WriteBufferSize: cfg.SERVER_WRITE_BBUFFER_SIZE,
 }
 
+var emptyByteArray []byte
+
 type Room struct {
 	StreamerID     string    `json:"streamerID"`
 	LastActiveTime time.Time `json:"lastActiveTime"`

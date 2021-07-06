@@ -1,10 +1,12 @@
 package viewer
 
 import (
-	"log"
-
 	"github.com/gorilla/websocket"
+	"log"
+	"time"
 )
+
+var emptyByteArray []byte
 
 type Viewer struct {
 	conn *websocket.Conn
@@ -65,6 +67,7 @@ func (v *Viewer) Start() {
 }
 
 func (v *Viewer) Close() {
+	v.conn.WriteControl(websocket.CloseMessage, emptyByteArray, time.Time{})
 	v.alive = false
 	v.conn.Close()
 }

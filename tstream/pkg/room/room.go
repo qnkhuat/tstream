@@ -16,6 +16,20 @@ import (
 	"github.com/qnkhuat/tstream/pkg/viewer"
 )
 
+type RoomStatus string
+
+const (
+	Streaming RoomStatus = "Streaming"
+
+	// When user actively close connection. Detected via closemessage
+	Stopped = "Stopped"
+
+	// When don't receive ping for a long time
+	Disconnected = "Disconnected"
+)
+
+var emptyByteArray []byte
+
 type Room struct {
 	lock           sync.Mutex
 	streamer       *websocket.Conn
@@ -27,6 +41,7 @@ type Room struct {
 	startedTime    time.Time
 	lastActiveTime time.Time
 	msgBuffer      [][]byte
+	status         RoomStatus
 }
 
 func New(ID string) *Room {
@@ -38,6 +53,7 @@ func New(ID string) *Room {
 		lastActiveTime: time.Now(),
 		startedTime:    time.Now(),
 		msgBuffer:      buffer,
+		status:         Streaming,
 	}
 }
 
@@ -61,6 +77,10 @@ func (r *Room) Title() string {
 	return r.title
 }
 
+func (r *Room) Streamer() *websocket.Conn {
+	return r.streamer
+}
+
 func (r *Room) AddStreamer(conn *websocket.Conn) error {
 	// TODO: hanlde case when streamer already existed
 	if r.streamer != nil {
@@ -69,10 +89,29 @@ func (r *Room) AddStreamer(conn *websocket.Conn) error {
 	}
 	log.Printf("New streamer")
 	r.streamer = conn
-	r.streamer.SetPingHandler(func(appData string) error {
+
+	conn.SetPongHandler(func(appData string) error {
 		r.lastActiveTime = time.Now()
 		return nil
 	})
+
+	r.streamer.SetCloseHandler(func(code int, text string) error {
+		log.Printf("Got streamer close message. Stopping room: %s", r.ID)
+		r.Stop(Stopped)
+		return nil
+	})
+
+	// Periodically ping streamer
+	// If streamer response with a pong message => still alive
+	go func() {
+		ticker := time.NewTicker(5 * time.Second)
+		for {
+			select {
+			case <-ticker.C:
+				r.streamer.WriteControl(websocket.PingMessage, emptyByteArray, time.Time{})
+			}
+		}
+	}()
 
 	return nil
 }
@@ -121,7 +160,10 @@ func (r *Room) RemoveViewer(ID string) error {
 func (r *Room) Start() {
 	for {
 		_, msg, err := r.streamer.ReadMessage()
+
 		log.Printf("Got a message: %d", len(msg))
+		log.Printf("Sent a ping message")
+		r.streamer.WriteControl(websocket.PingMessage, emptyByteArray, time.Time{})
 		if err != nil {
 			log.Printf("Failed to reaceive message from streamer: %s. Closing. Error: %s", r.ID, err)
 			r.streamer.Close()
@@ -164,6 +206,7 @@ func (r *Room) ReadAndHandleViewerMessage(ID string) {
 		return
 	}
 	for {
+
 		msg, _ := <-viewer.In
 
 		msgObj, err := message.Unwrap(msg)
@@ -241,8 +284,11 @@ func (r *Room) Broadcast(msg []uint8, IDExclude []string) {
 	log.Printf("Broadcasted to %d viewers", count)
 }
 
-func (r *Room) Close() {
-	for id, _ := range r.viewers {
+func (r *Room) Stop(roomStatus RoomStatus) {
+	log.Printf("Stopping room: %s, with Status: %s", r.ID, roomStatus)
+	r.status = roomStatus
+	for id, viewer := range r.viewers {
+		viewer.Close()
 		r.RemoveViewer(id)
 	}
 	r.lock.Lock()
