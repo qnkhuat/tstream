@@ -140,8 +140,6 @@ func (s *Streamer) Start() error {
 		for {
 			select {
 			case <-ticker.C:
-				log.Printf("streaming pingging")
-				s.conn.WriteControl(websocket.PingMessage, emptyByteArray, time.Time{})
 				s.pty.Refresh()
 			}
 		}
@@ -169,9 +167,7 @@ func (s *Streamer) ConnectWS() error {
 
 	// Handle server ping
 	conn.SetPingHandler(func(appData string) error {
-		log.Printf("Got ping message")
-		//return s.conn.WriteControl(websocket.PongMessage, emptyByteArray, time.Time{})
-		return nil
+		return s.conn.WriteControl(websocket.PongMessage, emptyByteArray, time.Time{})
 	})
 
 	s.conn = conn

@@ -104,10 +104,15 @@ func (r *Room) AddStreamer(conn *websocket.Conn) error {
 	// Periodically ping streamer
 	// If streamer response with a pong message => still alive
 	go func() {
-		ticker := time.NewTicker(5 * time.Second)
+		ticker := time.NewTicker(cfg.SERVER_PING_INTERVAL * time.Second)
 		for {
 			select {
 			case <-ticker.C:
+				if time.Now().Sub(r.lastActiveTime) > time.Second*cfg.SERVER_DISCONNECTED_THRESHHOLD {
+					r.status = Disconnected
+				} else {
+					r.status = Streaming
+				}
 				r.streamer.WriteControl(websocket.PingMessage, emptyByteArray, time.Time{})
 			}
 		}
@@ -161,7 +166,7 @@ func (r *Room) Start() {
 	for {
 		_, msg, err := r.streamer.ReadMessage()
 
-		log.Printf("Got a message: %d", len(msg))
+		log.Printf("Got a message from streamer: %d", len(msg))
 		log.Printf("Sent a ping message")
 		r.streamer.WriteControl(websocket.PingMessage, emptyByteArray, time.Time{})
 		if err != nil {
@@ -214,7 +219,6 @@ func (r *Room) ReadAndHandleViewerMessage(ID string) {
 			log.Printf("Failed to decode msg", err)
 		}
 
-		log.Printf("Got a message: %s", msgObj.Type)
 		if msgObj.Type == message.TRequestWinsize {
 
 			msg, _ := message.Wrap(message.TWinsize, message.Winsize{
