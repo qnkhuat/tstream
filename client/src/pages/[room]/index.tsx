@@ -113,9 +113,15 @@ class Room extends React.Component<Props, State> {
     const msgManager = new PubSub();
 
     const ws =  new WebSocket(wsUrl);
+    ws.onclose = (ev: CloseEvent) => {
+      console.log("received on close message: ", ev);
+
+    }
+
     ws.onmessage = (ev: MessageEvent) => {
       let msg = JSON.parse(ev.data);
 
+      console.log("Receive message: ", msg.Type);
       if (msg.Type === constants.MSG_TWRITE) {
 
         var buffer = base64.toArrayBuffer(msg.Data)
