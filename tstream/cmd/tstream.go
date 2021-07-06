@@ -26,13 +26,14 @@ import (
 func main() {
 	logging.Config("/tmp/tstream.log", "STREAMER: ")
 	log.Println("Streaming started")
-	var server = flag.String("server", "0.0.0.0:3000", "Server endpoint")
+	var server = flag.String("server", "https://server.tstream.club", "Server endpoint")
+	var client = flag.String("client", "https://tstream.club", "Client webapp url")
 	var session = flag.String("session", "qnkhuat", "Session name")
 	var title = flag.String("title", "Building a thing", "Stream title")
 	flag.Parse()
 
 	log.Printf("Got session: %s\n", *session)
-	s := streamer.New(*server, *session, *title)
+	s := streamer.New(*client, *server, *session, *title)
 	err := s.Start()
 	if err != nil {
 		log.Panicf("Failed to start stream: %s", err)
