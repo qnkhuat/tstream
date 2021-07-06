@@ -1,10 +1,12 @@
 package viewer
 
 import (
-	"log"
-
 	"github.com/gorilla/websocket"
+	"log"
+	"time"
 )
+
+var emptyByteArray []byte
 
 type Viewer struct {
 	conn *websocket.Conn
@@ -52,8 +54,7 @@ func (v *Viewer) Start() {
 	}()
 
 	for {
-		msgType, msg, err := v.conn.ReadMessage()
-		log.Printf("Received a message: type:%d, %s, err: %s", msgType, msg, err)
+		_, msg, err := v.conn.ReadMessage()
 		if err == nil {
 			v.In <- msg // Will be handled in Room
 		} else {
@@ -65,6 +66,7 @@ func (v *Viewer) Start() {
 }
 
 func (v *Viewer) Close() {
+	v.conn.WriteControl(websocket.CloseMessage, emptyByteArray, time.Time{})
 	v.alive = false
 	v.conn.Close()
 }

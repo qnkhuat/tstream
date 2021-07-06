@@ -48,11 +48,24 @@ type StreamerConnect struct {
 	Title string
 }
 
+type RoomStatus string
+
+const (
+	RStreaming RoomStatus = "Streaming"
+
+	// When user actively close connection. Detected via closemessage
+	RStopped = "Stopped"
+
+	// When don't receive ping for a long time
+	RDisconnected = "Disconnected"
+)
+
 type RoomInfo struct {
 	NViewers    int
 	StartedTime time.Time
 	Title       string
 	StreamerID  string
+	RoomStatus  RoomStatus
 }
 
 func Unwrap(buff []byte) (Wrapper, error) {
@@ -67,6 +80,7 @@ func Wrap(msgType Type, msgObject interface{}) (Wrapper, error) {
 	if err != nil {
 		return Wrapper{}, err
 	}
+
 	msg := Wrapper{
 		Type: msgType,
 		Data: data,

@@ -100,6 +100,7 @@ class WSTerminal extends React.Component<Props, State> {
 
 
   render() {
+    console.log("WSterminal: ", this.props.width, this.props.height);
     return (
       <div className={`relative ${this.props.className} overflow-hidden`}
         style={{width: this.props.width!, height: this.props.height!}}>

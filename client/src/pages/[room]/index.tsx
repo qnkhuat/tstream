@@ -10,6 +10,7 @@ import Chat from "../../components/Chat";
 import Navbar from "../../components/Navbar";
 import WSTerminal from "../../components/WSTerminal";
 import Uptime from "../../components/Uptime";
+import Loading from "../../components/Loading";
 
 import dayjs from "dayjs";
 
@@ -28,10 +29,16 @@ interface Params {
   username: string;
 }
 
-interface Winsize {
-  Width: number;
-  Height: number;
+interface RectSize {
+  width: number;
+  height: number;
 
+}
+
+enum RoomStatus {
+  Disconnected = "Disconnected",
+    Stopped = "Stopped",
+    Streaming = "Streaming",
 }
 
 interface RoomInfo {
@@ -39,9 +46,8 @@ interface RoomInfo {
   StartedTime:string;
   NViewers: number;
   Title: string;
+  RoomStatus: RoomStatus;
 }
-
-
 
 interface Params {
   username: string;
@@ -51,9 +57,10 @@ interface Props extends RouteComponentProps<Params> {
 }
 
 interface State {
-  termSize: Winsize | null;
+  termSize: RectSize | null;
   roomInfo: RoomInfo | null;
   mouseMove: boolean;
+  connectStatus: RoomStatus;
 }
 
 class Room extends React.Component<Props, State> {
@@ -66,7 +73,6 @@ class Room extends React.Component<Props, State> {
 
   constructor(props: Props) {
     super(props);
-    console.log("props");
 
     this.navbarRef = React.createRef<HTMLDivElement>();
     this.mouseMovetimeout = null;
@@ -78,6 +84,7 @@ class Room extends React.Component<Props, State> {
       termSize: null,
       roomInfo: null,
       mouseMove:false,
+      connectStatus: RoomStatus.Streaming,
     };
 
   }
@@ -96,10 +103,9 @@ class Room extends React.Component<Props, State> {
   resizeTerminal() {
     if (this.navbarRef.current) {
       this.setState({termSize: {
-        Width: window.innerWidth - this.chatWinsize,
-        Height: window.innerHeight - this.navbarRef.current.offsetHeight,
-      }})
-
+        width: window.innerWidth - this.chatWinsize,
+        height: window.innerHeight - this.navbarRef.current.offsetHeight,
+      }});
     }
   }
 
@@ -113,9 +119,18 @@ class Room extends React.Component<Props, State> {
     const msgManager = new PubSub();
 
     const ws =  new WebSocket(wsUrl);
+    ws.onclose = (ev: CloseEvent) => {
+      let roomInfo = this.state.roomInfo;
+      if (roomInfo) {
+        roomInfo.RoomStatus = RoomStatus.Stopped;
+        this.setState({roomInfo: roomInfo});
+      }
+    }
+
     ws.onmessage = (ev: MessageEvent) => {
       let msg = JSON.parse(ev.data);
 
+      console.log("Receive message: ", msg.Type);
       if (msg.Type === constants.MSG_TWRITE) {
 
         var buffer = base64.toArrayBuffer(msg.Data)
@@ -168,11 +183,9 @@ class Room extends React.Component<Props, State> {
 
 
     msgManager.pub("request", constants.MSG_TREQUEST_ROOM_INFO);
-    // TODO: remove this manual request from viewer by actively sending from server
-    // refresh roomInfo every seconds to update number of viewers
     setInterval(() => {
       msgManager.pub("request", constants.MSG_TREQUEST_ROOM_INFO);
-    }, 10000);
+    }, 5000);
 
     this.msgManager = msgManager;
     this.ws = ws;
@@ -183,48 +196,65 @@ class Room extends React.Component<Props, State> {
     })
   }
 
+
   render() {
+    const isStreamStopped = this.state.roomInfo?.RoomStatus == RoomStatus.Stopped;
+    const terminalSize: RectSize =  {
+      width: this.state.termSize?.width ? this.state.termSize.width : -1,
+      height: this.state.termSize?.height ? this.state.termSize.height : -1,
+    }
     return (
       <ThemeProvider theme={darkTheme}>
         <CssBaseline />
-        <div ref={this.navbarRef}>
+        <div id="navbar" ref={this.navbarRef}>
           <Navbar />
         </div>
-        {this.msgManager && this.state.termSize &&
-        <div id="room" className="flex">
-          <div id="terminal-view" className="relative"
-            onMouseMove={() => this.flashTitle()}
-          >
-            {this.state.roomInfo &&
-            <div id="info">
-              <div
-                className={`top-0 left-0 w-full absolute z-10 px-4 py-2 bg-opacity-80 bg-gray-400 ${this.state.mouseMove ? "visible" : "hidden"}`}>
-                <p className="text-2xl">{this.state.roomInfo.Title}</p>
-                <p className="text-md">@{this.state.roomInfo.StreamerID}</p>
+
+        <div id="room" className="flex relative">
+          {this.msgManager &&
+          <>
+            <div id="terminal-view" className="relative"
+              onMouseMove={() => this.flashTitle()}>
+              {this.state.roomInfo && !isStreamStopped &&
+              <div id="info">
+                <div
+                  className={`top-0 left-0 w-full absolute z-10 px-4 py-2 bg-opacity-80 bg-gray-400
+                ${this.state.mouseMove ? "visible" : "hidden"}`}>
+                  <p className="text-2xl">{this.state.roomInfo.Title}</p>
+                  <p className="text-md">@{this.state.roomInfo.StreamerID}</p>
+                </div>
+                <div id="info-uptime" className="p-1 bg-red-400 rounded absolute top-4 right-4 z-10">
+                  <Uptime className="text-md text-white font-semibold" startTime={new Date(this.state.roomInfo.StartedTime)} />
+                </div>
+
+                <div id="info-nviewers" className="p-1 bg-gray-400 rounded absolute bottom-4 right-4 z-10">
+                  <p className="text-mdtext-whtie font-semibold"><PersonIcon/> {this.state.roomInfo.NViewers}</p>
+                </div>
+              </div>}
+
+              <div id="terminal-window">
+                {!isStreamStopped &&
+                <WSTerminal
+                  className="bg-black"
+                  msgManager={this.msgManager}
+                  width={terminalSize.width}
+                  height={terminalSize.height}
+                />}
+                {isStreamStopped &&
+                  <div id="closed"
+                    style={terminalSize}
+                    className="w-full h-full bg-black flex justify-center items-center">
+                    <p className="text-2xl font-bold">The stream has stopped</p>
+                  </div>}
               </div>
-              <div id="info-uptime" className="p-1 bg-red-400 rounded absolute top-4 right-4 z-10">
-                <Uptime className="text-md text-white font-semibold" startTime={new Date(this.state.roomInfo.StartedTime)} />
-              </div>
+            </div>
 
-              <div id="info-nviewers" className="p-1 bg-gray-400 rounded absolute bottom-4 right-4 z-10">
-                <p className="text-mdtext-whtie font-semibold"><PersonIcon/> {this.state.roomInfo.NViewers}</p>
-              </div>
-            </div>}
+            <Chat msgManager={this.msgManager}/>
+          </>}
 
-            <WSTerminal
-              className="bg-black"
-              msgManager={this.msgManager}
-              width={this.state.termSize?.Width ? this.state.termSize.Width : -1}
-              height={this.state.termSize?.Height ? this.state.termSize.Height : -1}
-            />
-
-          </div>
-
-          <Chat
-            msgManager={this.msgManager}
-          />
         </div>
-        }
+
+
       </ThemeProvider>
     )
   }
