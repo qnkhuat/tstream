@@ -20,6 +20,7 @@ import (
 type Streamer struct {
 	pty        *ptyMaster.PtyMaster
 	serverAddr string
+	clientAddr string
 	id         string
 	title      string
 	conn       *websocket.Conn
@@ -27,7 +28,7 @@ type Streamer struct {
 	In         chan []byte
 }
 
-func New(serverAddr, id, title string) *Streamer {
+func New(clientAddr, serverAddr, id, title string) *Streamer {
 	pty := ptyMaster.New()
 	out := make(chan []byte, 256) // buffer 256 send requests
 	in := make(chan []byte, 256)  // buffer 256 send requests
@@ -35,6 +36,7 @@ func New(serverAddr, id, title string) *Streamer {
 	return &Streamer{
 		pty:        pty,
 		serverAddr: serverAddr,
+		clientAddr: clientAddr,
 		id:         id,
 		title:      title,
 		Out:        out,
@@ -50,15 +52,16 @@ var httpUpgrader = websocket.Upgrader{
 
 func (s *Streamer) Start() error {
 	s.pty.StartShell()
-	fmt.Printf("Press Enter to continue!\n")
+	fmt.Printf("Press Enter to continue!")
 	bufio.NewReader(os.Stdin).ReadString('\n')
 
 	err := s.ConnectWS()
-
 	if err != nil {
 		log.Println(err)
 		s.Stop("Failed to connect to server")
 	}
+
+	fmt.Printf("🔥 Streaming at: %s/%s\n", s.clientAddr, s.id)
 
 	s.pty.MakeRaw()
 
