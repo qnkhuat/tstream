@@ -54,8 +54,7 @@ func (v *Viewer) Start() {
 	}()
 
 	for {
-		msgType, msg, err := v.conn.ReadMessage()
-		log.Printf("Received a message: type:%d, %s, err: %s", msgType, msg, err)
+		_, msg, err := v.conn.ReadMessage()
 		if err == nil {
 			v.In <- msg // Will be handled in Room
 		} else {
