@@ -1,3 +1,4 @@
+
 import React, { useRef, useEffect, useState, useCallback } from "react";
 import * as constants from "../lib/constants";
 import PubSub from "../lib/pubsub";
@@ -44,7 +45,7 @@ class Chat extends React.Component<Props, State> {
     this.state = {
       msgList: [],
       inputContent: '',
-      name: 'Anonymous',
+      name: '',
       color: '',
     }
   }
@@ -64,25 +65,6 @@ class Chat extends React.Component<Props, State> {
         isMe: false,
       }
       this.addNewMsg(chatInfo);
-    })
-    var person =
-      prompt("Please enter your name (It must not be empty or have more than 10 characters). \
-        If your name is invalid, it is automatically changed to Anonymous.", "");
-        var color: string = constants.COLOR_LIST[Math.floor(Math.random() * (constants.COLOR_LIST.length))];
-
-        var name: string = '';
-
-        if (person === null || person.length === 0 || person.length > 10) {
-          name = "Anonymous";
-        } else {
-          name = person;
-        }
-
-    console.log(color, name);
-
-    this.setState({
-      color: color,
-      name: name,
     })
   }
 
@@ -131,6 +113,24 @@ class Chat extends React.Component<Props, State> {
                 var code = e.keyCode || e.which;
                 if (code === 13) {
                   this.onSendMsg(this.state.inputContent, true);
+                }
+              }}
+              onFocus={() => {
+                if (this.state.name === '' && this.state.color === '') {
+                  var person = prompt("Please enter your name (It must not be empty or have more than 10 characters). If your name is invalid, it is automatically changed to Anonymous.", "");
+                  var color: string = constants.COLOR_LIST[Math.floor(Math.random() * (constants.COLOR_LIST.length))];
+                  var name: string = '';
+
+                  if (person === null || person.length === 0 || person.length > 10) {
+                    name = "Anonymous";
+                  } else {
+                    name = person;
+                  }
+
+                  this.setState({
+                    color: color,
+                    name: name,
+                  });
                 }
               }}
             />
