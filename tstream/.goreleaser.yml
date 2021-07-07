@@ -8,25 +8,34 @@ before:
     - go generate ./...
 builds:
   - main: ./cmd/tstream.go
-    id: "tstream"
+    id: tstream
     binary: tstream
     goos:
       - freebsd
       - darwin
       - linux
   - main: ./cmd/server.go
-    id: "server"
-    binary: "server"
+    id: server
+    binary: server
     goos:
       - freebsd
       - darwin
       - linux
 archives:
-  - replacements:
-      darwin: MacOSX
+  - id: tstream  
+    format: binary
+    replacements:
+      darwin: MacOS
       linux: Linux
       windows: Windows
-      freebsd: Freebsd
+      386: i386
+      amd64: x86_64
+  - id: server  
+    format: binary
+    replacements:
+      darwin: MacOS
+      linux: Linux
+      windows: Windows
       386: i386
       amd64: x86_64
 checksum:
