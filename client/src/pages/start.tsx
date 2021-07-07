@@ -1,7 +1,8 @@
 import Navbar from "../components/Navbar";
 import Code from "../components/Code";
 
-function HowTo () {
+function Start() {
+  document.title = "TStream - How to start streaming";
   return (
     <>
       <Navbar />
@@ -23,6 +24,8 @@ function HowTo () {
           <p>If you're a new tmux user, <a className="text-green-term" href ="https://thoughtbot.com/blog/a-tmux-crash-course">this</a> is a simple tutorial that provides all you need to know to get started with tmux.</p>
 
           <h3 className="text-red-400">Happy streaming!</h3>
+          <br></br>
+          <br></br>
 
         </article>
 
@@ -31,4 +34,4 @@ function HowTo () {
   )
 }
 
-export default HowTo;
+export default Start;

@@ -54,6 +54,14 @@ interface State {
   connectStatus: RoomStatus;
 }
 
+function getSiteTitle(streamerId: string, title: string) {
+  var siteTitle: string = streamerId;
+  if (title) {
+    siteTitle += ` - ${title}`;
+  }
+  return siteTitle;
+}
+
 class Room extends React.Component<Props, State> {
 
   navbarRef: React.RefObject<HTMLDivElement>;
@@ -109,6 +117,7 @@ class Room extends React.Component<Props, State> {
     const wsUrl = util.getWsUrl(this.props.match.params.username);
     const msgManager = new PubSub();
 
+    // set up websocket connection
     const ws =  new WebSocket(wsUrl);
     ws.onclose = (ev: CloseEvent) => {
       let roomInfo = this.state.roomInfo;
@@ -149,6 +158,7 @@ class Room extends React.Component<Props, State> {
       }
     }
 
+    // set up msg manager to manage all in and out request of websocket
     msgManager.sub("request", (msgType: string) => {
 
       var payload_byte = base64.toArrayBuffer(window.btoa(""));
@@ -185,10 +195,11 @@ class Room extends React.Component<Props, State> {
     window.addEventListener('resize', () => {
       this.resizeTerminal();
     })
+
   }
 
-
   render() {
+    document.title = getSiteTitle(this.props.match.params.username, this.state.roomInfo?.Title as string);
     const isStreamStopped = this.state.roomInfo?.RoomStatus == RoomStatus.Stopped;
     const terminalSize: RectSize =  {
       width: this.state.termSize?.width ? this.state.termSize.width : -1,

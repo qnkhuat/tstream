@@ -12,11 +12,3 @@
   transform: translate(-50%, -50%);
 }
 
-::-webkit-scrollbar {
-  width: 7px;
-}
-
-::-webkit-scrollbar-thumb {
-  background: linear-gradient(to top right, #0703fc 0%, #ec135f 100%);
-  border-radius: 1rem;
-}
