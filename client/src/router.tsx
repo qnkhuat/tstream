@@ -6,13 +6,13 @@ import {
 
 import Home from './pages';
 import Room from './pages/[room]';
-import HowTo from './pages/how-to';
+import Start from './pages/start';
 
 const Router = () => {
   return (
     <BrowserRouter>
       <Switch>
-        <Route path="/how-to" ><HowTo/></Route>
+        <Route path="/start-streaming" ><Start/></Route>
         <Route path="/:username" ><Room/></Route>
         <Route path="/" ><Home/></Route>
       </Switch>

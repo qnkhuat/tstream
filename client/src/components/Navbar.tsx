@@ -13,7 +13,7 @@ const Navbar: React.FC<Props> = () => {
           <img alt={"logo"} className="w-10 h-10" src="./logo.svg" />
         </Link>
         <div className="flex items-center font-bold text-gray-100">
-          <Link to="/how-to" className="border-r border-white pr-4">Start streaming</Link>
+          <Link to="/start-streaming" className="border-r border-white pr-4">Start streaming</Link>
           <a href="https://github.com/qnkhuat/tstream" className="pl-4">Github</a>
         </div>
       </div>
