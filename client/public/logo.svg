@@ -8,7 +8,7 @@
 <g filter="url(#filter2_d)">
 <rect width="65" height="21" rx="5" transform="matrix(1 0 0 -1 84 111)" fill="#EEEDED"/>
 </g>
-<path d="M135 22.5C135 32.165 127.165 40 117.5 40C107.835 40 100 32.165 100 22.5C100 12.835 107.835 5 117.5 5C127.165 5 135 12.835 135 22.5Z" fill="#F02828" stroke="#F2F2F2" stroke-width="2"/>
+<path d="M141.936 26.5907C141.746 38.3574 132.053 47.7421 120.286 47.5519C108.519 47.3617 99.1348 37.6687 99.325 25.9019C99.5152 14.1352 109.208 4.75055 120.975 4.94075C132.742 5.13095 142.126 14.824 141.936 26.5907Z" fill="#F02828" stroke="#F2F2F2" stroke-width="2"/>
 <defs>
 <filter id="filter0_d" x="0" y="40" width="82.2462" height="82.2462" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
 <feFlood flood-opacity="0" result="BackgroundImageFix"/>
