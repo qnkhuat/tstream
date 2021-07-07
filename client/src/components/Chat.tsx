@@ -1,7 +1,6 @@
-import React, { useRef, useEffect, useState, useCallback } from "react";
+import React from "react";
 import * as constants from "../lib/constants";
 import PubSub from "../lib/pubsub";
-import * as base64 from "../lib/base64";
 
 interface TstreamUser {
   name: string,
@@ -76,16 +75,16 @@ class Chat extends React.Component<Props, State> {
     } 
     
     // disable enter default behavior of textarea 
-    document.getElementById("textarea").addEventListener('keydown', (e) => {
+    document.getElementById("textarea")!.addEventListener('keydown', (e) => {
       var code = e.keyCode || e.which;
       if (code === 13) {
         e.preventDefault();
-        let textarea = document.getElementById("textarea");
+        let textarea = document.getElementById("textarea") as HTMLTextAreaElement;
         textarea.rows = 1;
         this.onSendMsg(this.state.inputContent);
       }
     });
-    document.getElementById("chatbox").style.height = `calc(100vh - ${document.getElementById("textarea").clientHeight}px - 57px)`;
+    document.getElementById("chatbox")!.style.height = `calc(100vh - ${document.getElementById("textarea")!.clientHeight}px - 57px)`;
   }
 
   onSendMsg(content: string) {
@@ -124,7 +123,6 @@ class Chat extends React.Component<Props, State> {
             name: tempMsg,
             color: color,
           }
-          const payload = localStorage.setItem('tstreamUser', JSON.stringify(tstreamUser));
           tempMsg = this.state.tempMsg;
 
           // if the first message is empty, just ignore it
@@ -199,11 +197,9 @@ class Chat extends React.Component<Props, State> {
                 this.setState({
                   inputContent: e.target.value,
                 });
-                let textarea = document.getElementById("textarea");
+                let textarea = document.getElementById("textarea") as HTMLTextAreaElement;
                 textarea.rows = Math.floor(e.target.value.length / 45) + 1;
-                document.getElementById("chatbox").style.height = `calc(100vh - ${document.getElementById("textarea").clientHeight}px - 57px)`;
-              }}
-              onKeyPress={(e) => {
+                document.getElementById("chatbox")!.style.height = `calc(100vh - ${document.getElementById("textarea")!.clientHeight}px - 57px)`;
               }}
               rows={1}
               id="textarea"
