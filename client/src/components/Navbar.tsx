@@ -6,12 +6,18 @@ interface Props {
 
 const Navbar: React.FC<Props> = () => {
   return (
-    <Link to="/">
-      <div id="navbar" className="flex justify-center items-center py-1 bg-black border-b border-green-400">
-        <img alt={"logo"} className="h-12 mr-2" src="./tstream-green.svg" />
-        <p className="text-center text-2xl text-green-term font-bold">TStream</p>
+    <div id="navbar" className="flex justify-center py-2 border-b border-black shadow"
+      style={{background:"#18181b"}} >
+      <div className="container flex justify-between">
+        <Link to="/">
+          <img alt={"logo"} className="w-10 h-10" src="./logo.svg" />
+        </Link>
+        <div className="flex items-center font-bold text-gray-100">
+          <Link to="/how-to" className="border-r border-white pr-4">Stream</Link>
+          <a href="https://github.com/qnkhuat/tstream" className="pl-4">Github</a>
+        </div>
       </div>
-    </Link>
+    </div>
   )
 }
 
