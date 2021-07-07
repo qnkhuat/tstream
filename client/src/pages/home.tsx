@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom"
 import React, { useState, useEffect } from "react";
 import StreamPreview from "../components/StreamPreview";
+import Navbar from "../components/Navbar";
 import * as util from "../lib/util";
 import urljoin from "url-join";
 import axios from "axios";
@@ -43,16 +44,9 @@ function Home() {
     <>
       <ThemeProvider theme={darkTheme}>
         <CssBaseline />
+        <Navbar />
         <div id="home" className="container m-auto text-white">
 
-          <div id="navbar">
-            <Link to="/">
-              <div className="flex justify-center items-center mt-2 h-12">
-                <img alt={"logo"} className="h-full mr-2" src="./tstream-green.svg" />
-                <p className="text-center text-2xl text-green-term font-bold">TStream</p>
-              </div>
-            </Link>
-          </div>
 
           <div id="body">
             <div id="intro">
