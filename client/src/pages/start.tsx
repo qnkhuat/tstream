@@ -2,6 +2,7 @@ import Navbar from "../components/Navbar";
 import Code from "../components/Code";
 
 function Start() {
+  document.title = "TStream - How to start streaming";
   return (
     <>
       <Navbar />
