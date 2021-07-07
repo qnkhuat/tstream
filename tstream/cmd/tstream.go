@@ -22,6 +22,7 @@ import (
 	"github.com/qnkhuat/tstream/internal/logging"
 	"github.com/qnkhuat/tstream/pkg/streamer"
 	"log"
+	"os"
 	"os/user"
 	"regexp"
 	"strings"
@@ -79,8 +80,18 @@ func main() {
 	}
 
 	username, err = promptUsername.Run()
+	if err != nil {
+		os.Exit(1)
+	}
 	title, err := promptTitle.Run()
+	if err != nil {
+		os.Exit(1)
+	}
+
 	server, err := promptServer.Run()
+	if err != nil {
+		os.Exit(1)
+	}
 
 	s := streamer.New("https://tstream.club", server, username, title)
 	err = s.Start()
