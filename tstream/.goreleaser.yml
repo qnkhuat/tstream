@@ -23,9 +23,10 @@ builds:
       - linux
 archives:
   - replacements:
-      darwin: Darwin
+      darwin: MacOSX
       linux: Linux
       windows: Windows
+      freebsd: Freebsd
       386: i386
       amd64: x86_64
 checksum:

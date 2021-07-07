@@ -17,6 +17,7 @@ Inner working of streamer program
 package main
 
 import (
+	"flag"
 	"fmt"
 	"github.com/manifoldco/promptui"
 	"github.com/qnkhuat/tstream/internal/logging"
@@ -25,12 +26,19 @@ import (
 	"os"
 	"os/user"
 	"regexp"
-	"strings"
 )
 
 func main() {
-	logging.Config("/tmp/tstream.log", "STREAMER: ")
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "To Stream: just type in `tstream`.\n\nAdvanced config:\n")
+		flag.PrintDefaults()
+	}
 
+	logging.Config("/tmp/tstream.log", "STREAMER: ")
+	var server = flag.String("server", "https://server.tstream.club", "Server endpoint")
+	var client = flag.String("client", "https://tstream.club", "TStream client url")
+
+	flag.Parse()
 	user, err := user.Current()
 	if err != nil {
 		log.Fatalf(err.Error())
@@ -43,14 +51,6 @@ func main() {
 			return nil
 		} else {
 			return fmt.Errorf("Invalid username")
-		}
-	}
-
-	validateServer := func(input string) error {
-		if strings.HasPrefix(input, "http://") || strings.HasPrefix(input, "https://") {
-			return nil
-		} else {
-			return fmt.Errorf("Invalide server url")
 		}
 	}
 
@@ -73,12 +73,6 @@ func main() {
 		Validate: validateTitle,
 	}
 
-	promptServer := promptui.Prompt{
-		Label:    "TStream Server",
-		Default:  "https://server.tstream.club",
-		Validate: validateServer,
-	}
-
 	username, err = promptUsername.Run()
 	if err != nil {
 		os.Exit(1)
@@ -88,12 +82,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	server, err := promptServer.Run()
-	if err != nil {
-		os.Exit(1)
-	}
-
-	s := streamer.New("https://tstream.club", server, username, title)
+	s := streamer.New(*client, *server, username, title)
 	err = s.Start()
 	if err != nil {
 		log.Panicf("Failed to start stream: %s", err)
