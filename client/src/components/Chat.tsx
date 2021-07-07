@@ -18,26 +18,22 @@ interface ChatMsg {
   Color: string;
 }
 
-interface ChatInfo {
-  Msg: ChatMsg;
-  isMe: boolean;
-}
-
 interface State {
-  msgList: ChatInfo[];
+  msgList: ChatMsg[];
   inputContent: string;
   name: string;
   color: string;
   isWaitingUsername: boolean,
+  tempMsg: string,
 }
 
-const ChatSection: React.FC<ChatInfo> = ({ Msg, isMe }) => {
-
+const ChatSection: React.FC<ChatMsg> = ({ Name, Content, Color }) => {
   return (
     <>
-      <div className={`${isMe ? 'justify-end ml-auto mr-0' : ''} w-3/4 flex p-2`}>
-        {!isMe && <span style={{color: Msg.Color}}>{Msg.Name}: </span>}
-        <div style={{wordWrap: 'break-word', overflow: 'hidden'}}>{Msg.Content}</div>
+      <div className="w-full flex p-2 hover:bg-gray-800 rounded-lg">
+        {Name !== '' && <span style={{color: Color}} className="font-black">{Name}</span>}        
+        {Name !== '' && <span className="text-green-600 pl-2 pr-2">{">"}</span>}
+        <div style={{wordWrap: 'break-word', overflow: 'hidden'}}>{Content}</div>
       </div>
     </>
   )
@@ -53,12 +49,13 @@ class Chat extends React.Component<Props, State> {
       name: '',
       color: '',
       isWaitingUsername: false,
+      tempMsg: '',
     }
   }
   
-  addNewMsg(chatInfo: ChatInfo) {
-    let newMsgList = this.state.msgList as ChatInfo[];
-    newMsgList.push(chatInfo);
+  addNewMsg(chatMsg: ChatMsg) {
+    let newMsgList = this.state.msgList as ChatMsg[];
+    newMsgList.push(chatMsg);
     this.setState({
       msgList: newMsgList,
     })
@@ -66,11 +63,7 @@ class Chat extends React.Component<Props, State> {
 
   componentDidMount() {
     this.props.msgManager?.sub(constants.MSG_TCHAT, (chatMsg: ChatMsg) => {
-      var chatInfo : ChatInfo = {
-        Msg: chatMsg,
-        isMe: false,
-      }
-      this.addNewMsg(chatInfo);
+      this.addNewMsg(chatMsg);
     });
     
     const payload = localStorage.getItem('tstreamUser');
@@ -81,25 +74,50 @@ class Chat extends React.Component<Props, State> {
         color: tstreamUser.color,
       });
     } 
+    
+    // disable enter default behavior of textarea 
+    document.getElementById("textarea").addEventListener('keydown', (e) => {
+      var code = e.keyCode || e.which;
+      if (code === 13) {
+        e.preventDefault();
+        let textarea = document.getElementById("textarea");
+        textarea.rows = 1;
+        this.onSendMsg(this.state.inputContent);
+      }
+    });
+    document.getElementById("chatbox").style.height = `calc(100vh - ${document.getElementById("textarea").clientHeight}px - 57px)`;
   }
 
-  onSendMsg(content: string, clearInput: boolean) {
-    let tempMsg = content.trim();
+  onSendMsg(content: string) {
+    let tempMsg : string = content.trim();
+    let name : string = '';
+    let color : string = '';
+
+    // Don't find the user data in the browser
     if (this.state.name === '' || this.state.color === '') {
       let notification: string = '';
+
+      // ask for first time
       if (!this.state.isWaitingUsername) {
-        notification = "It seems that you're a new user here. Please enter your name in the input section below. Remember your name must not be empty and contain not more than 10 characters."; 
-        
-      }
+        notification = "Please enter your username(I.e: elonmusk)"; 
+        this.setState({
+          tempMsg: tempMsg,
+          isWaitingUsername: true,
+        });
+      } 
       else {
+        // invalid username
         if (tempMsg === '' || tempMsg.length > 10) {
           notification = 'Invalid Username';
         }
+        // valid username
         else {
-          var color: string = constants.COLOR_LIST[Math.floor(Math.random() * (constants.COLOR_LIST.length))];
+          name = tempMsg;
+          color = constants.COLOR_LIST[Math.floor(Math.random() * (constants.COLOR_LIST.length))];
           this.setState({
-            name: tempMsg,
+            name: name,
             color: color,
+            isWaitingUsername: false,
           });
 
           let tstreamUser : TstreamUser = {
@@ -107,91 +125,89 @@ class Chat extends React.Component<Props, State> {
             color: color,
           }
           const payload = localStorage.setItem('tstreamUser', JSON.stringify(tstreamUser));
-          notification = "Welcome " + tempMsg + " to the TStream !!!!!. Happy a nice day (=^･^=) ...."
+          tempMsg = this.state.tempMsg;
+
+          // if the first message is empty, just ignore it
+          if (tempMsg === "") {
+            this.setState({
+              inputContent: "",
+            });
+            return ;
+          }
         }
       }
 
-      let data = {
-        Name: '', 
-        Content: notification,
-        Color: '', 
-      };
+      // send notification
+      if (notification !== '') {
+        let data = {
+          Name: '', 
+          Content: notification,
+          Color: '', 
+        };
 
-      this.setState({
-        inputContent: "",
-      });
-      
-      var chatInfo : ChatInfo = {
-        Msg: data,
-        isMe: true,
+        this.setState({
+          inputContent: "",
+        });
+
+        this.addNewMsg(data);
+        return ;
       }
-      this.addNewMsg(chatInfo);
-      this.setState({
-        isWaitingUsername: true,
-      })
-      return ;
     }
 
     if (tempMsg === '') {
       return;
     }
+
+    if (name === '') {
+      name = this.state.name;
+    }
+    if (color === '') {
+      color = this.state.color;
+    }
+
     let data = {
-      Name: this.state.name,
+      Name: name,
       Content: tempMsg,
-      Color: this.state.color,
+      Color: color,
     };
-    if (clearInput) {
-      this.setState({
-        inputContent: "",
-      });
-    }
-    var chatInfo : ChatInfo = {
-      Msg: data,
-      isMe: true,
-    }
-    this.addNewMsg(chatInfo);
+
+    this.setState({
+      inputContent: "",
+    });
+
+    this.addNewMsg(data);
     this.props.msgManager?.pub(constants.MSG_TREQUEST_CHAT, data);
   }
 
   render() {
     return (
-      <div className="w-full flex flex-col border-l border-gray-500 relative" style={{width: "400px"}}>
-        <div className="bg-black overflow-y-auto overflow-x-none p-2 flex flex-col-reverse" style={{height: "calc(100vh - 10rem - 57px)"}}>
-          {this.state.msgList.slice(0).reverse().map((item, index) => <ChatSection Msg={item.Msg} isMe={item.isMe} key={index}/>)}
+      <div className="w-full flex flex-col border-l border-gray-500 relative" style={{width: "400px", fontFamily: "'Ubuntu Mono', monospace"}}>
+        <div className="bg-black overflow-y-auto overflow-x-none p-2 flex flex-col-reverse" id="chatbox">
+          {
+            this.state.msgList.slice(0).reverse().map(
+              (item, index) => <ChatSection Name={item.Name} Content={item.Content} Color={item.Color} key={index}/>
+            )
+          }
         </div>
         <div className="absolute bottom-0 transform w-full">
-          <div className="h-20 border-b border-gray-500 flex-shrink-0 flex items-center justify-between pr-2">
-            <input
-              className="text-white px-3 py-3 flex-grow mr-2"
+          <div className="border-b border-gray-500 flex-shrink-0 flex items-center justify-between">
+            <textarea
+              className="text-white px-3 py-3 flex-grow bg-gray-600 border-4 border-gray-500 focus:bg-black focus:border-purple-600 rounded-lg"
               placeholder={"Chat with everyone..."}
-              style={{backgroundColor: '#121212'}}
               value={this.state.inputContent}
               onChange={(e) => {
                 this.setState({
                   inputContent: e.target.value,
                 });
+                let textarea = document.getElementById("textarea");
+                textarea.rows = Math.floor(e.target.value.length / 45) + 1;
+                document.getElementById("chatbox").style.height = `calc(100vh - ${document.getElementById("textarea").clientHeight}px - 57px)`;
               }}
               onKeyPress={(e) => {
-                var code = e.keyCode || e.which;
-                if (code === 13) {
-                  this.onSendMsg(this.state.inputContent, true);
-                }
               }}
+              rows={1}
+              id="textarea"
             />
-            {/* <button className="text-3xl transform hover:scale-125 duration-100" onClick={() => this.onSendMsg('&#128540;', false)}>&#128540;</button> */}
-          </div>
-          <div className="h-20 flex-shrink-0 flex flex-row-reverse items-center justify-between px-5 py-3">
-            {/* <div className="flex-grow">
-              <button className="text-red-600 text-4xl transform hover:scale-125 duration-100">&#9829;</button>
-            </div> */}
-            <button
-              className="px-10 py-2 bg-red-600 text-white rounded flex-shrink-0"
-              onClick = {() => {
-                this.onSendMsg(this.state.inputContent, true)
-              }}
-            >
-              Send
-            </button>
           </div>
         </div>
       </div>
