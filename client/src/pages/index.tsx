@@ -13,14 +13,7 @@ import axios from "axios";
 //import Input from '@material-ui/core/Input';
 //import InputAdornment from '@material-ui/core/InputAdornment';
 //import Button from '@material-ui/core/Button';
-import { createTheme, ThemeProvider } from '@material-ui/core/styles';
-import CssBaseline from '@material-ui/core/CssBaseline';
 
-const darkTheme = createTheme({
-  palette: {
-    mode: "dark",
-  },
-});
 
 interface Room {
   streamerID: string;
@@ -42,20 +35,16 @@ function Home() {
 
   return (
     <>
-      <ThemeProvider theme={darkTheme}>
-        <CssBaseline />
-        <Navbar />
-        <div id="home" className="container m-auto text-white">
+      <Navbar />
+      <div id="home" className="container m-auto text-white">
+        <div id="body">
+          <div id="intro">
+          </div>
 
-
-          <div id="body">
-            <div id="intro">
-            </div>
-
-            <div id="previews"
-              className="flex-row items-center justify-center">
-              <div className="flex justify-center">
-                {/*
+          <div id="previews"
+            className="flex-row items-center justify-center">
+            <div className="flex justify-center">
+              {/*
                 <FormControl variant="standard"
                 className="w-96"
                 color="success">
@@ -65,24 +54,23 @@ function Home() {
                   startAdornment={<InputAdornment position="start"><span className="font-bold pb-1 text-green-term">{'>'}</span></InputAdornment>}
                 />
               </FormControl>
-                  */}
-              </div>
-              <div id="listings" className="flex w-full justify-around m-5 flex-wrap">
-                {rooms?.map((r, i) =>
-                <Link to={`/${r.streamerID}`}>
-                  <StreamPreview
-                    key={i} title={r.title} streamerID={r.streamerID}
-                    startedTime={r.startedTime} lastActiveTime={r.lastActiveTime}
-                    wsUrl={util.getWsUrl(r.streamerID)}
-                    nViewers={r.nViewers}
-                  />
-                </Link>
-                )}
-              </div>
+                */}
+            </div>
+            <div id="listings" className="flex w-full justify-around m-5 flex-wrap">
+              {rooms?.map((r, i) =>
+              <Link to={`/${r.streamerID}`}>
+                <StreamPreview
+                  key={i} title={r.title} streamerID={r.streamerID}
+                  startedTime={r.startedTime} lastActiveTime={r.lastActiveTime}
+                  wsUrl={util.getWsUrl(r.streamerID)}
+                  nViewers={r.nViewers}
+                />
+              </Link>
+              )}
             </div>
           </div>
         </div>
-      </ThemeProvider>
+      </div>
     </>
   )
 }

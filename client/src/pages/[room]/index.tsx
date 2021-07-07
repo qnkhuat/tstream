@@ -14,16 +14,7 @@ import Loading from "../../components/Loading";
 
 import dayjs from "dayjs";
 
-import CssBaseline from '@material-ui/core/CssBaseline';
-import { createTheme, ThemeProvider } from '@material-ui/core/styles';
-
 import PersonIcon from '@material-ui/icons/Person';
-
-const darkTheme = createTheme({
-  palette: {
-    mode: "dark",
-  },
-});
 
 interface Params {
   username: string;
@@ -204,8 +195,7 @@ class Room extends React.Component<Props, State> {
       height: this.state.termSize?.height ? this.state.termSize.height : -1,
     }
     return (
-      <ThemeProvider theme={darkTheme}>
-        <CssBaseline />
+      <>
         <div id="navbar" ref={this.navbarRef}>
           <Navbar />
         </div>
@@ -253,9 +243,7 @@ class Room extends React.Component<Props, State> {
           </>}
 
         </div>
-
-
-      </ThemeProvider>
+      </>
     )
   }
 }
