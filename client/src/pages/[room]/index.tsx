@@ -14,6 +14,8 @@ import Loading from "../../components/Loading";
 
 import dayjs from "dayjs";
 
+import IconButton from '@material-ui/core/IconButton';
+import DoubleArrowRoundedIcon from '@material-ui/icons/DoubleArrowRounded';
 import PersonIcon from '@material-ui/icons/Person';
 
 interface Params {
@@ -52,6 +54,7 @@ interface State {
   roomInfo: RoomInfo | null;
   mouseMove: boolean;
   connectStatus: RoomStatus;
+  hideChat: boolean | null; 
 }
 
 function getSiteTitle(streamerId: string, title: string) {
@@ -65,25 +68,22 @@ function getSiteTitle(streamerId: string, title: string) {
 class Room extends React.Component<Props, State> {
 
   navbarRef: React.RefObject<HTMLDivElement>;
-  chatWinsize: number = 400; // TODO: implement dynamic chat win size
-  mouseMovetimeout: ReturnType<typeof setTimeout> | null;
-  ws: WebSocket | null;
-  msgManager: PubSub | null;
+  ChatWindowWidth: number = 400; // TODO: implement dynamic chat win size
+  mouseMovetimeout: ReturnType<typeof setTimeout> | null = null;
+  ws: WebSocket | null = null;
+  msgManager: PubSub | null = null;
 
   constructor(props: Props) {
     super(props);
 
     this.navbarRef = React.createRef<HTMLDivElement>();
-    this.mouseMovetimeout = null;
-    this.ws = null;
-    this.msgManager = null;
-
 
     this.state = {
       termSize: null,
       roomInfo: null,
       mouseMove:false,
       connectStatus: RoomStatus.Streaming,
+      hideChat: null,
     };
 
   }
@@ -99,16 +99,34 @@ class Room extends React.Component<Props, State> {
     })();
   }
 
-  resizeTerminal() {
-    console.log("got cha");
+  toggleChatWindow() {
+    console.log("HIE", this.state.hideChat);
+    console.log("State:", this.state);
+
+    let hideChatState = this.state.hideChat == null ? true : !this.state.hideChat;
+    this.setState({hideChat: hideChatState});
+    this.resizeTerminal(hideChatState);
+  }
+
+  resizeTerminal(hideChat: boolean | null) {
     if (this.navbarRef.current) {
-      this.setState({termSize: {
-        width: window.innerWidth - this.chatWinsize,
-        height: window.innerHeight - this.navbarRef.current.offsetHeight,
-      }});
-      console.log("YOOOOOOOOOOOOOOOO", {
-        width: window.innerWidth - this.chatWinsize,
-        height: window.innerHeight - this.navbarRef.current.offsetHeight,
+      console.log("Got: ", hideChat);
+      let termWidth = window.innerWidth;
+
+      // at start, if the window is too small then we don't show chat
+      if (window.innerWidth < this.ChatWindowWidth * 2 && hideChat == null) hideChat=true;
+
+      if (!hideChat) {
+        console.log("KILL");
+        termWidth -= this.ChatWindowWidth;
+      }
+      console.log("Term width", termWidth);
+
+      this.setState({
+        termSize: {
+          width: termWidth,
+          height: window.innerHeight - this.navbarRef.current.offsetHeight}, 
+        hideChat: hideChat,
       });
     }
   }
@@ -135,7 +153,6 @@ class Room extends React.Component<Props, State> {
     ws.onmessage = (ev: MessageEvent) => {
       let msg = JSON.parse(ev.data);
 
-      console.log("Receive message: ", msg.Type);
       if (msg.Type === constants.MSG_TWRITE) {
 
         var buffer = base64.toArrayBuffer(msg.Data)
@@ -189,6 +206,7 @@ class Room extends React.Component<Props, State> {
 
 
     msgManager.pub("request", constants.MSG_TREQUEST_ROOM_INFO);
+    // periodically update roominfo to get number of viewers
     setInterval(() => {
       msgManager.pub("request", constants.MSG_TREQUEST_ROOM_INFO);
     }, 5000);
@@ -196,9 +214,9 @@ class Room extends React.Component<Props, State> {
     this.msgManager = msgManager;
     this.ws = ws;
 
-    this.resizeTerminal();
+    this.resizeTerminal(this.state.hideChat);
     window.addEventListener('resize', () => {
-      this.resizeTerminal();
+      this.resizeTerminal(this.state.hideChat);
     })
 
   }
@@ -210,7 +228,6 @@ class Room extends React.Component<Props, State> {
       width: this.state.termSize?.width ? this.state.termSize.width : -1,
       height: this.state.termSize?.height ? this.state.termSize.height : -1,
     }
-    console.log(terminalSize);
     return (
       <>
         <div id="navbar" ref={this.navbarRef}>
@@ -225,12 +242,12 @@ class Room extends React.Component<Props, State> {
               {this.state.roomInfo && !isStreamStopped &&
               <div id="info">
                 <div
-                  className={`top-0 left-0 w-full absolute z-10 px-4 py-2 bg-opacity-80 bg-gray-400
+                  className={`top-0 left-0 w-full absolute z-10 px-4 py-2 bg-opacity-80 bg-gray-800
                 ${this.state.mouseMove ? "visible" : "hidden"}`}>
                   <p className="text-2xl">{this.state.roomInfo.Title}</p>
                   <p className="text-md">@{this.state.roomInfo.StreamerID}</p>
                 </div>
-                <div id="info-uptime" className="p-1 bg-red-400 rounded absolute top-4 right-4 z-10">
+                <div id="info-uptime" className={`p-1 bg-red-400 rounded absolute top-4 ${this.state.hideChat ? "right-14" : "right-4"} z-10`}>
                   <Uptime className="text-md text-white font-semibold" startTime={new Date(this.state.roomInfo.StartedTime)} />
                 </div>
 
@@ -247,16 +264,23 @@ class Room extends React.Component<Props, State> {
                   width={terminalSize.width}
                   height={terminalSize.height}
                 />}
+
                 {(!this.state.roomInfo || this.state.roomInfo?.RoomStatus == RoomStatus.Stopped) &&
                   <div id="closed"
                     style={terminalSize}
                     className="bg-black flex justify-center items-center">
                     <p className="text-2xl font-bold">The stream has stopped</p>
                   </div>}
+
               </div>
             </div>
 
-            <Chat msgManager={this.msgManager}/>
+            <div className={`relative ${this.state.hideChat ? "w-0" : "w-full"}`}>
+              <IconButton className={`absolute ${this.state.hideChat ? "right-2 transform rotate-180" : "left-2"} top-3 z-10 `} onClick={this.toggleChatWindow.bind(this)}>
+                <DoubleArrowRoundedIcon />
+              </IconButton>
+              <Chat msgManager={this.msgManager} className={`${this.state.hideChat ? "hidden" : ""}`}/>
+            </div>
           </>}
 
         </div>

@@ -70,6 +70,7 @@ class WSTerminal extends React.Component<Props, State> {
     window.addEventListener("resize", () => this.rescale());
     this.rescale();
 
+
   }
 
   componentWillUnmount() {
