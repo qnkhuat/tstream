@@ -7,6 +7,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
 	"github.com/qnkhuat/tstream/internal/cfg"
+	"github.com/qnkhuat/tstream/pkg/message"
 	"log"
 	"net/http"
 	"time"
@@ -23,12 +24,15 @@ var httpUpgrader = websocket.Upgrader{
 	WriteBufferSize: cfg.SERVER_WRITE_BBUFFER_SIZE,
 }
 
+var emptyByteArray []byte
+
 type Room struct {
-	StreamerID     string    `json:"streamerID"`
-	LastActiveTime time.Time `json:"lastActiveTime"`
-	StartedTime    time.Time `json:"startedTime"`
-	NViewers       int       `json:"nViewers"`
-	Title          string    `json:"title"`
+	StreamerID     string             `json:"streamerID"`
+	LastActiveTime time.Time          `json:"lastActiveTime"`
+	StartedTime    time.Time          `json:"startedTime"`
+	NViewers       int                `json:"nViewers"`
+	Title          string             `json:"title"`
+	RoomStatus     message.RoomStatus `json:"roomStatus"`
 }
 
 func (s *Server) handleListRooms(w http.ResponseWriter, r *http.Request) {
@@ -40,6 +44,7 @@ func (s *Server) handleListRooms(w http.ResponseWriter, r *http.Request) {
 			StartedTime:    room.StartedTime(),
 			NViewers:       len(room.Viewers()),
 			Title:          room.Title(),
+			RoomStatus:     room.Status(),
 		})
 	}
 	json.NewEncoder(w).Encode(data)

@@ -13,6 +13,9 @@ import (
 	"github.com/rs/cors"
 )
 
+// TODO: add stream history
+// When a room stop, append to that list
+// Periodically save to a database
 type Server struct {
 	lock   sync.RWMutex
 	rooms  map[string]*room.Room
