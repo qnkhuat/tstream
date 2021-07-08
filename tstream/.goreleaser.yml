@@ -8,23 +8,49 @@ before:
     - go generate ./...
 builds:
   - main: ./cmd/tstream.go
+    id: tstream
+    binary: tstream
     env:
       - CGO_ENABLED=0
     goos:
       - linux
       - darwin
       - freebsd
+  - main: ./cmd/server.go
+    id: server
+    binary: server
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - freebsd
+
 archives:
-  - replacements:
+  - id: tstream
+    builds:
+      - tstream
+    replacements:
       darwin: MacOS
       linux: Linux
       386: i386
       amd64: x86_64
       freebsd: Freebsd
+    name_template: "tstream_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+  - id: server
+    builds:
+      - server
+    replacements:
+      darwin: MacOS
+      linux: Linux
+      386: i386
+      amd64: x86_64
+      freebsd: Freebsd
+    name_template: "server_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 checksum:
   name_template: 'checksums.txt'
 snapshot:
-  name_template: "{{ .Tag }}-next"
+  name_template: "{{ .Tag }}"
 changelog:
   sort: asc
   filters:
