@@ -23,7 +23,6 @@ builds:
       - linux
 archives:
   - id: tstream  
-    format: binary
     replacements:
       darwin: MacOS
       linux: Linux
@@ -31,7 +30,6 @@ archives:
       386: i386
       amd64: x86_64
   - id: server  
-    format: binary
     replacements:
       darwin: MacOS
       linux: Linux
