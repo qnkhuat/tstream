@@ -8,7 +8,7 @@ const Navbar: React.FC<Props> = () => {
   return (
     <div id="navbar" className="flex justify-center py-2 border-b border-black shadow"
       style={{background:"#18181b"}} >
-      <div className="container flex justify-between">
+      <div className="container flex justify-between px-2">
         <Link to="/">
           <img alt={"logo"} className="w-10 h-10" src="./logo.svg" />
         </Link>
