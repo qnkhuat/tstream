@@ -8,34 +8,19 @@ before:
     - go generate ./...
 builds:
   - main: ./cmd/tstream.go
-    id: tstream
-    binary: tstream
+    env:
+      - CGO_ENABLED=0
     goos:
-      - freebsd
-      - darwin
       - linux
-  - main: ./cmd/server.go
-    id: server
-    binary: server
-    goos:
-      - freebsd
       - darwin
-      - linux
+      - freebsd
 archives:
-  - id: tstream  
-    replacements:
+  - replacements:
       darwin: MacOS
       linux: Linux
-      windows: Windows
       386: i386
       amd64: x86_64
-  - id: server  
-    replacements:
-      darwin: MacOS
-      linux: Linux
-      windows: Windows
-      386: i386
-      amd64: x86_64
+      freebsd: Freebsd
 checksum:
   name_template: 'checksums.txt'
 snapshot:
