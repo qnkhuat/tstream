@@ -37,10 +37,13 @@ function Home() {
     <>
       <Navbar />
       <div id="home" className="container m-auto text-white">
-        <div id="body">
+        <div id="body" className="mt-8">
           <div id="intro">
-          </div>
 
+            <p className="text-2xl mb-8 text-center font-bold">TStream - Live Stream from your terminal</p>
+            <img className="border border-gray-200 rounded-xl m-auto mt-4 w-4/5 xl:w-3/5" src="./demo.gif" />
+
+          </div>
           <div id="previews"
             className="flex-row items-center justify-center">
             <div className="flex justify-center">
@@ -56,6 +59,8 @@ function Home() {
               </FormControl>
                 */}
             </div>
+            {!rooms && <p className="text-2xl mt-8 text-center font-bold">No one is live streaming 😅</p>}
+            {rooms && <p className="text-2xl mt-8 text-center font-bold">Live streaming</p>}
             <div id="listings" className="flex w-full justify-around m-5 flex-wrap">
               {rooms?.map((r, i) =>
               <Link to={`/${r.streamerID}`}>
