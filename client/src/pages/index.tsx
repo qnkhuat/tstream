@@ -41,7 +41,7 @@ function Home() {
           <div id="intro">
 
             <p className="text-2xl mb-8 text-center font-bold">TStream - Live Stream from your terminal</p>
-            <img className="border border-gray-200 rounded-xl m-auto mt-4 w-4/5 xl:w-3/5" src="./demo.gif" />
+            <img className="border-2 border-gray-200 rounded-xl m-auto mt-4 w-4/5 xl:w-3/5" src="./demo.gif" />
 
           </div>
           <div id="previews"

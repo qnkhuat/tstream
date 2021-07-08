@@ -4,11 +4,12 @@ import PubSub from "../lib/pubsub";
 
 interface TstreamUser {
   name: string,
-  color: string,
+    color: string,
 }
 
 interface Props {
   msgManager: PubSub;
+  className?: string;
 }
 
 interface ChatMsg {
@@ -23,7 +24,7 @@ interface State {
   name: string;
   color: string;
   isWaitingUsername: boolean,
-  tempMsg: string,
+    tempMsg: string,
 }
 
 const ChatSection: React.FC<ChatMsg> = ({ Name, Content, Color }) => {
@@ -51,7 +52,7 @@ class Chat extends React.Component<Props, State> {
       tempMsg: '',
     }
   }
-  
+
   addNewMsg(chatMsg: ChatMsg) {
     let newMsgList = this.state.msgList as ChatMsg[];
     newMsgList.push(chatMsg);
@@ -64,7 +65,7 @@ class Chat extends React.Component<Props, State> {
     this.props.msgManager?.sub(constants.MSG_TCHAT, (chatMsg: ChatMsg) => {
       this.addNewMsg(chatMsg);
     });
-    
+
     const payload = localStorage.getItem('tstreamUser');
     if (payload !== null) {
       const tstreamUser : TstreamUser = JSON.parse(payload);
@@ -73,7 +74,7 @@ class Chat extends React.Component<Props, State> {
         color: tstreamUser.color,
       });
     } 
-    
+
     // disable enter default behavior of textarea 
     document.getElementById("textarea")!.addEventListener('keydown', (e) => {
       var code = e.keyCode || e.which;
@@ -179,32 +180,30 @@ class Chat extends React.Component<Props, State> {
 
   render() {
     return (
-      <div className="w-full flex flex-col border-l border-gray-500 relative" style={{width: "400px", fontFamily: "'Ubuntu Mono', monospace"}}>
+      <div className={`w-full flex flex-col border-l border-gray-500 relative ${this.props.className}`} style={{fontFamily: "'Ubuntu Mono', monospace"}}>
         <div className="bg-black overflow-y-auto overflow-x-none p-2 flex flex-col-reverse" id="chatbox">
           {
             this.state.msgList.slice(0).reverse().map(
-              (item, index) => <ChatSection Name={item.Name} Content={item.Content} Color={item.Color} key={index}/>
-            )
+            (item, index) => <ChatSection Name={item.Name} Content={item.Content} Color={item.Color} key={index}/>
+          )
           }
         </div>
-        <div className="absolute bottom-0 transform w-full">
-          <div className="border-b border-gray-500 flex-shrink-0 flex items-center justify-between">
-            <textarea
-              className="text-white px-3 py-3 flex-grow bg-gray-600 border-4 border-gray-500 focus:bg-black focus:border-purple-600 rounded-lg"
-              placeholder={"Chat with everyone..."}
-              value={this.state.inputContent}
-              onChange={(e) => {
-                this.setState({
-                  inputContent: e.target.value,
-                });
-                let textarea = document.getElementById("textarea") as HTMLTextAreaElement;
-                textarea.rows = Math.floor(e.target.value.length / 45) + 1;
-                document.getElementById("chatbox")!.style.height = `calc(100vh - ${document.getElementById("textarea")!.clientHeight}px - 57px)`;
-              }}
-              rows={1}
-              id="textarea"
-            />
-          </div>
+        <div className="border-gray-500 flex-shrink-0 flex items-center justify-between">
+          <textarea
+            className="text-white px-3 py-3 flex-grow bg-gray-600 border-gray-500 focus:bg-gray-800 focus:border-purple-600 rounded-lg"
+            placeholder={"Chat with everyone..."}
+            value={this.state.inputContent}
+            onChange={(e) => {
+              this.setState({
+                inputContent: e.target.value,
+            });
+            let textarea = document.getElementById("textarea") as HTMLTextAreaElement;
+            textarea.rows = Math.floor(e.target.value.length / 45) + 1;
+            document.getElementById("chatbox")!.style.height = `calc(100vh - ${document.getElementById("textarea")!.clientHeight}px - 57px)`;
+            }}
+            rows={1}
+            id="textarea"
+          />
         </div>
       </div>
     )
