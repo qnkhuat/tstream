@@ -100,11 +100,16 @@ class Room extends React.Component<Props, State> {
   }
 
   resizeTerminal() {
+    console.log("got cha");
     if (this.navbarRef.current) {
       this.setState({termSize: {
         width: window.innerWidth - this.chatWinsize,
         height: window.innerHeight - this.navbarRef.current.offsetHeight,
       }});
+      console.log("YOOOOOOOOOOOOOOOO", {
+        width: window.innerWidth - this.chatWinsize,
+        height: window.innerHeight - this.navbarRef.current.offsetHeight,
+      });
     }
   }
 
@@ -205,6 +210,7 @@ class Room extends React.Component<Props, State> {
       width: this.state.termSize?.width ? this.state.termSize.width : -1,
       height: this.state.termSize?.height ? this.state.termSize.height : -1,
     }
+    console.log(terminalSize);
     return (
       <>
         <div id="navbar" ref={this.navbarRef}>
@@ -234,17 +240,17 @@ class Room extends React.Component<Props, State> {
               </div>}
 
               <div id="terminal-window">
-                {!isStreamStopped &&
+                {this.state.roomInfo && this.state.roomInfo?.RoomStatus != RoomStatus.Stopped &&
                 <WSTerminal
                   className="bg-black"
                   msgManager={this.msgManager}
                   width={terminalSize.width}
                   height={terminalSize.height}
                 />}
-                {isStreamStopped &&
+                {(!this.state.roomInfo || this.state.roomInfo?.RoomStatus == RoomStatus.Stopped) &&
                   <div id="closed"
                     style={terminalSize}
-                    className="w-full h-full bg-black flex justify-center items-center">
+                    className="bg-black flex justify-center items-center">
                     <p className="text-2xl font-bold">The stream has stopped</p>
                   </div>}
               </div>
