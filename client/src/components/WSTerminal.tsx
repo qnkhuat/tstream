@@ -53,8 +53,10 @@ class WSTerminal extends React.Component<Props, {}> {
 
   }
 
-  componentDidUpdate() {
-    this.rescale();
+  componentDidUpdate(prevProps: Props) {
+    if (this.props.width != prevProps.width || this.props.height != prevProps.height) {
+      this.rescale();
+    }
   }
 
   componentWillUnmount() {
@@ -65,8 +67,8 @@ class WSTerminal extends React.Component<Props, {}> {
 
   rescale() {
     if (this.termRef.current && this.divRef.current && (this.props.width! > 0 || this.props.height! > 0)) {
-      const core = (this.termRef.current?.terminal as any)._core;
-      const cellWidth = core._renderService.dimensions.actualCellWidth,
+      const core = (this.termRef.current?.terminal as any)._core,
+        cellWidth = core._renderService.dimensions.actualCellWidth,
         cellHeight = core._renderService.dimensions.actualCellHeight,
         currentFontSize = this.termRef.current.terminal.getOption('fontSize'),
         rows = this.termRef.current.terminal.rows,
@@ -79,7 +81,7 @@ class WSTerminal extends React.Component<Props, {}> {
         newFontSize = Math.floor(hFontSizeMultiplier > wFontSizeMultiplier ? currentFontSize * wFontSizeMultiplier : currentFontSize * hFontSizeMultiplier);
 
       this.termRef.current.terminal.setOption('fontSize', newFontSize);
-
+      this.termRef.current.terminal.refresh(0, rows-1); // force xterm to re-render everything
     }
   }
 
