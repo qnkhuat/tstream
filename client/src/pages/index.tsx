@@ -16,11 +16,11 @@ import axios from "axios";
 
 
 interface Room {
-  streamerID: string;
-  lastActiveTime: string;
-  startedTime:string;
-  nViewers: number;
-  title: string;
+  StreamerID: string;
+  LastActiveTime: string;
+  StartedTime:string;
+  NViewers: number;
+  Title: string;
 }
 
 function Home() {
@@ -28,7 +28,7 @@ function Home() {
   const [ rooms, setRooms ] = useState<Room[]>();
   console.log(process.env.REACT_APP_API_URL);
   useEffect(() => {
-    axios.get<Room[]>(urljoin(process.env.REACT_APP_API_URL as string, "/api/rooms")).then((res) => {
+    axios.get<Room[]>(urljoin(process.env.REACT_APP_API_URL as string, "/api/rooms?status=Streaming")).then((res) => {
       setRooms(res.data);
     })
   }, []);
@@ -63,12 +63,12 @@ function Home() {
             {rooms && <p className="text-2xl mt-8 text-center font-bold">Live streaming</p>}
             <div id="listings" className="flex w-full justify-around m-5 flex-wrap">
               {rooms?.map((r, i) =>
-              <Link to={`/${r.streamerID}`}>
+              <Link to={`/${r.StreamerID}`}>
                 <StreamPreview
-                  key={i} title={r.title} streamerID={r.streamerID}
-                  startedTime={r.startedTime} lastActiveTime={r.lastActiveTime}
-                  wsUrl={util.getWsUrl(r.streamerID)}
-                  nViewers={r.nViewers}
+                  key={i} title={r.Title} streamerID={r.StreamerID}
+                  startedTime={r.StartedTime} lastActiveTime={r.LastActiveTime}
+                  wsUrl={util.getWsUrl(r.StreamerID)}
+                  nViewers={r.NViewers}
                 />
               </Link>
               )}

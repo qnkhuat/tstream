@@ -10,32 +10,35 @@ import (
 	"time"
 )
 
-type Type string
+// *** Generic ***
+
+// Message type
+type MType string
 
 const (
-	TWrite    Type = "Write"
-	TChat          = "Chat"
-	TClose         = "Close"
-	TError         = "Error"
-	TRoomInfo      = "RoomInfo"
+	TWrite    MType = "Write"
+	TChat     MType = "Chat"
+	TClose    MType = "Close"
+	TError    MType = "Error"
+	TRoomInfo MType = "RoomInfo"
 
 	// When streamer resize their termianl
-	TWinsize = "Winsize"
+	TWinsize MType = "Winsize"
 
 	// Viewer request server to send winsize
-	TRequestWinsize = "RequestWinsize"
+	TRequestWinsize MType = "RequestWinsize"
 
-	TRequestRoomInfo = "RequestRoomInfo"
+	TRequestRoomInfo MType = "RequestRoomInfo"
 
 	// When user first connect to server
-	TStreamerConnect = "StreamerConnect"
+	TStreamerConnect MType = "StreamerConnect"
 
 	// when user first join the room, he can request for cached message to avoid idle screen
-	TRequestCacheMessage = "RequestCacheMessage"
+	TRequestCacheMessage MType = "RequestCacheMessage"
 )
 
 type Wrapper struct {
-	Type Type
+	Type MType
 	Data []byte
 }
 
@@ -48,25 +51,31 @@ type StreamerConnect struct {
 	Title string
 }
 
+// *** Room ***
+
 type RoomStatus string
 
 const (
 	RStreaming RoomStatus = "Streaming"
 
 	// When user actively close connection. Detected via closemessage
-	RStopped = "Stopped"
+	RStopped RoomStatus = "Stopped"
 
 	// When don't receive ping for a long time
-	RDisconnected = "Disconnected"
+	RDisconnected RoomStatus = "Disconnected"
 )
 
 type RoomInfo struct {
+	AccNViewers int // Accumulated nviewers
 	NViewers    int
 	StartedTime time.Time
+	StoppedTime time.Time
 	Title       string
 	StreamerID  string
-	RoomStatus  RoomStatus
+	Status      RoomStatus
 }
+
+// *** Helper functions ***
 
 func Unwrap(buff []byte) (Wrapper, error) {
 	obj := Wrapper{}
@@ -74,7 +83,7 @@ func Unwrap(buff []byte) (Wrapper, error) {
 	return obj, err
 }
 
-func Wrap(msgType Type, msgObject interface{}) (Wrapper, error) {
+func Wrap(msgType MType, msgObject interface{}) (Wrapper, error) {
 
 	data, err := json.Marshal(msgObject)
 	if err != nil {

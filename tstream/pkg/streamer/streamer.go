@@ -11,6 +11,7 @@ import (
 	"github.com/qnkhuat/tstream/pkg/ptyMaster"
 	"io"
 	"log"
+	"net/http"
 	"net/url"
 	"os"
 	"strings"
@@ -21,14 +22,14 @@ type Streamer struct {
 	pty        *ptyMaster.PtyMaster
 	serverAddr string
 	clientAddr string
-	id         string
+	username   string
 	title      string
 	conn       *websocket.Conn
 	Out        chan []byte
 	In         chan []byte
 }
 
-func New(clientAddr, serverAddr, id, title string) *Streamer {
+func New(clientAddr, serverAddr, username, title string) *Streamer {
 	pty := ptyMaster.New()
 	out := make(chan []byte, 256) // buffer 256 send requests
 	in := make(chan []byte, 256)  // buffer 256 send requests
@@ -37,7 +38,7 @@ func New(clientAddr, serverAddr, id, title string) *Streamer {
 		pty:        pty,
 		serverAddr: serverAddr,
 		clientAddr: clientAddr,
-		id:         id,
+		username:   username,
 		title:      title,
 		Out:        out,
 		In:         in,
@@ -55,13 +56,19 @@ func (s *Streamer) Start() error {
 	fmt.Printf("Press Enter to continue!")
 	bufio.NewReader(os.Stdin).ReadString('\n')
 
-	err := s.ConnectWS()
+	err := s.RequestAddRoom()
+	if err != nil {
+		log.Println(err)
+		s.Stop(fmt.Sprintf("Room with name %s already existed", s.username))
+	}
+
+	err = s.ConnectWS()
 	if err != nil {
 		log.Println(err)
 		s.Stop("Failed to connect to server")
 	}
 
-	fmt.Printf("🔥 Streaming at: %s/%s\n", s.clientAddr, s.id)
+	fmt.Printf("🔥 Streaming at: %s/%s\n", s.clientAddr, s.username)
 
 	s.pty.MakeRaw()
 
@@ -153,6 +160,12 @@ func (s *Streamer) Start() error {
 	return nil
 }
 
+func (s *Streamer) RequestAddRoom() error {
+	// TODO: handle cases when call add api return existed
+	http.Post(fmt.Sprintf("%s/api/room?streamerID=%s&title=%s", s.serverAddr, s.username, s.title), "application/json", nil)
+	return nil
+}
+
 func (s *Streamer) ConnectWS() error {
 	scheme := "wss"
 	if strings.HasPrefix(s.serverAddr, "http://") {
@@ -160,7 +173,7 @@ func (s *Streamer) ConnectWS() error {
 	}
 
 	host := strings.Replace(strings.Replace(s.serverAddr, "http://", "", 1), "https://", "", 1)
-	url := url.URL{Scheme: scheme, Host: host, Path: fmt.Sprintf("/ws/%s/streamer", s.id)}
+	url := url.URL{Scheme: scheme, Host: host, Path: fmt.Sprintf("/ws/%s/streamer", s.username)}
 	log.Printf("Openning socket at %s", url.String())
 
 	conn, _, err := websocket.DefaultDialer.Dial(url.String(), nil)

@@ -9,6 +9,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/qnkhuat/tstream/internal/cfg"
+	"github.com/qnkhuat/tstream/pkg/message"
 	"github.com/qnkhuat/tstream/pkg/room"
 	"github.com/rs/cors"
 )
@@ -21,14 +22,23 @@ type Server struct {
 	rooms  map[string]*room.Room
 	addr   string
 	server *http.Server
+	db     *DB
 }
 
-func New(addr string) *Server {
+func New(addr string, db_path string) (*Server, error) {
 	rooms := make(map[string]*room.Room)
+
+	db, err := SetupDB(db_path)
+	if err != nil {
+		log.Printf("Failed to setup database: %s", err)
+		return nil, err
+	}
+
 	return &Server{
 		addr:  addr,
 		rooms: rooms,
-	}
+		db:    db,
+	}, nil
 }
 func CORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -49,32 +59,39 @@ func CORS(next http.Handler) http.Handler {
 	})
 }
 
-func (s *Server) NewRoom(roomID string) error {
-	if _, ok := s.rooms[roomID]; ok {
-		return fmt.Errorf("Room %s existed", roomID)
+func (s *Server) NewRoom(name string, title string) error {
+	if _, ok := s.rooms[name]; ok {
+		return fmt.Errorf("Room %s existed", name)
 	}
-	s.rooms[roomID] = room.New(roomID)
-	log.Printf("Created new Room: %s", roomID)
+	s.rooms[name] = room.New(name, title)
+
+	msg := s.rooms[name].PrepareRoomInfo()
+
+	id, err := s.db.PutRoom(msg)
+	if err != nil {
+		log.Println("Failed to add room to database")
+		return err
+	}
+	s.rooms[name].SetId(id)
 	return nil
 }
 
 func (s *Server) Start() {
 	log.Printf("Serving at: %s", s.addr)
-	fmt.Printf("Serving at: %s\n", s.addr)
 	router := mux.NewRouter()
 	router.Use(CORS)
 
 	router.HandleFunc("/api/health", handleHealth).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/rooms", s.handleListRooms).Methods("GET", "OPTIONS")
-	router.HandleFunc("/ws/{roomID}/streamer", s.handleWSStreamer) // for streamers
-	router.HandleFunc("/ws/{roomID}/viewer", s.handleWSViewer)     // for viewers
+	router.HandleFunc("/api/room", s.handleAddRoom).Queries("streamerID", "{streamerID}", "title", "{title}").Methods("POST", "OPTIONS")
+	router.HandleFunc("/ws/{roomName}/streamer", s.handleWSStreamer) // for streamers
+	router.HandleFunc("/ws/{roomName}/viewer", s.handleWSViewer)     // for viewers
 	handler := cors.Default().Handler(router)
-
-	//router.Use(mux.CORSMethodMiddleware(router))
 
 	s.server = &http.Server{Addr: s.addr, Handler: handler}
 
-	go s.cleanRooms(cfg.SERVER_CLEAN_INTERVAL, cfg.SERVER_CLEAN_THRESHOLD) // Scan every 5 seconds and delete rooms that idle more than 10 minutes
+	// Scan every SERVER_CLEAN_INTERVAL seconds and delete rooms that idle more than SERVER_CLEAN_THRESHOLD minutes
+	go s.cleanRooms(cfg.SERVER_CLEAN_INTERVAL, cfg.SERVER_CLEAN_THRESHOLD)
 
 	if err := s.server.ListenAndServe(); err != nil { // blocking call
 		log.Panicf("Faield to start server: %s", err)
@@ -103,19 +120,22 @@ func (s *Server) cleanRooms(interval, idleThreshold int) {
 func (s *Server) scanAndCleanRooms(idleThreshold int) int {
 	threshold := time.Duration(idleThreshold) * time.Second
 	count := 0
-	for roomID, room := range s.rooms {
-		if time.Since(room.LastActiveTime()) > threshold {
-			s.deleteRoom(roomID)
+	for roomName, room := range s.rooms {
+		if time.Since(room.LastActiveTime()) > threshold || room.Status() == message.RStopped {
+			s.deleteRoom(roomName)
+			room.SetStatus(message.RStopped) // in case room are current disconnected
+			msg := room.PrepareRoomInfo()
+			s.db.UpdateRoom(room.Id(), msg)
 			count += 1
-			log.Printf("Removed room: %s because of Idle", roomID)
+			log.Printf("Removed room: %s because of Idle", roomName)
 		}
 	}
 	return count
 }
 
-func (s *Server) deleteRoom(roomID string) {
+func (s *Server) deleteRoom(name string) {
 	s.lock.Lock()
-	delete(s.rooms, roomID)
+	delete(s.rooms, name)
 	s.lock.Unlock()
 
 }

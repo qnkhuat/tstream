@@ -82,7 +82,7 @@ const StreamPreview: FC<Props> = ({ title, wsUrl, streamerID, nViewers, startedT
         <p className="font-semibold">{title}</p>
         <div className="flex justify-between">
           <p className="text-md">@{streamerID}</p>
-          <p className="text-md">{nViewers} Viewers</p>
+          <p className="text-md hidden">{nViewers} Viewers</p>
         </div>
       </div>
     </div>
