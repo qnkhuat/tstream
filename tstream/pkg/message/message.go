@@ -32,6 +32,9 @@ const (
 
 	// when user first join the room, he can request for cached message to avoid idle screen
 	TRequestCacheMessage = "RequestCacheMessage"
+
+	// when user first join the room, he can request for cache chat to avoid idle chat screen
+	TRequestCacheChat = "RequestCacheChat"
 )
 
 type Wrapper struct {
@@ -44,15 +47,34 @@ type Winsize struct {
 	Cols uint16
 }
 
+type Chat struct {
+	Name    string
+	Content string
+	Color   string
+}
+
 type StreamerConnect struct {
 	Title string
 }
+
+type RoomStatus string
+
+const (
+	RStreaming RoomStatus = "Streaming"
+
+	// When user actively close connection. Detected via closemessage
+	RStopped = "Stopped"
+
+	// When don't receive ping for a long time
+	RDisconnected = "Disconnected"
+)
 
 type RoomInfo struct {
 	NViewers    int
 	StartedTime time.Time
 	Title       string
 	StreamerID  string
+	RoomStatus  RoomStatus
 }
 
 func Unwrap(buff []byte) (Wrapper, error) {
@@ -67,6 +89,7 @@ func Wrap(msgType Type, msgObject interface{}) (Wrapper, error) {
 	if err != nil {
 		return Wrapper{}, err
 	}
+
 	msg := Wrapper{
 		Type: msgType,
 		Data: data,

@@ -2,15 +2,16 @@ import React from "react";
 import * as constants from "../lib/constants";
 import PubSub from "../lib/pubsub";
 import TextField from '@material-ui/core/TextField';
-import ArrowRightOutlinedIcon from '@material-ui/icons/ArrowRightOutlined';
+import KeyboardArrowRightRoundedIcon from '@material-ui/icons/KeyboardArrowRightRounded';
 
 interface TstreamUser {
   name: string,
-  color: string,
+    color: string,
 }
 
 interface Props {
   msgManager: PubSub;
+  className?: string;
 }
 
 interface ChatMsg {
@@ -25,16 +26,18 @@ interface State {
   name: string;
   color: string;
   isWaitingUsername: boolean,
-  tempMsg: string,
+    tempMsg: string,
 }
 
 const ChatSection: React.FC<ChatMsg> = ({ Name, Content, Color }) => {
   return (
     <>
-      <div className="w-full flex p-2 hover:bg-gray-800 rounded-lg">
-        {Name !== '' && <span style={{color: Color}} className="font-black">{Name}</span>}        
-        {Name !== '' && <span className="text-green-600 pl-2 pr-2"><ArrowRightOutlinedIcon /></span>}
-        <div style={{wordWrap: 'break-word', overflow: 'hidden'}}>{Content}</div>
+      <div className="w-full flex p-2 hover:bg-gray-900 rounded-lg">
+        <div className="break-all">
+          {Name !== '' && <span style={{color: Color}} className="font-black">{Name}</span>}        
+          {Name !== '' && <span className="text-green-600 py-1"><KeyboardArrowRightRoundedIcon /></span>}
+          {Content}
+        </div>
       </div>
     </>
   )
@@ -53,7 +56,7 @@ class Chat extends React.Component<Props, State> {
       tempMsg: '',
     }
   }
-  
+
   addNewMsg(chatMsg: ChatMsg) {
     let newMsgList = this.state.msgList as ChatMsg[];
     newMsgList.push(chatMsg);
@@ -67,7 +70,20 @@ class Chat extends React.Component<Props, State> {
     this.props.msgManager?.sub(constants.MSG_TCHAT, (chatMsg: ChatMsg) => {
       this.addNewMsg(chatMsg);
     });
-    
+
+    this.props.msgManager?.sub(constants.MSG_TREQUEST_CACHE_CHAT, (cacheChat: Array<ChatMsg>) => {
+      if (cacheChat === null) {
+        return;
+      }
+      let newMsgList = this.state.msgList as ChatMsg[];
+      for (let i = 0; i < cacheChat.length; i++) {
+        newMsgList.push(cacheChat[i]);
+      }
+      this.setState({
+        msgList: newMsgList,
+      });
+    });
+
     const payload = localStorage.getItem('tstreamUser');
     if (payload !== null) {
       const tstreamUser : TstreamUser = JSON.parse(payload);
@@ -76,7 +92,7 @@ class Chat extends React.Component<Props, State> {
         color: tstreamUser.color,
       });
     } 
-    
+
     // disable enter default behavior of textarea 
     document.getElementById("textarea")!.addEventListener('keydown', (e) => {
       var code = e.keyCode || e.which;
@@ -85,7 +101,6 @@ class Chat extends React.Component<Props, State> {
         this.onSendMsg(this.state.inputContent);
       }
     });
-    document.getElementById("chatbox")!.style.height = `calc(100vh - ${document.getElementById("textarea")!.clientHeight}px - 57px)`;
   }
 
   onSendMsg(content: string) {
@@ -175,30 +190,39 @@ class Chat extends React.Component<Props, State> {
 
   render() {
     return (
-      <div className="w-full flex flex-col border-l border-gray-500 relative" style={{width: "400px", fontFamily: "'Ubuntu Mono', monospace"}}>
-        <div className="bg-black overflow-y-auto overflow-x-none p-2 flex flex-col-reverse" id="chatbox">
+      <div 
+        id="chat-wrapper"
+        className={`flex flex-col w-full h-full flex flex-col border-l border-gray-500 relative pt-12 ${this.props.className}`} 
+        style={{width: '400px', fontFamily: "'Ubuntu Mono', monospace"}}
+      >
+        <div style={{height: '0px'}} className="bg-black overflow-y-auto overflow-x-none p-2 flex flex-col-reverse flex-grow" id="chatbox">
           {
             this.state.msgList.slice(0).reverse().map(
               (item, index) => <ChatSection Name={item.Name} Content={item.Content} Color={item.Color} key={index}/>
             )
           }
         </div>
-        <div className="absolute bottom-0 transform w-full">
+        <div className="bottom-0 transform w-full" id="textarea">
           <div 
-            id="textarea"
             className="border-b border-gray-500 flex-shrink-0 flex items-center justify-between"
           >
              <TextField
-              className="flex-grow bg-gray-600 rounded-lg"
+              InputProps={{
+                style: {
+                  flexGrow: 1, 
+                  borderRadius: ".5rem",
+                  backgroundColor: "rgba(75,85,99,1)",
+                  fontFamily: "'Ubuntu Mono', monospace",
+               }
+              }}
               placeholder={(this.state.isWaitingUsername) ? "Please enter your name..." : "Chat with everyone..."}
+              fullWidth
               multiline
-              maxRows={5}
               value={this.state.inputContent}
               onChange={(e) => {
                 this.setState({
                   inputContent: e.target.value,
                 });
-               document.getElementById("chatbox")!.style.height = `calc(100vh - ${document.getElementById("textarea")!.clientHeight}px - 57px)`;
               }}
             />
           </div>

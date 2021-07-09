@@ -16,6 +16,8 @@ import (
 	"github.com/qnkhuat/tstream/pkg/viewer"
 )
 
+var emptyByteArray []byte
+
 type Room struct {
 	lock           sync.Mutex
 	streamer       *websocket.Conn
@@ -27,17 +29,22 @@ type Room struct {
 	startedTime    time.Time
 	lastActiveTime time.Time
 	msgBuffer      [][]byte
+	status         message.RoomStatus
+	cacheChat      [][]byte
 }
 
 func New(ID string) *Room {
 	viewers := make(map[string]*viewer.Viewer)
 	var buffer [][]byte
+	var cacheChat [][]byte
 	return &Room{
 		ID:             ID,
 		viewers:        viewers,
 		lastActiveTime: time.Now(),
 		startedTime:    time.Now(),
 		msgBuffer:      buffer,
+		status:         message.RStreaming,
+		cacheChat:      cacheChat,
 	}
 }
 
@@ -57,8 +64,16 @@ func (r *Room) SetTitle(title string) {
 	r.title = title
 }
 
+func (r *Room) Status() message.RoomStatus {
+	return r.status
+}
+
 func (r *Room) Title() string {
 	return r.title
+}
+
+func (r *Room) Streamer() *websocket.Conn {
+	return r.streamer
 }
 
 func (r *Room) AddStreamer(conn *websocket.Conn) error {
@@ -69,10 +84,39 @@ func (r *Room) AddStreamer(conn *websocket.Conn) error {
 	}
 	log.Printf("New streamer")
 	r.streamer = conn
-	r.streamer.SetPingHandler(func(appData string) error {
+	r.status = message.RStreaming
+
+	conn.SetPongHandler(func(appData string) error {
 		r.lastActiveTime = time.Now()
 		return nil
 	})
+
+	r.streamer.SetCloseHandler(func(code int, text string) error {
+		log.Printf("Got streamer close message. Stopping room: %s", r.ID)
+		r.status = message.RStopped
+		r.Stop(message.RStopped)
+		return nil
+	})
+
+	// Periodically ping streamer
+	// If streamer response with a pong message => still alive
+	go func() {
+		ticker := time.NewTicker(cfg.SERVER_PING_INTERVAL * time.Second)
+		for {
+			select {
+			case <-ticker.C:
+				if r.status == message.RStopped {
+					return
+				}
+				if time.Now().Sub(r.lastActiveTime) > time.Second*cfg.SERVER_DISCONNECTED_THRESHHOLD {
+					r.status = message.RDisconnected
+				} else {
+					r.status = message.RStreaming
+				}
+				r.streamer.WriteControl(websocket.PingMessage, emptyByteArray, time.Time{})
+			}
+		}
+	}()
 
 	return nil
 }
@@ -121,7 +165,8 @@ func (r *Room) RemoveViewer(ID string) error {
 func (r *Room) Start() {
 	for {
 		_, msg, err := r.streamer.ReadMessage()
-		log.Printf("Got a message: %d", len(msg))
+
+		log.Printf("Got a message from streamer: %d", len(msg))
 		if err != nil {
 			log.Printf("Failed to reaceive message from streamer: %s. Closing. Error: %s", r.ID, err)
 			r.streamer.Close()
@@ -158,12 +203,20 @@ func (r *Room) addMsgBuffer(msg []byte) {
 	r.msgBuffer = append(r.msgBuffer, msg)
 }
 
+func (r *Room) addCachedChat(chat []byte) {
+	if len(r.cacheChat) >= cfg.ROOM_CACHE_MSG_SIZE {
+		r.cacheChat = r.cacheChat[1:]
+	}
+	r.cacheChat = append(r.cacheChat, chat)
+}
+
 func (r *Room) ReadAndHandleViewerMessage(ID string) {
 	viewer, ok := r.viewers[ID]
 	if !ok {
 		return
 	}
 	for {
+
 		msg, _ := <-viewer.In
 
 		msgObj, err := message.Unwrap(msg)
@@ -171,7 +224,6 @@ func (r *Room) ReadAndHandleViewerMessage(ID string) {
 			log.Printf("Failed to decode msg", err)
 		}
 
-		log.Printf("Got a message: %s", msgObj.Type)
 		if msgObj.Type == message.TRequestWinsize {
 
 			msg, _ := message.Wrap(message.TWinsize, message.Winsize{
@@ -187,12 +239,8 @@ func (r *Room) ReadAndHandleViewerMessage(ID string) {
 				viewer.Out <- msg
 			}
 		} else if msgObj.Type == message.TRequestRoomInfo {
-			msg, err := message.Wrap(message.TRoomInfo, message.RoomInfo{
-				Title:       r.Title(),
-				NViewers:    len(r.viewers),
-				StartedTime: r.StartedTime(),
-				StreamerID:  r.ID,
-			})
+
+			msg, err := r.PrepareRoomInfo()
 
 			if err == nil {
 				payload, _ := json.Marshal(msg)
@@ -201,7 +249,18 @@ func (r *Room) ReadAndHandleViewerMessage(ID string) {
 				log.Printf("Error wrapping room info message: %s", err)
 			}
 		} else if msgObj.Type == message.TChat {
+			log.Printf("Data Message: %v", msgObj.Data)
+
+			r.addCachedChat(msgObj.Data)
 			r.Broadcast(msg, []string{ID})
+		} else if msgObj.Type == message.TRequestCacheChat {
+			msg, err := r.PrepareCacheChat()
+			if err == nil {
+				payload, _ := json.Marshal(msg)
+				viewer.Out <- payload
+			} else {
+				log.Printf("Error wrapping cache chat info message: %s", err)
+			}
 		}
 	}
 }
@@ -241,11 +300,50 @@ func (r *Room) Broadcast(msg []uint8, IDExclude []string) {
 	log.Printf("Broadcasted to %d viewers", count)
 }
 
-func (r *Room) Close() {
-	for id, _ := range r.viewers {
+func (r *Room) Stop(roomStatus message.RoomStatus) {
+	log.Printf("Stopping room: %s, with Status: %s", r.ID, roomStatus)
+	r.status = roomStatus
+	for id, viewer := range r.viewers {
+		viewer.Close()
 		r.RemoveViewer(id)
 	}
 	r.lock.Lock()
 	r.streamer.Close()
 	r.lock.Unlock()
+}
+
+func (r *Room) PrepareRoomInfo() (message.Wrapper, error) {
+	msg, err := message.Wrap(message.TRoomInfo, message.RoomInfo{
+		Title:       r.Title(),
+		NViewers:    len(r.viewers),
+		StartedTime: r.StartedTime(),
+		StreamerID:  r.ID,
+		RoomStatus:  r.status,
+	})
+
+	if err != nil {
+		return msg, nil
+	} else {
+		return msg, err
+	}
+}
+
+func (r *Room) PrepareCacheChat() (message.Wrapper, error) {
+	var listChat []message.Chat
+	for _, value := range r.cacheChat {
+		curChat := &message.Chat{}
+		err := json.Unmarshal(value, curChat)
+		if err != nil {
+			log.Printf("There's error when unmarshal cache chat %s", err)
+		}
+		listChat = append(listChat, *curChat)
+	}
+
+	msg, err := message.Wrap(message.TRequestCacheChat, listChat)
+
+	if err != nil {
+		return msg, nil
+	} else {
+		return msg, err
+	}
 }

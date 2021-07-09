@@ -70,6 +70,7 @@ class WSTerminal extends React.Component<Props, State> {
     window.addEventListener("resize", () => this.rescale());
     this.rescale();
 
+
   }
 
   componentWillUnmount() {
@@ -100,6 +101,7 @@ class WSTerminal extends React.Component<Props, State> {
 
 
   render() {
+    console.log("WSterminal: ", this.props.width, this.props.height);
     return (
       <div className={`relative ${this.props.className} overflow-hidden`}
         style={{width: this.props.width!, height: this.props.height!}}>
