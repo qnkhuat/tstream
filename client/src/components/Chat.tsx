@@ -1,6 +1,8 @@
 import React from "react";
 import * as constants from "../lib/constants";
 import PubSub from "../lib/pubsub";
+import TextField from '@material-ui/core/TextField';
+import ArrowRightOutlinedIcon from '@material-ui/icons/ArrowRightOutlined';
 
 interface TstreamUser {
   name: string,
@@ -31,7 +33,7 @@ const ChatSection: React.FC<ChatMsg> = ({ Name, Content, Color }) => {
     <>
       <div className="w-full flex p-2 hover:bg-gray-800 rounded-lg">
         {Name !== '' && <span style={{color: Color}} className="font-black">{Name}</span>}        
-        {Name !== '' && <span className="text-green-600 pl-2 pr-2">{">"}</span>}
+        {Name !== '' && <span className="text-green-600 pl-2 pr-2"><ArrowRightOutlinedIcon /></span>}
         <div style={{wordWrap: 'break-word', overflow: 'hidden'}}>{Content}</div>
       </div>
     </>
@@ -57,6 +59,7 @@ class Chat extends React.Component<Props, State> {
     newMsgList.push(chatMsg);
     this.setState({
       msgList: newMsgList,
+      inputContent: "",
     })
   }
 
@@ -79,8 +82,6 @@ class Chat extends React.Component<Props, State> {
       var code = e.keyCode || e.which;
       if (code === 13) {
         e.preventDefault();
-        let textarea = document.getElementById("textarea") as HTMLTextAreaElement;
-        textarea.rows = 1;
         this.onSendMsg(this.state.inputContent);
       }
     });
@@ -123,6 +124,9 @@ class Chat extends React.Component<Props, State> {
             name: tempMsg,
             color: color,
           }
+
+          localStorage.setItem('tstreamUser', JSON.stringify(tstreamUser));
+
           tempMsg = this.state.tempMsg;
 
           // if the first message is empty, just ignore it
@@ -142,10 +146,6 @@ class Chat extends React.Component<Props, State> {
           Content: notification,
           Color: '', 
         };
-
-        this.setState({
-          inputContent: "",
-        });
 
         this.addNewMsg(data);
         return ;
@@ -169,10 +169,6 @@ class Chat extends React.Component<Props, State> {
       Color: color,
     };
 
-    this.setState({
-      inputContent: "",
-    });
-
     this.addNewMsg(data);
     this.props.msgManager?.pub(constants.MSG_TREQUEST_CHAT, data);
   }
@@ -188,21 +184,22 @@ class Chat extends React.Component<Props, State> {
           }
         </div>
         <div className="absolute bottom-0 transform w-full">
-          <div className="border-b border-gray-500 flex-shrink-0 flex items-center justify-between">
-            <textarea
-              className="text-white px-3 py-3 flex-grow bg-gray-600 border-4 border-gray-500 focus:bg-black focus:border-purple-600 rounded-lg"
-              placeholder={"Chat with everyone..."}
+          <div 
+            id="textarea"
+            className="border-b border-gray-500 flex-shrink-0 flex items-center justify-between"
+          >
+             <TextField
+              className="flex-grow bg-gray-600 rounded-lg"
+              placeholder={(this.state.isWaitingUsername) ? "Please enter your name..." : "Chat with everyone..."}
+              multiline
+              maxRows={5}
               value={this.state.inputContent}
               onChange={(e) => {
                 this.setState({
                   inputContent: e.target.value,
                 });
-                let textarea = document.getElementById("textarea") as HTMLTextAreaElement;
-                textarea.rows = Math.floor(e.target.value.length / 45) + 1;
-                document.getElementById("chatbox")!.style.height = `calc(100vh - ${document.getElementById("textarea")!.clientHeight}px - 57px)`;
+               document.getElementById("chatbox")!.style.height = `calc(100vh - ${document.getElementById("textarea")!.clientHeight}px - 57px)`;
               }}
-              rows={1}
-              id="textarea"
             />
           </div>
         </div>
