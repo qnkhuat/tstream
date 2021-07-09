@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from "react";
+import React from "react";
 import Xterm from "./Xterm";
 import * as constants from "../lib/constants";
 import PubSub from "../lib/pubsub";
@@ -16,26 +16,8 @@ interface Winsize {
   Cols: number;
 }
 
-interface Size {
-  Width: number;
-  Height: number;
-}
 
-
-function proposeScale(boundWidth: number, boundHeight: number, realWidth: number, realHeight: number): number {
-  const widthRatio = realWidth / boundWidth,
-    heightRatio = realHeight / boundHeight;
-  if (boundWidth > 0 && boundHeight > 0 ) {
-    return  widthRatio > heightRatio ? boundWidth / realWidth : boundHeight / realHeight;
-  } else {
-    return boundWidth > 0 ? boundWidth / realWidth :  boundHeight / realHeight;
-  }
-}
-
-interface State {
-}
-
-class WSTerminal extends React.Component<Props, State> {
+class WSTerminal extends React.Component<Props, {}> {
 
   static defaultProps = {
     width: -1,
