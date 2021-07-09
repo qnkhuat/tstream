@@ -2142,6 +2142,13 @@
   dependencies:
     "@types/react" "*"
 
+"@types/react-helmet@^6.1.2":
+  "integrity" "sha512-dcfAZNlWb5JYFbO9CGfrPWLJAyFcT6UeR3u35eBbv8liY2Rg4K7fM1G5+HnwVgot+C+kVwXAZ8pLEn2jsMfTDg=="
+  "resolved" "https://registry.npmjs.org/@types/react-helmet/-/react-helmet-6.1.2.tgz"
+  "version" "6.1.2"
+  dependencies:
+    "@types/react" "*"
+
 "@types/react-is@^16.7.1 || ^17.0.0":
   "integrity" "sha512-X6jVqDIibL2sY0Qtth5EzNeUgPyoCWeBZdmE5xKr7hI4zaQDwN0VaQd7pJnlOB0mDGnOVH0cZZVXg9cnWhztQg=="
   "resolved" "https://registry.npmjs.org/@types/react-is/-/react-is-17.0.1.tgz"
