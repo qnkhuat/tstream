@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { RouteComponentProps, withRouter, Link } from "react-router-dom";
+import { Helmet } from "react-helmet";
 
 import * as base64 from "../../lib/base64";
 import * as util from "../../lib/util";
@@ -15,8 +16,8 @@ import Loading from "../../components/Loading";
 import dayjs from "dayjs";
 
 import IconButton from '@material-ui/core/IconButton';
-import DoubleArrowRoundedIcon from '@material-ui/icons/DoubleArrowRounded';
 import PersonIcon from '@material-ui/icons/Person';
+import DoubleArrowRoundedIcon from '@material-ui/icons/DoubleArrowRounded';
 
 interface Params {
   username: string;
@@ -100,9 +101,6 @@ class Room extends React.Component<Props, State> {
   }
 
   toggleChatWindow() {
-    console.log("HIE", this.state.hideChat);
-    console.log("State:", this.state);
-
     let hideChatState = this.state.hideChat == null ? true : !this.state.hideChat;
     this.setState({hideChat: hideChatState});
     this.resizeTerminal(hideChatState);
@@ -110,17 +108,14 @@ class Room extends React.Component<Props, State> {
 
   resizeTerminal(hideChat: boolean | null) {
     if (this.navbarRef.current) {
-      console.log("Got: ", hideChat);
       let termWidth = window.innerWidth;
 
       // at start, if the window is too small then we don't show chat
       if (window.innerWidth < this.ChatWindowWidth * 2 && hideChat == null) hideChat=true;
 
       if (!hideChat) {
-        console.log("KILL");
         termWidth -= this.ChatWindowWidth;
       }
-      console.log("Term width", termWidth);
 
       this.setState({
         termSize: {
@@ -222,7 +217,7 @@ class Room extends React.Component<Props, State> {
   }
 
   render() {
-    document.title = getSiteTitle(this.props.match.params.username, this.state.roomInfo?.Title as string);
+    const title = getSiteTitle(this.props.match.params.username, this.state.roomInfo?.Title as string);
     const isStreamStopped = this.state.roomInfo?.RoomStatus == RoomStatus.Stopped;
     const terminalSize: RectSize =  {
       width: this.state.termSize?.width ? this.state.termSize.width : -1,
@@ -230,6 +225,10 @@ class Room extends React.Component<Props, State> {
     }
     return (
       <>
+        <Helmet>
+          <title>{title}</title>
+        </Helmet>
+
         <div id="navbar" ref={this.navbarRef}>
           <Navbar />
         </div>
