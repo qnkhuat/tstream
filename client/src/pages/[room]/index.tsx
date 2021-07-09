@@ -26,7 +26,6 @@ interface Params {
 interface RectSize {
   width: number;
   height: number;
-
 }
 
 enum RoomStatus {
@@ -218,6 +217,7 @@ class Room extends React.Component<Props, State> {
 
   render() {
     const title = getSiteTitle(this.props.match.params.username, this.state.roomInfo?.Title as string);
+    const isConnected = this.state.roomInfo != null;
     const isStreamStopped = this.state.roomInfo?.RoomStatus == RoomStatus.Stopped;
     const terminalSize: RectSize =  {
       width: this.state.termSize?.width ? this.state.termSize.width : -1,
@@ -256,7 +256,9 @@ class Room extends React.Component<Props, State> {
               </div>}
 
               <div id="terminal-window">
-                {this.state.roomInfo && this.state.roomInfo?.RoomStatus != RoomStatus.Stopped &&
+                {!isConnected && <Loading />}
+
+                {isConnected && !isStreamStopped &&
                 <WSTerminal
                   className="bg-black"
                   msgManager={this.msgManager}
@@ -264,7 +266,7 @@ class Room extends React.Component<Props, State> {
                   height={terminalSize.height}
                 />}
 
-                {(!this.state.roomInfo || this.state.roomInfo?.RoomStatus == RoomStatus.Stopped) &&
+                {isConnected && isStreamStopped &&
                   <div id="closed"
                     style={terminalSize}
                     className="bg-black flex justify-center items-center">
