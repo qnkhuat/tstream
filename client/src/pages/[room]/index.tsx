@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { RouteComponentProps, withRouter, Link } from "react-router-dom";
+import React from 'react';
+import { RouteComponentProps, withRouter } from "react-router-dom";
 
 import * as base64 from "../../lib/base64";
 import * as util from "../../lib/util";
@@ -11,8 +11,6 @@ import Navbar from "../../components/Navbar";
 import WSTerminal from "../../components/WSTerminal";
 import Uptime from "../../components/Uptime";
 import Loading from "../../components/Loading";
-
-import dayjs from "dayjs";
 
 import IconButton from '@material-ui/core/IconButton';
 import PersonIcon from '@material-ui/icons/Person';
@@ -217,7 +215,7 @@ class Room extends React.Component<Props, State> {
   render() {
     document.title = getSiteTitle(this.props.match.params.username, this.state.roomInfo?.Title as string);
     const isConnected = this.state.roomInfo != null;
-    const isStreamStopped = this.state.roomInfo?.RoomStatus == RoomStatus.Stopped;
+    const isStreamStopped = this.state.roomInfo?.RoomStatus === RoomStatus.Stopped;
     const terminalSize: RectSize =  {
       width: this.state.termSize?.width ? this.state.termSize.width : -1,
       height: this.state.termSize?.height ? this.state.termSize.height : -1,

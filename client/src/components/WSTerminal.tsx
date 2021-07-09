@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from "react";
+import React from "react";
 import Xterm from "./Xterm";
 import * as constants from "../lib/constants";
 import PubSub from "../lib/pubsub";
@@ -16,26 +16,8 @@ interface Winsize {
   Cols: number;
 }
 
-interface Size {
-  Width: number;
-  Height: number;
-}
 
-
-function proposeScale(boundWidth: number, boundHeight: number, realWidth: number, realHeight: number): number {
-  const widthRatio = realWidth / boundWidth,
-    heightRatio = realHeight / boundHeight;
-  if (boundWidth > 0 && boundHeight > 0 ) {
-    return  widthRatio > heightRatio ? boundWidth / realWidth : boundHeight / realHeight;
-  } else {
-    return boundWidth > 0 ? boundWidth / realWidth :  boundHeight / realHeight;
-  }
-}
-
-interface State {
-}
-
-class WSTerminal extends React.Component<Props, State> {
+class WSTerminal extends React.Component<Props, {}> {
 
   static defaultProps = {
     width: -1,
@@ -71,8 +53,10 @@ class WSTerminal extends React.Component<Props, State> {
 
   }
 
-  componentDidUpdate() {
-    this.rescale();
+  componentDidUpdate(prevProps: Props) {
+    if (this.props.width != prevProps.width || this.props.height != prevProps.height) {
+      this.rescale();
+    }
   }
 
   componentWillUnmount() {
@@ -83,8 +67,8 @@ class WSTerminal extends React.Component<Props, State> {
 
   rescale() {
     if (this.termRef.current && this.divRef.current && (this.props.width! > 0 || this.props.height! > 0)) {
-      const core = (this.termRef.current?.terminal as any)._core;
-      const cellWidth = core._renderService.dimensions.actualCellWidth,
+      const core = (this.termRef.current?.terminal as any)._core,
+        cellWidth = core._renderService.dimensions.actualCellWidth,
         cellHeight = core._renderService.dimensions.actualCellHeight,
         currentFontSize = this.termRef.current.terminal.getOption('fontSize'),
         rows = this.termRef.current.terminal.rows,
@@ -97,7 +81,7 @@ class WSTerminal extends React.Component<Props, State> {
         newFontSize = Math.floor(hFontSizeMultiplier > wFontSizeMultiplier ? currentFontSize * wFontSizeMultiplier : currentFontSize * hFontSizeMultiplier);
 
       this.termRef.current.terminal.setOption('fontSize', newFontSize);
-
+      this.termRef.current.terminal.refresh(0, rows-1); // force xterm to re-render everything
     }
   }
 

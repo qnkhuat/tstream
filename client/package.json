@@ -58,7 +58,6 @@
     ]
   },
   "devDependencies": {
-    "@types/react-helmet": "^6.1.2",
     "@types/react-router-dom": "^5.1.7",
     "@types/url-join": "^4.0.0",
     "autoprefixer": "^9.8.6",
