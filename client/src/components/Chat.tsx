@@ -34,9 +34,22 @@ const ChatSection: React.FC<ChatMsg> = ({ Name, Content, Color }) => {
     <>
       <div className="w-full flex p-2 hover:bg-gray-900 rounded-lg">
         <div className="break-all">
-          {Name !== '' && <span style={{color: Color}} className="font-black">{Name}</span>}        
-          {Name !== '' && <span className="text-green-600 py-1"><KeyboardArrowRightRoundedIcon /></span>}
-          {Content}
+          {
+            Name === '' ? 
+            <div className="font-bold">
+              {
+                Content === "Invalid Username" ? 
+                  <img src="./warning.png" alt="warning" height="30" width="30" className="inline-block m-2"/> :
+                  <img src="./hand-wave.png" alt="hand-wave" />
+              }
+                  {Content}
+            </div> : 
+            <>
+              <span style={{color: Color}} className="font-black">{Name}</span>
+              <span className="text-green-600 py-1"><KeyboardArrowRightRoundedIcon /></span>
+              {Content}
+            </>
+          }
         </div>
       </div>
     </>
@@ -114,7 +127,7 @@ class Chat extends React.Component<Props, State> {
 
       // ask for first time
       if (!this.state.isWaitingUsername) {
-        notification = "Please enter your username(I.e: elonmusk)"; 
+        notification = "Please enter your username (I.e: elonmusk)"; 
         this.setState({
           tempMsg: tempMsg,
           isWaitingUsername: true,
