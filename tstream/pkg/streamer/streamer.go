@@ -10,19 +10,27 @@ import (
 	"github.com/qnkhuat/tstream/pkg/message"
 	"github.com/qnkhuat/tstream/pkg/ptyMaster"
 	"io"
+  "io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
 	"time"
+  "crypto/sha1"
+  "encoding/hex"
+  "bytes"
 )
+
+// TODO: if we supports windows this should be changed
+var CONFIG_PATH = os.ExpandEnv("$HOME/.tstream.conf")
 
 type Streamer struct {
 	pty        *ptyMaster.PtyMaster
 	serverAddr string
 	clientAddr string
 	username   string
+	secret     string
 	title      string
 	conn       *websocket.Conn
 	Out        chan []byte
@@ -30,19 +38,22 @@ type Streamer struct {
 }
 
 func New(clientAddr, serverAddr, username, title string) *Streamer {
-	pty := ptyMaster.New()
-	out := make(chan []byte, 256) // buffer 256 send requests
-	in := make(chan []byte, 256)  // buffer 256 send requests
+  pty := ptyMaster.New()
+  out := make(chan []byte, 256) // buffer 256 send requests
+  in := make(chan []byte, 256)  // buffer 256 send requests
 
-	return &Streamer{
-		pty:        pty,
-		serverAddr: serverAddr,
-		clientAddr: clientAddr,
-		username:   username,
-		title:      title,
-		Out:        out,
-		In:         in,
-	}
+  secret, _ := GetSecret(CONFIG_PATH)
+
+  return &Streamer{
+    secret:     secret,
+    pty:        pty,
+    serverAddr: serverAddr,
+    clientAddr: clientAddr,
+    username:   username,
+    title:      title,
+    Out:        out,
+    In:         in,
+  }
 }
 
 var emptyByteArray []byte
@@ -155,14 +166,14 @@ func (s *Streamer) Start() error {
 	return nil
 }
 
-func (s *Streamer) RequestAddRoom(force bool) error {
-	// TODO: handle cases when call add api return existed
-  resp, _ := http.Post(fmt.Sprintf("%s/api/room?streamerID=%s&title=%s&force=%t", s.serverAddr, s.username, s.title, force), "application/json", nil)
-  if resp.StatusCode != 200 {
-    return fmt.Errorf("Room existed!")
-  } else {
-    return nil
-  }
+func (s *Streamer) RequestAddRoom() int {
+  // TODO: handle cases when call add api return existed
+  body := map[string]string{"secret": s.secret}
+  jsonValue, _ := json.Marshal(body)
+  payload := bytes.NewBuffer(jsonValue)
+
+  resp, _ := http.Post(fmt.Sprintf("%s/api/room?streamerID=%s&title=%s", s.serverAddr, s.username, s.title), "application/json", payload)
+  return resp.StatusCode
 }
 
 func (s *Streamer) ConnectWS() error {
@@ -222,3 +233,33 @@ func (s *Streamer) Winsize(rows, cols uint16) {
 
 	s.Out <- payload
 }
+
+func GetSecret(configPath string) (string, error){
+  var secret string
+  if _, err := os.Stat(configPath); os.IsNotExist(err) {
+    secret = GenSecret("tstream")
+    f, err := os.Create(configPath)
+    defer f.Close()
+    if err != nil {
+      return "", err
+    } else {
+      f.WriteString(secret)
+    }
+  } else {
+    data, err := ioutil.ReadFile(configPath)
+    if err != nil {
+      return "", err
+    }
+    secret = string(data) 
+  }
+
+  return secret, nil
+}
+
+func GenSecret(key string) string {
+  h := sha1.New()
+  h.Write([]byte(key))
+  sha1_hash := hex.EncodeToString(h.Sum(nil))
+  return sha1_hash
+}
+

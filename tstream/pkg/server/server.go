@@ -56,11 +56,11 @@ func CORS(next http.Handler) http.Handler {
 	})
 }
 
-func (s *Server) NewRoom(name string, title string) error {
+func (s *Server) NewRoom(name, title, secret string) error {
 	if _, ok := s.rooms[name]; ok {
 		return fmt.Errorf("Room %s existed", name)
 	}
-  r := room.New(name, title)
+  r := room.New(name, title, secret)
 	msg := r.PrepareRoomInfo()
 	id, err := s.db.AddRoom(msg)
   r.SetId(id)

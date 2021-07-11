@@ -114,6 +114,7 @@ func (db *DB) GetRooms(statuses []message.RoomStatus, skip int, n int) ([]messag
 		c := b.Cursor()
 
 		count := 0
+    // Default is to get from the most recent
 		for k, v := c.Last(); k != nil; k, v = c.Prev() {
 			if n != 0 && count < skip {
 				count += 1

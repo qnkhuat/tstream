@@ -44,8 +44,6 @@ func main() {
 		flag.PrintDefaults()
 	}
 
-  log.Printf("Pid: %d, Ppid: %d, uid: %d", os.Getpid(), os.Getppid(), os.Getuid())
-
 	var server = flag.String("server", "https://server.tstream.club", "Server endpoint")
 	var client = flag.String("client", "https://tstream.club", "TStream client url")
 
@@ -95,20 +93,21 @@ func main() {
 
 	s := streamer.New(*client, *server, username, title)
 
-	err = s.RequestAddRoom(false)
-  if err != nil {
-    // TODO: verify if the current is the one who created that room
-    // Proposed solution: - when start a session: create a temp file that store a hash in /tmp
-    // Compare this hash with server to verify
-    fmt.Printf("Stream with username '%s' is existed\nStop it and stream from this terminal? (y/n): ", username)
+  statusCode := s.RequestAddRoom()
+  log.Printf("Got status code: %d", statusCode)
+  if statusCode == 400 {
+    fmt.Printf("Detected a session is streaming with the same username\nProceed to stream from this terminal? (y/n): " )
     confirm, _ := bufio.NewReader(os.Stdin).ReadString('\n')
     if confirm[0] != 'y' {
       os.Exit(1)
     }
-	}
-
-	err = s.Start()
-	if err != nil {
-		log.Printf("Failed to connect server")
-	}
+  } else if statusCode == 401 {
+    fmt.Printf("Username: %s is currently used by other streamer. Please use a different username!\n", username)
+    os.Exit(1)
+  } else {
+    err = s.Start()
+    if err != nil {
+      log.Printf("Failed to start tstream : %s", err)
+    }
+  }
 }

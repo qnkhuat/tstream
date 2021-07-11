@@ -76,24 +76,48 @@ func (s *Server) handleListRooms(w http.ResponseWriter, r *http.Request) {
 
 type AddRoomQuery struct {
 	Title      string  `schema:"title,required"`
-	StreamerID string  `schema:"streamerId,required"`
-  // Override existing room if found one currently streaming
-  Force      bool    `schema:"force,required"`
+	StreamerID string  `schema:"streamerID,required"`
+}
+
+type AddRoomBody struct {
+  Secret string `schema:secret,required`
 }
 
 // Websocket connetion from streamer
 func (s *Server) handleAddRoom(w http.ResponseWriter, r *http.Request) {
-	var q AddRoomQuery
-	decoder.Decode(&q, r.URL.Query())
+  var q AddRoomQuery
+  err := decoder.Decode(&q, r.URL.Query())
+  if err != nil {
+    log.Printf("Failed to decode:%s", err)
+    http.Error(w, err.Error(), 400)
+    return
+  }
 
-	if _, ok := s.rooms[q.StreamerID]; !ok || q.Force {
-		s.NewRoom(q.StreamerID, q.Title)
-		log.Printf("Added a room %s, %s", q.StreamerId, q.Title)
-	} else {
-    log.Printf("Room existed: %s", q.StreamerId)
-		http.Error(w, "Room existed", 400)
-	}
-  
+  var b AddRoomBody
+  err = json.NewDecoder(r.Body).Decode(&b)
+  if err != nil {
+    log.Printf("Failed to decode:%s", err)
+    http.Error(w, err.Error(), 400)
+    return
+  }
+
+  // TODO: this check is still very naive.
+  // Use can still connect to websocket and override current streamer
+  // Need to check at websocket level as well
+  if _, ok := s.rooms[q.StreamerID]; !ok {
+    s.NewRoom(q.StreamerID, q.Title, b.Secret)
+    log.Printf("Added a room %s, %s", q.StreamerID, q.Title)
+  } else {
+    if s.rooms[q.StreamerID].Secret() != b.Secret {
+      log.Printf("not authorized %s, %s", s.rooms[q.StreamerID].Secret(), b.Secret)
+      http.Error(w, "Room existed and you're not authorized to access this room", 401)
+      return
+    } else {
+      log.Printf("Room existed: %s", q.StreamerID)
+      http.Error(w, "Room existed", 400)
+      return
+    }
+  }
 }
 
 // Websocket connetion from streamer

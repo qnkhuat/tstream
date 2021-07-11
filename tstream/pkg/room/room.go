@@ -33,9 +33,10 @@ type Room struct {
 	lastActiveTime time.Time
 	msgBuffer      [][]byte
 	status         message.RoomStatus
+  secret         string // used to verify streamer
 }
 
-func New(name string, title string) *Room {
+func New(name, title, secret string) *Room {
 	viewers := make(map[string]*viewer.Viewer)
 	var buffer [][]byte
 	return &Room{
@@ -47,6 +48,7 @@ func New(name string, title string) *Room {
 		msgBuffer:      buffer,
 		status:         message.RStreaming,
 		title:          title,
+    secret:         secret,
 	}
 }
 
@@ -65,6 +67,11 @@ func (r *Room) Viewers() map[string]*viewer.Viewer {
 func (r *Room) Id() uint64 {
 	return r.id
 }
+
+func (r *Room) Secret() string{
+	return r.secret
+}
+
 
 func (r *Room) SetTitle(title string) {
 	r.title = title
