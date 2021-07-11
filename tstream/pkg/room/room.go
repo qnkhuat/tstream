@@ -24,7 +24,7 @@ type Room struct {
 	viewers        map[string]*viewer.Viewer
 	chats          map[string]*viewer.Viewer
 	name           string // also is streamerID
-	id             uint64
+	id             uint64 // Id in DB
 	title          string
 	lastWinsize    *message.Winsize
 	startedTime    time.Time
@@ -121,7 +121,7 @@ func (r *Room) AddStreamer(conn *websocket.Conn) error {
 					return
 				}
 				if time.Now().Sub(r.lastActiveTime) > time.Second*cfg.SERVER_DISCONNECTED_THRESHHOLD {
-					r.status = message.RDisconnected
+					r.status = message.RStopped
 				} else {
 					r.status = message.RStreaming
 				}
@@ -308,6 +308,7 @@ func (r *Room) Stop(status message.RoomStatus) {
 
 func (r *Room) PrepareRoomInfo() message.RoomInfo {
 	return message.RoomInfo{
+    Id:          r.Id(),
 		Title:       r.title,
 		NViewers:    len(r.viewers),
 		StartedTime: r.startedTime,

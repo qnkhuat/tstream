@@ -59,16 +59,14 @@ func (s *Server) handleListRooms(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var rooms []*message.RoomInfo
+	var rooms []message.RoomInfo
 	switch q.Status {
 	case "Stopped":
-		rooms, err = s.db.GetRooms(message.RStopped, q.Skip, q.N)
+		rooms, err = s.db.GetRooms([]message.RoomStatus{message.RStopped}, q.Skip, q.N)
 	case "Streaming":
-		rooms, err = s.db.GetRooms(message.RStreaming, q.Skip, q.N)
-	case "Disconected":
-		rooms, err = s.db.GetRooms(message.RDisconnected, q.Skip, q.N)
+		rooms, err = s.db.GetRooms([]message.RoomStatus{message.RStreaming}, q.Skip, q.N)
 	case "":
-		rooms, err = s.db.GetRooms("", q.Skip, q.N) // get all
+		rooms, err = s.db.GetRooms([]message.RoomStatus{message.RStreaming, message.RStopped}, q.Skip, q.N) // get all
 	default:
 		http.Error(w, fmt.Sprintf("%s", "Invalid status"), 400)
 		return

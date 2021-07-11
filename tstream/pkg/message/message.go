@@ -60,12 +60,10 @@ const (
 
 	// When user actively close connection. Detected via closemessage
 	RStopped RoomStatus = "Stopped"
-
-	// When don't receive ping for a long time
-	RDisconnected RoomStatus = "Disconnected"
 )
 
 type RoomInfo struct {
+  Id          uint64 // Id in DB
 	AccNViewers int // Accumulated nviewers
 	NViewers    int
 	StartedTime time.Time

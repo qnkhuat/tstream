@@ -50,32 +50,42 @@ func itob(v uint64) []byte {
 	return b
 }
 
-func (db *DB) UpdateRoom(id uint64, obj message.RoomInfo) error {
+func (db *DB) UpdateRooms(rooms map[uint64]message.RoomInfo) error {
 	err := db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(BROOMS))
 
-		buf, err := json.Marshal(obj)
-		if err != nil {
-			return err
-		}
+    for id, msg := range rooms {
+      buf, err := json.Marshal(msg)
+      if err != nil {
+        return err
+      }
 
-		b.Put(itob(id), []byte(buf))
-		if err != nil {
-			return fmt.Errorf("Failed to put: %v", err)
-		}
+      err = b.Put(itob(id), []byte(buf))
+      if err != nil {
+        return err
+      }  
+    }
 		return nil
 	})
 
 	return err
 }
 
-func (db *DB) PutRoom(obj message.RoomInfo) (uint64, error) {
+/*
+DB
+- ROOMS
+  - ROOMID: ROOMINFO
+  - ROOMID: ROOMINFO
+ROOMID is auto increment
+*/
+func (db *DB) AddRoom(obj message.RoomInfo) (uint64, error) {
 	var id uint64
 	err := db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(BROOMS))
 
 		// newest record will be at the end of table
 		id, _ = b.NextSequence()
+    obj.Id = id
 
 		buf, err := json.Marshal(obj)
 		if err != nil {
@@ -93,11 +103,11 @@ func (db *DB) PutRoom(obj message.RoomInfo) (uint64, error) {
 }
 
 // skip: number of records to skip
-// n : number of records toget. Set to -1 to get all
+// n : number of records toget. Set to 0 to get all
 // return a list of rooms with the first item is the lastest room
-func (db *DB) GetRooms(status interface{}, skip int, n int) ([]*message.RoomInfo, error) {
+func (db *DB) GetRooms(statuses []message.RoomStatus, skip int, n int) ([]message.RoomInfo, error) {
 
-	var rooms []*message.RoomInfo
+	var rooms []message.RoomInfo
 
 	err := db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(BROOMS))
@@ -116,7 +126,7 @@ func (db *DB) GetRooms(status interface{}, skip int, n int) ([]*message.RoomInfo
 			}
 
 			// decode room record
-			room := &message.RoomInfo{}
+			room := message.RoomInfo{}
 			err := json.Unmarshal(v, &room)
 			if err != nil {
 				return err
@@ -124,13 +134,16 @@ func (db *DB) GetRooms(status interface{}, skip int, n int) ([]*message.RoomInfo
 
 			// filter by status
 			// empty string to get all
-			if room.Status == status || status == "" {
-				rooms = append(rooms, room)
-				count += 1
-			}
-		}
+      for _, status := range statuses {
+        if room.Status == status  {
+          rooms = append(rooms, room)
+          count += 1
+          break
+        }
+      }
+    }
 
-		return nil
-	})
-	return rooms, err
+    return nil
+  })
+  return rooms, err
 }

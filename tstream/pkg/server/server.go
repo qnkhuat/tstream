@@ -60,11 +60,11 @@ func (s *Server) NewRoom(name string, title string) error {
 	if _, ok := s.rooms[name]; ok {
 		return fmt.Errorf("Room %s existed", name)
 	}
-	s.rooms[name] = room.New(name, title)
-
-	msg := s.rooms[name].PrepareRoomInfo()
-
-	id, err := s.db.PutRoom(msg)
+  r := room.New(name, title)
+	msg := r.PrepareRoomInfo()
+	id, err := s.db.AddRoom(msg)
+  r.SetId(id)
+  s.rooms[name] = r
 	if err != nil {
 		log.Println("Failed to add room to database")
 		return err
@@ -88,8 +88,10 @@ func (s *Server) Start() {
 
 	s.server = &http.Server{Addr: s.addr, Handler: handler}
 
-	// Scan every SERVER_CLEAN_INTERVAL seconds and delete rooms that idle more than SERVER_CLEAN_THRESHOLD minutes
-	go s.cleanRooms(cfg.SERVER_CLEAN_INTERVAL, cfg.SERVER_CLEAN_THRESHOLD)
+	s.scanAndCleanRooms(cfg.SERVER_CLEAN_THRESHOLD) 
+  s.syncDB()
+	go s.repeatedlyCleanRooms(cfg.SERVER_CLEAN_INTERVAL, cfg.SERVER_CLEAN_THRESHOLD)
+  go s.repeatedlySyncDB(cfg.SERVER_SYNCDB_INTERVAL)
 
 	if err := s.server.ListenAndServe(); err != nil { // blocking call
 		log.Panicf("Faield to start server: %s", err)
@@ -104,7 +106,7 @@ func (s *Server) Stop() {
 // All unit are in seconds
 // interval : scan for every interval time
 // ildeThreshold : room with idle time above this threshold will be killed
-func (s *Server) cleanRooms(interval, idleThreshold int) {
+func (s *Server) repeatedlyCleanRooms(interval, idleThreshold int) {
 	tick := time.NewTicker(time.Duration(interval) * time.Second)
 	for {
 		select {
@@ -115,8 +117,8 @@ func (s *Server) cleanRooms(interval, idleThreshold int) {
 	}
 }
 
-
 // TODO : clean inside the DB as well, DB should only store room that are STopped
+// Clean in active rooms or stopped one
 func (s *Server) scanAndCleanRooms(idleThreshold int) int {
 	threshold := time.Duration(idleThreshold) * time.Second
 	count := 0
@@ -125,7 +127,7 @@ func (s *Server) scanAndCleanRooms(idleThreshold int) int {
 			s.deleteRoom(roomName)
 			room.SetStatus(message.RStopped) // in case room are current disconnected
 			msg := room.PrepareRoomInfo()
-			s.db.UpdateRoom(room.Id(), msg)
+			s.db.UpdateRooms(map[uint64]message.RoomInfo{room.Id(): msg})
 			count += 1
 			log.Printf("Removed room: %s because of Idle", roomName)
 		}
@@ -137,4 +139,44 @@ func (s *Server) deleteRoom(name string) {
 	s.lock.Lock()
 	delete(s.rooms, name)
 	s.lock.Unlock()
+}
+
+// Periodically sync server state with DB
+func (s *Server) repeatedlySyncDB(interval int) {
+  tick := time.NewTicker(time.Duration(interval) * time.Second)
+  for {
+    select {
+      case <-tick.C: {
+        s.syncDB()
+      }
+    }
+  }
+}
+
+
+
+func (s *Server) syncDB(){
+  toUpdateRooms := map[uint64]message.RoomInfo{}
+
+  // Update all room in RAM
+  for _, room := range s.rooms { 
+    toUpdateRooms[room.Id()] = room.PrepareRoomInfo()
+  }
+
+  // check if all streaming rooms inside DB are actually still streaming
+  // there is a case where server suddenly die so the streaming rooms inside DB will turn into zoombie state
+  // if found, we update its state to stopped
+  dbStreamingRooms, err := s.db.GetRooms([]message.RoomStatus{message.RStreaming}, 0, 0)
+  if err != nil {
+    log.Printf("failed to get rooms from db")
+  }
+  for _, streamingRoom := range dbStreamingRooms {
+    // this case should rarely happens
+    if _, found := toUpdateRooms[streamingRoom.Id]; !found {
+      streamingRoom.Status = message.RStopped
+      toUpdateRooms[streamingRoom.Id] = streamingRoom
+    }
+  }
+
+  s.db.UpdateRooms(toUpdateRooms)
 }

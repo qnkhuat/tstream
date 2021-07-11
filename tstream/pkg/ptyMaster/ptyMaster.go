@@ -92,6 +92,7 @@ func (pty *PtyMaster) Restore() {
 }
 
 func (pty *PtyMaster) Refresh() {
+  // TODO: Find a better way to refresh instead of resizing
 	// We wanna force the app to re-draw itself, but there doesn't seem to be a way to do that
 	// so we fake it by resizing the window quickly, making it smaller and then back big
 	winSize, err := GetWinsize(0)
@@ -109,7 +110,7 @@ func (pty *PtyMaster) Refresh() {
 	winSize.Rows += 1
 
 	go func() {
-		time.Sleep(time.Millisecond * 50)
+		time.Sleep(time.Millisecond * 10)
 		pty.SetWinsize(winSize)
 	}()
 }
