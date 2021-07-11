@@ -22,6 +22,7 @@ type Room struct {
 	lock           sync.Mutex
 	streamer       *websocket.Conn
 	viewers        map[string]*viewer.Viewer
+  accViewers     uint64 // accumulated viewers
 	chats          map[string]*viewer.Viewer
 	name           string // also is streamerID
 	id             uint64 // Id in DB
@@ -39,6 +40,7 @@ func New(name string, title string) *Room {
 	var buffer [][]byte
 	return &Room{
 		name:           name,
+    accViewers:     0,
 		viewers:        viewers,
 		lastActiveTime: time.Now(),
 		startedTime:    time.Now(),
@@ -134,6 +136,7 @@ func (r *Room) AddStreamer(conn *websocket.Conn) error {
 }
 
 func (r *Room) AddViewer(ID string, conn *websocket.Conn) error {
+  r.accViewers += 1
 	_, ok := r.viewers[ID]
 	if ok {
 		return fmt.Errorf("Viewer %s existed", conn)
@@ -308,11 +311,12 @@ func (r *Room) Stop(status message.RoomStatus) {
 
 func (r *Room) PrepareRoomInfo() message.RoomInfo {
 	return message.RoomInfo{
-    Id:          r.Id(),
+    Id:          r.id,
 		Title:       r.title,
 		NViewers:    len(r.viewers),
 		StartedTime: r.startedTime,
 		StreamerID:  r.name,
 		Status:      r.status,
+    AccNViewers: r.accViewers,
 	}
 }

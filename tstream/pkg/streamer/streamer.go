@@ -158,7 +158,6 @@ func (s *Streamer) Start() error {
 func (s *Streamer) RequestAddRoom(force bool) error {
 	// TODO: handle cases when call add api return existed
   resp, _ := http.Post(fmt.Sprintf("%s/api/room?streamerID=%s&title=%s&force=%t", s.serverAddr, s.username, s.title, force), "application/json", nil)
-  log.Printf("Return status code: ", resp.StatusCode)
   if resp.StatusCode != 200 {
     return fmt.Errorf("Room existed!")
   } else {

@@ -64,7 +64,7 @@ const (
 
 type RoomInfo struct {
   Id          uint64 // Id in DB
-	AccNViewers int // Accumulated nviewers
+	AccNViewers uint64 // Accumulated nviewers
 	NViewers    int
 	StartedTime time.Time
 	StoppedTime time.Time

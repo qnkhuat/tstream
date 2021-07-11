@@ -85,13 +85,12 @@ type AddRoomQuery struct {
 func (s *Server) handleAddRoom(w http.ResponseWriter, r *http.Request) {
 	var q AddRoomQuery
 	decoder.Decode(&q, r.URL.Query())
-  log.Printf("Got query: %v", q)
 
 	if _, ok := s.rooms[q.StreamerID]; !ok || q.Force {
 		s.NewRoom(q.StreamerID, q.Title)
-		log.Printf("added a room %s, %s", q.Title, q.StreamerID)
+		log.Printf("Added a room %s, %s", q.StreamerId, q.Title)
 	} else {
-		log.Printf("Room existed")
+    log.Printf("Room existed: %s", q.StreamerId)
 		http.Error(w, "Room existed", 400)
 	}
   
