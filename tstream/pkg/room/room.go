@@ -248,30 +248,21 @@ func (r *Room) ReadAndHandleViewerMessage(ID string) {
 			} else {
 				log.Printf("Error wrapping room info message: %s", err)
 			}
-		} else if msgObj.Type == message.TChat {
-			r.addCachedChat(msgObj.Data)
+		} else if msgObj.Type == message.TChat || msgObj.Type == message.TRequestCacheChat {
 
-			var listChat []message.Chat
-			curChat := &message.Chat{}
-			err := json.Unmarshal(msgObj.Data, curChat)
-			if err != nil {
-				log.Printf("There's error when unmarshal cache chat %s", err)
+			if msgObj.Type == message.TChat {
+				r.addCachedChat(msgObj.Data)
 			}
 
-			listChat = append(listChat, *curChat)
-			msg, e := message.Wrap(message.TChat, listChat)
-			if e == nil {
-				payload, _ := json.Marshal(msg)
-				r.Broadcast(payload, []string{ID})
-			} else {
-				log.Printf("Error wrapping cache chat info message: %s", err)
-			}
+			msg, err := r.PrepareChat(msgObj.Type == message.TRequestCacheChat)
 
-		} else if msgObj.Type == message.TRequestCacheChat {
-			msg, err := r.PrepareCacheChat()
 			if err == nil {
 				payload, _ := json.Marshal(msg)
-				viewer.Out <- payload
+				if msgObj.Type == message.TRequestCacheChat {
+					viewer.Out <- payload
+				} else {
+					r.Broadcast(payload, []string{ID})
+				}
 			} else {
 				log.Printf("Error wrapping cache chat info message: %s", err)
 			}
@@ -342,9 +333,18 @@ func (r *Room) PrepareRoomInfo() (message.Wrapper, error) {
 	}
 }
 
-func (r *Room) PrepareCacheChat() (message.Wrapper, error) {
+func (r *Room) PrepareChat(cache bool) (message.Wrapper, error) {
 	var listChat []message.Chat
-	for _, value := range r.cacheChat {
+
+	var iter_array [][]byte
+
+	if cache {
+		iter_array = r.cacheChat
+	} else {
+		iter_array = r.cacheChat[len(r.cacheChat)-1:]
+	}
+
+	for _, value := range iter_array {
 		curChat := &message.Chat{}
 		err := json.Unmarshal(value, curChat)
 		if err != nil {
