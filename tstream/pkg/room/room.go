@@ -249,10 +249,24 @@ func (r *Room) ReadAndHandleViewerMessage(ID string) {
 				log.Printf("Error wrapping room info message: %s", err)
 			}
 		} else if msgObj.Type == message.TChat {
-			log.Printf("Data Message: %v", msgObj.Data)
-
 			r.addCachedChat(msgObj.Data)
-			r.Broadcast(msg, []string{ID})
+
+			var listChat []message.Chat
+			curChat := &message.Chat{}
+			err := json.Unmarshal(msgObj.Data, curChat)
+			if err != nil {
+				log.Printf("There's error when unmarshal cache chat %s", err)
+			}
+
+			listChat = append(listChat, *curChat)
+			msg, e := message.Wrap(message.TChat, listChat)
+			if e == nil {
+				payload, _ := json.Marshal(msg)
+				r.Broadcast(payload, []string{ID})
+			} else {
+				log.Printf("Error wrapping cache chat info message: %s", err)
+			}
+
 		} else if msgObj.Type == message.TRequestCacheChat {
 			msg, err := r.PrepareCacheChat()
 			if err == nil {
@@ -339,7 +353,7 @@ func (r *Room) PrepareCacheChat() (message.Wrapper, error) {
 		listChat = append(listChat, *curChat)
 	}
 
-	msg, err := message.Wrap(message.TRequestCacheChat, listChat)
+	msg, err := message.Wrap(message.TChat, listChat)
 
 	if err != nil {
 		return msg, nil

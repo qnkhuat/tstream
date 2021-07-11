@@ -144,7 +144,6 @@ class Room extends React.Component<Props, State> {
     ws.onmessage = (ev: MessageEvent) => {
       let msg = JSON.parse(ev.data);
 
-      console.log("msg is ", msg)
       if (msg.Type === constants.MSG_TWRITE) {
 
         var buffer = base64.toArrayBuffer(msg.Data)
@@ -156,17 +155,8 @@ class Room extends React.Component<Props, State> {
         msgManager.pub(msg.Type, winSizeMsg);
 
       } else if (msg.Type === constants.MSG_TCHAT) {
-
-        let encoded_string = "";
-        for (let i = 0; i < msg.Data.length; i++) {
-          encoded_string = encoded_string.concat(String.fromCharCode(msg.Data[i]));
-        }
-
-        let chatMsg = JSON.parse(encoded_string);
-        msgManager.pub(msg.Type, chatMsg);
-      } else if (msg.Type === constants.MSG_TREQUEST_CACHE_CHAT) {
-        let cacheChat = JSON.parse(window.atob(msg.Data));
-        msgManager.pub(msg.Type, cacheChat);
+        let listChat = JSON.parse(window.atob(msg.Data));
+        msgManager.pub(msg.Type, listChat);
       } else if (msg.Type === constants.MSG_ROOM_INFO) {
 
         let roomInfo = JSON.parse(window.atob(msg.Data));

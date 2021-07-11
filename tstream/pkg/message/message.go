@@ -51,6 +51,7 @@ type Chat struct {
 	Name    string
 	Content string
 	Color   string
+	Time    string
 }
 
 type StreamerConnect struct {

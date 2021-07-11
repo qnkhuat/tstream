@@ -18,6 +18,7 @@ interface ChatMsg {
   Name: string;
   Content: string;
   Color: string;
+  Time: string;
 }
 
 interface State {
@@ -26,10 +27,10 @@ interface State {
   name: string;
   color: string;
   isWaitingUsername: boolean,
-    tempMsg: string,
+  tempMsg: string,
 }
 
-const ChatSection: React.FC<ChatMsg> = ({ Name, Content, Color }) => {
+const ChatSection: React.FC<ChatMsg> = ({ Name, Content, Color, Time}) => {
   return (
     <>
       <div className="w-full flex p-2 hover:bg-gray-900 rounded-lg">
@@ -79,12 +80,8 @@ class Chat extends React.Component<Props, State> {
     })
   }
 
-  componentDidMount() {
-    this.props.msgManager?.sub(constants.MSG_TCHAT, (chatMsg: ChatMsg) => {
-      this.addNewMsg(chatMsg);
-    });
-
-    this.props.msgManager?.sub(constants.MSG_TREQUEST_CACHE_CHAT, (cacheChat: Array<ChatMsg>) => {
+  componentDidMount() {    
+    this.props.msgManager?.sub(constants.MSG_TCHAT, (cacheChat: Array<ChatMsg>) => {
       if (cacheChat === null) {
         return;
       }
@@ -173,6 +170,7 @@ class Chat extends React.Component<Props, State> {
           Name: '', 
           Content: notification,
           Color: '', 
+          Time: new Date().toISOString(),
         };
 
         this.addNewMsg(data);
@@ -195,6 +193,7 @@ class Chat extends React.Component<Props, State> {
       Name: name,
       Content: tempMsg,
       Color: color,
+      Time: new Date().toISOString(),
     };
 
     this.addNewMsg(data);
@@ -211,7 +210,7 @@ class Chat extends React.Component<Props, State> {
         <div style={{height: '0px'}} className="bg-black overflow-y-auto overflow-x-none p-2 flex flex-col-reverse flex-grow" id="chatbox">
           {
             this.state.msgList.slice(0).reverse().map(
-              (item, index) => <ChatSection Name={item.Name} Content={item.Content} Color={item.Color} key={index}/>
+              (item, index) => <ChatSection Name={item.Name} Content={item.Content} Color={item.Color} Time={item.Time} key={index}/>
             )
           }
         </div>
