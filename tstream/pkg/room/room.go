@@ -178,7 +178,6 @@ func (r *Room) Start() {
 	for {
 		_, msg, err := r.streamer.ReadMessage()
 
-		log.Printf("Got a message from streamer: %d", len(msg))
 		if err != nil {
 			log.Printf("Failed to reaceive message from streamer: %s. Closing. Error: %s", r.name, err)
 			r.streamer.Close()
@@ -292,7 +291,6 @@ func (r *Room) Broadcast(msg []uint8, IDExclude []string) {
 			r.RemoveViewer(id)
 		}
 	}
-	log.Printf("Broadcasted to %d viewers", count)
 }
 
 func (r *Room) Stop(status message.RoomStatus) {

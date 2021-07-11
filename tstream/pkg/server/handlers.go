@@ -23,6 +23,9 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 var httpUpgrader = websocket.Upgrader{
 	ReadBufferSize:  cfg.SERVER_READ_BUFFER_SIZE,
 	WriteBufferSize: cfg.SERVER_WRITE_BBUFFER_SIZE,
+  CheckOrigin: func(r *http.Request) bool { 
+    return true 
+  },
 }
 
 var emptyByteArray []byte
@@ -74,23 +77,26 @@ func (s *Server) handleListRooms(w http.ResponseWriter, r *http.Request) {
 }
 
 type AddRoomQuery struct {
-	Title      string `schema:"title,required"`
-	StreamerID string `schema:"streamerId,required"`
+	Title      string  `schema:"title,required"`
+	StreamerID string  `schema:"streamerId,required"`
+  // Override existing room if found one currently streaming
+  Force      bool    `schema:"force,required"`
 }
 
 // Websocket connetion from streamer
 func (s *Server) handleAddRoom(w http.ResponseWriter, r *http.Request) {
 	var q AddRoomQuery
 	decoder.Decode(&q, r.URL.Query())
+  log.Printf("Got query: %v", q)
 
-	if _, ok := s.rooms[q.StreamerID]; !ok {
+	if _, ok := s.rooms[q.StreamerID]; !ok || q.Force {
 		s.NewRoom(q.StreamerID, q.Title)
 		log.Printf("added a room %s, %s", q.Title, q.StreamerID)
 	} else {
 		log.Printf("Room existed")
 		http.Error(w, "Room existed", 400)
 	}
-
+  
 }
 
 // Websocket connetion from streamer
@@ -104,10 +110,9 @@ func (s *Server) handleWSViewer(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Room :%s not existed", roomName)
 		return
 	}
-	httpUpgrader.CheckOrigin = func(r *http.Request) bool { return true }
 	conn, err := httpUpgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Panicf("Failed to upgrade to websocket: %s", err)
+		log.Printf("Failed to upgrade to websocket: %s", err)
 	}
 
 	// Now any message broadcasted to the room will also be broadcast to this connection
@@ -124,22 +129,20 @@ func (s *Server) handleWSStreamer(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	roomName := vars["roomName"]
 
-	log.Printf("%v", s.rooms)
 	if _, ok := s.rooms[roomName]; !ok {
-		log.Printf("bello: %s", roomName)
 		http.Error(w, "Room not existed", 400)
 		return
 	}
 
-	httpUpgrader.CheckOrigin = func(r *http.Request) bool { return true }
+  // TODO config this
 	conn, err := httpUpgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Panicf("Failed to upgrade to websocket: %s", err)
+		log.Printf("Failed to upgrade to websocket: %s", err)
 	}
 	defer conn.Close()
 	err = s.rooms[roomName].AddStreamer(conn)
 	if err != nil {
-		log.Panicf("Failed to add streamer: %s", err)
+		log.Printf("Failed to add streamer: %s", err)
 	}
 
 	s.rooms[roomName].Start() // Blocking call

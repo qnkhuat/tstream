@@ -19,7 +19,7 @@ type DB struct {
 
 func SetupDB(path string) (*DB, error) {
 
-	bdb, err := bolt.Open(path, 0600, nil)
+	bdb, err := bolt.Open(fmt.Sprintf("%s.boltdb", path), 0600, nil)
 
 	if err != nil {
 		return nil, fmt.Errorf("could not open db, %v", err)

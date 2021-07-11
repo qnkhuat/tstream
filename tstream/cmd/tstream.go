@@ -17,10 +17,12 @@ Inner working of streamer program
 package main
 
 import (
+  "bufio"
 	"flag"
 	"fmt"
 	"github.com/manifoldco/promptui"
 	"github.com/qnkhuat/tstream/internal/logging"
+	"github.com/qnkhuat/tstream/internal/cfg"
 	"github.com/qnkhuat/tstream/pkg/streamer"
 	"log"
 	"os"
@@ -28,13 +30,22 @@ import (
 	"regexp"
 )
 
+
 func main() {
+  // Check if current process is under a tstream session
+  if len(os.Getenv(cfg.STREAMER_ENVKEY_SESSIONID)) > 0 {
+    fmt.Printf("This terminal is currently running under session: %s\nType 'exit' to stop the current session!\n", os.Getenv(cfg.STREAMER_ENVKEY_SESSIONID))
+    os.Exit(1)
+  }
+
+	logging.Config("/tmp/tstream.log", "STREAMER: ")
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "To Stream: just type in `tstream`.\n\nAdvanced config:\n")
 		flag.PrintDefaults()
 	}
 
-	logging.Config("/tmp/tstream.log", "STREAMER: ")
+  log.Printf("Pid: %d, Ppid: %d, uid: %d", os.Getpid(), os.Getppid(), os.Getuid())
+
 	var server = flag.String("server", "https://server.tstream.club", "Server endpoint")
 	var client = flag.String("client", "https://tstream.club", "TStream client url")
 
@@ -83,8 +94,21 @@ func main() {
 	}
 
 	s := streamer.New(*client, *server, username, title)
+
+	err = s.RequestAddRoom(false)
+  if err != nil {
+    // TODO: verify if the current is the one who created that room
+    // Proposed solution: - when start a session: create a temp file that store a hash in /tmp
+    // Compare this hash with server to verify
+    fmt.Printf("Stream with username '%s' is existed\nStop it and stream from this terminal? (y/n): ", username)
+    confirm, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+    if confirm[0] != 'y' {
+      os.Exit(1)
+    }
+	}
+
 	err = s.Start()
 	if err != nil {
-		log.Panicf("Failed to start stream: %s", err)
+		log.Printf("Failed to connect server")
 	}
 }

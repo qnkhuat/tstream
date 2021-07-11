@@ -43,14 +43,14 @@ func (pty *PtyMaster) Read(b []byte) (int, error) {
 	return pty.f.Read(b)
 }
 
-func (pty *PtyMaster) StartShell() error {
+func (pty *PtyMaster) StartShell(envVars []string) error {
 	shell := os.Getenv("SHELL")
 	if shell == "" {
 		shell = "bash"
 	}
 
 	pty.cmd = exec.Command(shell)
-	pty.cmd.Env = os.Environ()
+	pty.cmd.Env = append(os.Environ(), envVars...)
 
 	err := pty.StartCommand()
 	if err != nil {

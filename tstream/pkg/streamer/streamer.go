@@ -52,17 +52,12 @@ var httpUpgrader = websocket.Upgrader{
 }
 
 func (s *Streamer) Start() error {
-	s.pty.StartShell()
+  envVars := []string{fmt.Sprintf("%s=%s",cfg.STREAMER_ENVKEY_SESSIONID, s.username)}
+	s.pty.StartShell(envVars)
 	fmt.Printf("Press Enter to continue!")
 	bufio.NewReader(os.Stdin).ReadString('\n')
 
-	err := s.RequestAddRoom()
-	if err != nil {
-		log.Println(err)
-		s.Stop(fmt.Sprintf("Room with name %s already existed", s.username))
-	}
-
-	err = s.ConnectWS()
+  err := s.ConnectWS()
 	if err != nil {
 		log.Println(err)
 		s.Stop("Failed to connect to server")
@@ -122,7 +117,7 @@ func (s *Streamer) Start() error {
 			err := s.conn.WriteMessage(websocket.TextMessage, msg)
 			if err != nil {
 				log.Printf("Failed to send message. Streamer closing: %s", err)
-				time.Sleep(5 * time.Second)
+				time.Sleep(cfg.STREAMER_RETRY_CONNECT_AFTER * time.Second)
 				log.Printf("Reconnecting...")
 				err = s.ConnectWS()
 				if err != nil {
@@ -160,10 +155,15 @@ func (s *Streamer) Start() error {
 	return nil
 }
 
-func (s *Streamer) RequestAddRoom() error {
+func (s *Streamer) RequestAddRoom(force bool) error {
 	// TODO: handle cases when call add api return existed
-	http.Post(fmt.Sprintf("%s/api/room?streamerID=%s&title=%s", s.serverAddr, s.username, s.title), "application/json", nil)
-	return nil
+  resp, _ := http.Post(fmt.Sprintf("%s/api/room?streamerID=%s&title=%s&force=%t", s.serverAddr, s.username, s.title, force), "application/json", nil)
+  log.Printf("Return status code: ", resp.StatusCode)
+  if resp.StatusCode != 200 {
+    return fmt.Errorf("Room existed!")
+  } else {
+    return nil
+  }
 }
 
 func (s *Streamer) ConnectWS() error {

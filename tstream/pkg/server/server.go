@@ -14,9 +14,6 @@ import (
 	"github.com/rs/cors"
 )
 
-// TODO: add stream history
-// When a room stop, append to that list
-// Periodically save to a database
 type Server struct {
 	lock   sync.RWMutex
 	rooms  map[string]*room.Room
@@ -83,6 +80,7 @@ func (s *Server) Start() {
 
 	router.HandleFunc("/api/health", handleHealth).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/rooms", s.handleListRooms).Methods("GET", "OPTIONS")
+  // Add room
 	router.HandleFunc("/api/room", s.handleAddRoom).Queries("streamerID", "{streamerID}", "title", "{title}").Methods("POST", "OPTIONS")
 	router.HandleFunc("/ws/{roomName}/streamer", s.handleWSStreamer) // for streamers
 	router.HandleFunc("/ws/{roomName}/viewer", s.handleWSViewer)     // for viewers
@@ -117,6 +115,8 @@ func (s *Server) cleanRooms(interval, idleThreshold int) {
 	}
 }
 
+
+// TODO : clean inside the DB as well, DB should only store room that are STopped
 func (s *Server) scanAndCleanRooms(idleThreshold int) int {
 	threshold := time.Duration(idleThreshold) * time.Second
 	count := 0
@@ -137,5 +137,4 @@ func (s *Server) deleteRoom(name string) {
 	s.lock.Lock()
 	delete(s.rooms, name)
 	s.lock.Unlock()
-
 }
