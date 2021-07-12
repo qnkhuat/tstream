@@ -1,3 +1,4 @@
+/* Streamer package to stream terminal to server */
 package streamer
 
 import (

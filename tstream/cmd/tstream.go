@@ -46,6 +46,7 @@ func main() {
 	var server = flag.String("server", "https://server.tstream.club", "Server endpoint")
 	var client = flag.String("client", "https://tstream.club", "TStream client url")
 	var version = flag.Bool("version", false, fmt.Sprintf("TStream version: %s", cfg.STREAMER_VERSION))
+	var chat = flag.Bool("chat", false, "Open chat client: %s")
 
 	flag.Parse()
 
@@ -54,20 +55,6 @@ func main() {
 		os.Exit(0)
 		return
 	}
-
-	user, err := user.Current()
-	if err != nil {
-		log.Fatalf(err.Error())
-	}
-
-	var username string
-	cfg, err := streamer.ReadCfg(streamer.CONFIG_PATH)
-	if err != nil {
-		username = user.Username
-	} else {
-		username = cfg.Username
-	}
-
 	validateUsername := func(input string) error {
 		var validUsername = regexp.MustCompile(`^[a-z][a-z0-9]*[._-]?[a-z0-9]+$`)
 		if validUsername.MatchString(input) && len(input) > 3 && len(input) < 20 {
@@ -85,6 +72,19 @@ func main() {
 		}
 	}
 
+	u, err := user.Current()
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
+
+	var username string
+	cfg, err := streamer.ReadCfg(streamer.CONFIG_PATH)
+	if err != nil {
+		username = u.Username
+	} else {
+		username = cfg.Username
+	}
+
 	promptUsername := promptui.Prompt{
 		Label:    "Username",
 		Default:  username,
@@ -96,38 +96,61 @@ func main() {
 		Validate: validateTitle,
 	}
 
-	username, err = promptUsername.Run()
-	if err != nil {
-		os.Exit(1)
-	}
-	title, err := promptTitle.Run()
-	if err != nil {
-		os.Exit(1)
-	}
-
-	s := streamer.New(*client, *server, username, title)
-
-	statusCode := s.RequestAddRoom()
-	log.Printf("Got status code: %d", statusCode)
-	if statusCode == 400 {
-		fmt.Printf("Detected a session is streaming with the same username\nProceed to stream from this terminal? (y/n): ")
-		confirm, _ := bufio.NewReader(os.Stdin).ReadString('\n')
-		if confirm[0] != 'y' {
+	if !*chat {
+		// Start Streaming session
+		username, err = promptUsername.Run()
+		if err != nil {
 			os.Exit(1)
 		}
-	} else if statusCode == 401 {
-		fmt.Printf("Username: %s is currently used by other streamer. Please use a different username!\n", username)
-		os.Exit(1)
-	} else if statusCode == 426 {
-		fmt.Printf("Please update Tstream to continue streaming\nFind the latest version at: https://github.com/qnkhuat/tstream/releases\n")
-		os.Exit(1)
-	}
-	// Update config before start
-	cfg.Username = username
-	streamer.UpdateCfg(streamer.CONFIG_PATH, "Username", username)
+		title, err := promptTitle.Run()
+		if err != nil {
+			os.Exit(1)
+		}
 
-	err = s.Start()
-	if err != nil {
-		log.Printf("Failed to start tstream : %s", err)
+		s := streamer.New(*client, *server, username, title)
+
+		statusCode := s.RequestAddRoom()
+		log.Printf("Got status code: %d", statusCode)
+		if statusCode == 400 {
+			fmt.Printf("Detected a session is streaming with the same username\nProceed to stream from this terminal? (y/n): ")
+			confirm, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+			if confirm[0] != 'y' {
+				os.Exit(1)
+			}
+		} else if statusCode == 401 {
+			fmt.Printf("Username: %s is currently used by other streamer. Please use a different username!\n", username)
+			os.Exit(1)
+		} else if statusCode == 426 {
+			fmt.Printf("Please update Tstream to continue streaming\nFind the latest version at: https://github.com/qnkhuat/tstream/releases\n")
+			os.Exit(1)
+		}
+		// Update config before start
+		cfg.Username = username
+		streamer.UpdateCfg(streamer.CONFIG_PATH, "Username", username)
+
+		err = s.Start()
+		if err != nil {
+			log.Printf("Failed to start tstream : %s", err)
+		}
+	} else {
+		var username = "" // also is sessionID
+		cfg, err := streamer.ReadCfg(streamer.CONFIG_PATH)
+
+		if err != nil {
+			fmt.Printf("No stream session detected\n")
+			os.Exit(1)
+		} else {
+			username = cfg.Username
+		}
+
+		if username == "" {
+			username, err = promptUsername.Run()
+			if err != nil {
+				os.Exit(1)
+			}
+		}
+
+		c := streamer.NewChat(username, *server, username)
+		c.Start()
 	}
 }

@@ -123,8 +123,31 @@ func (s *Server) handleAddRoom(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// Websocket connetion from streamer
+// Websocket connetion from streamer to stream terminal
 func (s *Server) handleWSViewer(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	roomName := vars["roomName"]
+	log.Printf("Client %s entered room: %s", r.RemoteAddr, roomName)
+	room, ok := s.rooms[roomName]
+	if !ok {
+		fmt.Fprintf(w, "Room not existed")
+		log.Printf("Room :%s not existed", roomName)
+		return
+	}
+	conn, err := httpUpgrader.Upgrade(w, r, nil)
+	if err != nil {
+		log.Printf("Failed to upgrade to websocket: %s", err)
+	}
+
+	viewerID := uuid.New().String()
+	room.AddViewer(viewerID, conn)
+
+	// Handle incoming request from user
+	room.ReadAndHandleViewerMessage(viewerID) // Blocking call
+}
+
+// Websocket connection for streamer to chat
+func (s *Server) s.handleWSSChat(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	roomName := vars["roomName"]
 	log.Printf("Client %s entered room: %s", r.RemoteAddr, roomName)
