@@ -155,14 +155,8 @@ class Room extends React.Component<Props, State> {
         msgManager.pub(msg.Type, winSizeMsg);
 
       } else if (msg.Type === constants.MSG_TCHAT) {
-
-        let encoded_string = "";
-        for (let i = 0; i < msg.Data.length; i++) {
-          encoded_string = encoded_string.concat(String.fromCharCode(msg.Data[i]));
-        }
-
-        let chatMsg = JSON.parse(encoded_string);
-        msgManager.pub(msg.Type, chatMsg);
+        let listChat = JSON.parse(window.atob(msg.Data));
+        msgManager.pub(msg.Type, listChat);
       } else if (msg.Type === constants.MSG_ROOM_INFO) {
 
         let roomInfo = JSON.parse(window.atob(msg.Data));
@@ -194,8 +188,8 @@ class Room extends React.Component<Props, State> {
       var msg = base64.toArrayBuffer(window.btoa(wrapper));
       util.sendWhenConnected(ws, msg);
     })
-
-
+    
+    msgManager.pub("request", constants.MSG_TREQUEST_CACHE_CHAT);
     msgManager.pub("request", constants.MSG_TREQUEST_ROOM_INFO);
     // periodically update roominfo to get number of viewers
     setInterval(() => {

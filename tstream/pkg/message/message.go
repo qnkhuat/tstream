@@ -32,6 +32,9 @@ const (
 
 	// when user first join the room, he can request for cached message to avoid idle screen
 	TRequestCacheMessage = "RequestCacheMessage"
+
+	// when user first join the room, he can request for cache chat to avoid idle chat screen
+	TRequestCacheChat = "RequestCacheChat"
 )
 
 type Wrapper struct {
@@ -42,6 +45,13 @@ type Wrapper struct {
 type Winsize struct {
 	Rows uint16
 	Cols uint16
+}
+
+type Chat struct {
+	Name    string
+	Content string
+	Color   string
+	Time    string
 }
 
 type StreamerConnect struct {

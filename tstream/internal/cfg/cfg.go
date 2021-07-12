@@ -2,7 +2,8 @@ package cfg
 
 const (
 	// Room
-	ROOM_BUFFER_SIZE = 20 // number of recent broadcast message to buffer
+	ROOM_BUFFER_SIZE    = 20 // number of recent broadcast message to buffer
+	ROOM_CACHE_MSG_SIZE = 25 // number of recent chat messages to buffer
 
 	// Streamer
 	STREAMER_READ_BUFFER_SIZE   = 1024 // streamer websocket read buffer size
