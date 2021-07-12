@@ -2,6 +2,9 @@ package streamer
 
 import (
 	"bufio"
+	"bytes"
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	ptyDevice "github.com/creack/pty"
@@ -11,33 +14,41 @@ import (
 	"github.com/qnkhuat/tstream/pkg/ptyMaster"
 	"io"
 	"log"
+	"net/http"
 	"net/url"
 	"os"
 	"strings"
 	"time"
 )
 
+// TODO: if we supports windows this should be changed
+var CONFIG_PATH = os.ExpandEnv("$HOME/.tstream.conf")
+
 type Streamer struct {
 	pty        *ptyMaster.PtyMaster
 	serverAddr string
 	clientAddr string
-	id         string
+	username   string
+	secret     string
 	title      string
 	conn       *websocket.Conn
 	Out        chan []byte
 	In         chan []byte
 }
 
-func New(clientAddr, serverAddr, id, title string) *Streamer {
+func New(clientAddr, serverAddr, username, title string) *Streamer {
 	pty := ptyMaster.New()
 	out := make(chan []byte, 256) // buffer 256 send requests
 	in := make(chan []byte, 256)  // buffer 256 send requests
 
+	secret := GetSecret(CONFIG_PATH)
+
 	return &Streamer{
+		secret:     secret,
 		pty:        pty,
 		serverAddr: serverAddr,
 		clientAddr: clientAddr,
-		id:         id,
+		username:   username,
 		title:      title,
 		Out:        out,
 		In:         in,
@@ -51,7 +62,8 @@ var httpUpgrader = websocket.Upgrader{
 }
 
 func (s *Streamer) Start() error {
-	s.pty.StartShell()
+	envVars := []string{fmt.Sprintf("%s=%s", cfg.STREAMER_ENVKEY_SESSIONID, s.username)}
+	s.pty.StartShell(envVars)
 	fmt.Printf("Press Enter to continue!")
 	bufio.NewReader(os.Stdin).ReadString('\n')
 
@@ -61,7 +73,7 @@ func (s *Streamer) Start() error {
 		s.Stop("Failed to connect to server")
 	}
 
-	fmt.Printf("🔥 Streaming at: %s/%s\n", s.clientAddr, s.id)
+	fmt.Printf("🔥 Streaming at: %s/%s\n", s.clientAddr, s.username)
 
 	s.pty.MakeRaw()
 
@@ -115,7 +127,7 @@ func (s *Streamer) Start() error {
 			err := s.conn.WriteMessage(websocket.TextMessage, msg)
 			if err != nil {
 				log.Printf("Failed to send message. Streamer closing: %s", err)
-				time.Sleep(5 * time.Second)
+				time.Sleep(cfg.STREAMER_RETRY_CONNECT_AFTER * time.Second)
 				log.Printf("Reconnecting...")
 				err = s.ConnectWS()
 				if err != nil {
@@ -153,6 +165,21 @@ func (s *Streamer) Start() error {
 	return nil
 }
 
+func (s *Streamer) RequestAddRoom() int {
+	// TODO: handle cases when call add api return existed
+	body := map[string]string{"secret": s.secret}
+	jsonValue, _ := json.Marshal(body)
+	payload := bytes.NewBuffer(jsonValue)
+	queries := url.Values{
+		"streamerID": {s.username},
+		"title":      {strings.TrimSpace(s.title)},
+		"version":    {cfg.STREAMER_VERSION},
+	}
+
+	resp, _ := http.Post(fmt.Sprintf("%s/api/room?%s", s.serverAddr, queries.Encode()), "application/json", payload)
+	return resp.StatusCode
+}
+
 func (s *Streamer) ConnectWS() error {
 	scheme := "wss"
 	if strings.HasPrefix(s.serverAddr, "http://") {
@@ -160,7 +187,7 @@ func (s *Streamer) ConnectWS() error {
 	}
 
 	host := strings.Replace(strings.Replace(s.serverAddr, "http://", "", 1), "https://", "", 1)
-	url := url.URL{Scheme: scheme, Host: host, Path: fmt.Sprintf("/ws/%s/streamer", s.id)}
+	url := url.URL{Scheme: scheme, Host: host, Path: fmt.Sprintf("/ws/%s/streamer", s.username)}
 	log.Printf("Openning socket at %s", url.String())
 
 	conn, _, err := websocket.DefaultDialer.Dial(url.String(), nil)
@@ -209,4 +236,27 @@ func (s *Streamer) Winsize(rows, cols uint16) {
 	}
 
 	s.Out <- payload
+}
+
+func GetSecret(configPath string) string {
+	cfg, err := ReadCfg(CONFIG_PATH)
+	var secret string
+
+	// gen a new one if not existed
+	if err != nil {
+		cfg = NewCfg()
+		secret = GenSecret("tstream")
+		cfg.Secret = GenSecret("tstream")
+		WriteCfg(CONFIG_PATH, cfg)
+	} else {
+		secret = cfg.Secret
+	}
+	return secret
+}
+
+func GenSecret(key string) string {
+	h := sha1.New()
+	h.Write([]byte(key))
+	sha1_hash := hex.EncodeToString(h.Sum(nil))
+	return sha1_hash
 }

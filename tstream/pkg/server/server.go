@@ -9,26 +9,33 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/qnkhuat/tstream/internal/cfg"
+	"github.com/qnkhuat/tstream/pkg/message"
 	"github.com/qnkhuat/tstream/pkg/room"
 	"github.com/rs/cors"
 )
 
-// TODO: add stream history
-// When a room stop, append to that list
-// Periodically save to a database
 type Server struct {
 	lock   sync.RWMutex
 	rooms  map[string]*room.Room
 	addr   string
 	server *http.Server
+	db     *DB
 }
 
-func New(addr string) *Server {
+func New(addr string, db_path string) (*Server, error) {
 	rooms := make(map[string]*room.Room)
+
+	db, err := SetupDB(db_path)
+	if err != nil {
+		log.Printf("Failed to setup database: %s", err)
+		return nil, err
+	}
+
 	return &Server{
 		addr:  addr,
 		rooms: rooms,
-	}
+		db:    db,
+	}, nil
 }
 func CORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -49,12 +56,20 @@ func CORS(next http.Handler) http.Handler {
 	})
 }
 
-func (s *Server) NewRoom(roomID string) error {
-	if _, ok := s.rooms[roomID]; ok {
-		return fmt.Errorf("Room %s existed", roomID)
+func (s *Server) NewRoom(name, title, secret string) error {
+	if _, ok := s.rooms[name]; ok {
+		return fmt.Errorf("Room %s existed", name)
 	}
-	s.rooms[roomID] = room.New(roomID)
-	log.Printf("Created new Room: %s", roomID)
+	r := room.New(name, title, secret)
+	msg := r.PrepareRoomInfo()
+	id, err := s.db.AddRoom(msg)
+	r.SetId(id)
+	s.rooms[name] = r
+	if err != nil {
+		log.Println("Failed to add room to database")
+		return err
+	}
+	s.rooms[name].SetId(id)
 	return nil
 }
 
@@ -66,15 +81,18 @@ func (s *Server) Start() {
 
 	router.HandleFunc("/api/health", handleHealth).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/rooms", s.handleListRooms).Methods("GET", "OPTIONS")
-	router.HandleFunc("/ws/{roomID}/streamer", s.handleWSStreamer) // for streamers
-	router.HandleFunc("/ws/{roomID}/viewer", s.handleWSViewer)     // for viewers
+	// Add room
+	router.HandleFunc("/api/room", s.handleAddRoom).Queries("streamerID", "{streamerID}", "title", "{title}").Methods("POST", "OPTIONS")
+	router.HandleFunc("/ws/{roomName}/streamer", s.handleWSStreamer) // for streamers
+	router.HandleFunc("/ws/{roomName}/viewer", s.handleWSViewer)     // for viewers
 	handler := cors.Default().Handler(router)
-
-	//router.Use(mux.CORSMethodMiddleware(router))
 
 	s.server = &http.Server{Addr: s.addr, Handler: handler}
 
-	go s.cleanRooms(cfg.SERVER_CLEAN_INTERVAL, cfg.SERVER_CLEAN_THRESHOLD) // Scan every 5 seconds and delete rooms that idle more than 10 minutes
+	s.scanAndCleanRooms(cfg.SERVER_CLEAN_THRESHOLD)
+	s.syncDB()
+	go s.repeatedlyCleanRooms(cfg.SERVER_CLEAN_INTERVAL, cfg.SERVER_CLEAN_THRESHOLD)
+	go s.repeatedlySyncDB(cfg.SERVER_SYNCDB_INTERVAL)
 
 	if err := s.server.ListenAndServe(); err != nil { // blocking call
 		log.Panicf("Faield to start server: %s", err)
@@ -89,7 +107,7 @@ func (s *Server) Stop() {
 // All unit are in seconds
 // interval : scan for every interval time
 // ildeThreshold : room with idle time above this threshold will be killed
-func (s *Server) cleanRooms(interval, idleThreshold int) {
+func (s *Server) repeatedlyCleanRooms(interval, idleThreshold int) {
 	tick := time.NewTicker(time.Duration(interval) * time.Second)
 	for {
 		select {
@@ -100,22 +118,63 @@ func (s *Server) cleanRooms(interval, idleThreshold int) {
 	}
 }
 
+// TODO : clean inside the DB as well, DB should only store room that are STopped
+// Clean in active rooms or stopped one
 func (s *Server) scanAndCleanRooms(idleThreshold int) int {
 	threshold := time.Duration(idleThreshold) * time.Second
 	count := 0
-	for roomID, room := range s.rooms {
-		if time.Since(room.LastActiveTime()) > threshold {
-			s.deleteRoom(roomID)
+	for roomName, room := range s.rooms {
+		if time.Since(room.LastActiveTime()) > threshold || room.Status() == message.RStopped {
+			room.Stop(message.RStopped)
+			s.deleteRoom(roomName)
+			msg := room.PrepareRoomInfo()
+			s.db.UpdateRooms(map[uint64]message.RoomInfo{room.Id(): msg})
 			count += 1
-			log.Printf("Removed room: %s because of Idle", roomID)
+			log.Printf("Removed room: %s because of Idle", roomName)
 		}
 	}
 	return count
 }
 
-func (s *Server) deleteRoom(roomID string) {
+func (s *Server) deleteRoom(name string) {
 	s.lock.Lock()
-	delete(s.rooms, roomID)
+	delete(s.rooms, name)
 	s.lock.Unlock()
+}
 
+// Periodically sync server state with DB
+func (s *Server) repeatedlySyncDB(interval int) {
+	tick := time.NewTicker(time.Duration(interval) * time.Second)
+	for {
+		select {
+		case <-tick.C:
+			s.syncDB()
+		}
+	}
+}
+
+func (s *Server) syncDB() {
+	toUpdateRooms := map[uint64]message.RoomInfo{}
+
+	// Update all room in RAM
+	for _, room := range s.rooms {
+		toUpdateRooms[room.Id()] = room.PrepareRoomInfo()
+	}
+
+	// check if all streaming rooms inside DB are actually still streaming
+	// there is a case where server suddenly die so the streaming rooms inside DB will turn into zoombie state
+	// if found, we update its state to stopped
+	dbStreamingRooms, err := s.db.GetRooms([]message.RoomStatus{message.RStreaming}, 0, 0)
+	if err != nil {
+		log.Printf("failed to get rooms from db")
+	}
+	for _, streamingRoom := range dbStreamingRooms {
+		// this case should rarely happens
+		if _, found := toUpdateRooms[streamingRoom.Id]; !found {
+			streamingRoom.Status = message.RStopped
+			toUpdateRooms[streamingRoom.Id] = streamingRoom
+		}
+	}
+
+	s.db.UpdateRooms(toUpdateRooms)
 }

@@ -1,4 +1,4 @@
-import { FC, ReactElement, useState, useEffect } from "react";
+import { FC, ReactElement, useState, useEffect, useRef } from "react";
 import WSTerminal from "./WSTerminal";
 import PubSub from "./../lib/pubsub";
 import * as base64 from "../lib/base64";
@@ -24,7 +24,7 @@ interface Props {
 
 const StreamPreview: FC<Props> = ({ title, wsUrl, streamerID, nViewers, startedTime, lastActiveTime }): ReactElement => {
 
-  const [ upTime, setUpTime ] = useState(util.getUpTime(dayjs(startedTime)));
+  const [ upTime, setUpTime ] = useState(util.formatDuration(dayjs(), dayjs(startedTime)));
   const [ msgManager, setMsgManager ] = useState<PubSub>();
 
   useEffect(() => {
@@ -61,28 +61,32 @@ const StreamPreview: FC<Props> = ({ title, wsUrl, streamerID, nViewers, startedT
     setMsgManager(tempMsg);
 
     setInterval(() => {
-      setUpTime(util.getUpTime(dayjs(startedTime)));
+      setUpTime(util.formatDuration(dayjs(), dayjs(startedTime)));
+    }, 1000);
+
+    // preview doesn't need to be live
+    setTimeout(() => {
+      ws.close();
     }, 1000);
 
   }, [])
 
 
-
   return (
-    <div className="relative bg-black rounded">
+    <div className="relative bg-black rounded-lg w-full my-4">
       {msgManager &&
-      <WSTerminal msgManager={msgManager} height={350} width={500}/>
+      <WSTerminal msgManager={msgManager} height={window.innerWidth > 600 ? 350 : 250} width={window.innerWidth > 600 ? 500 : window.innerWidth - 35 }/>
       }
-      <div className="p-1 bg-red-400 rounded absolute top-4 right-4">
+      <div className="p-1 bg-red-400 rounded-lg absolute top-4 right-4">
         <p className="text-mdtext-whtie font-semibold">{upTime}</p>
       </div>
 
-      <div className="absolute bottom-0 left-0 w-full rounded-b bg-gray-600 bg-opacity-90 p-4" >
+      <div className="absolute bottom-0 left-0 w-full rounded-b-lg bg-gray-600 bg-opacity-90 p-4" >
 
         <p className="font-semibold">{title}</p>
         <div className="flex justify-between">
           <p className="text-md">@{streamerID}</p>
-          <p className="text-md">{nViewers} Viewers</p>
+          <p className="text-md hidden">{nViewers} Viewers</p>
         </div>
       </div>
     </div>

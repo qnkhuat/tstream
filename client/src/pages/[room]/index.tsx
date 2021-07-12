@@ -26,7 +26,8 @@ interface RectSize {
 }
 
 enum RoomStatus {
-  Disconnected = "Disconnected",
+  NotExisted = "NotExisted",
+    Disconnected = "Disconnected",
     Stopped = "Stopped",
     Streaming = "Streaming",
 }
@@ -36,7 +37,7 @@ interface RoomInfo {
   StartedTime:string;
   NViewers: number;
   Title: string;
-  RoomStatus: RoomStatus;
+  Status: RoomStatus;
 }
 
 interface Params {
@@ -51,7 +52,7 @@ interface State {
   roomInfo: RoomInfo | null;
   mouseMove: boolean;
   connectStatus: RoomStatus;
-  hideChat: boolean | null; 
+  hideChat: boolean | null;
 }
 
 function getSiteTitle(streamerId: string, title: string) {
@@ -116,7 +117,7 @@ class Room extends React.Component<Props, State> {
       this.setState({
         termSize: {
           width: termWidth,
-          height: window.innerHeight - this.navbarRef.current.offsetHeight}, 
+          height: window.innerHeight - this.navbarRef.current.offsetHeight},
         hideChat: hideChat,
       });
     }
@@ -135,10 +136,16 @@ class Room extends React.Component<Props, State> {
     const ws =  new WebSocket(wsUrl);
     ws.onclose = (ev: CloseEvent) => {
       let roomInfo = this.state.roomInfo;
-      if (roomInfo) {
-        roomInfo.RoomStatus = RoomStatus.Stopped;
+      if (roomInfo && roomInfo.Status != RoomStatus.NotExisted) {
+        roomInfo.Status = RoomStatus.Stopped;
         this.setState({roomInfo: roomInfo});
       }
+    }
+
+    ws.onerror = () => {
+      let roomInfo = {} as RoomInfo;
+      roomInfo.Status = RoomStatus.NotExisted;
+      this.setState({roomInfo: roomInfo});
     }
 
     ws.onmessage = (ev: MessageEvent) => {
@@ -191,6 +198,7 @@ class Room extends React.Component<Props, State> {
     
     msgManager.pub("request", constants.MSG_TREQUEST_CACHE_CHAT);
     msgManager.pub("request", constants.MSG_TREQUEST_ROOM_INFO);
+
     // periodically update roominfo to get number of viewers
     setInterval(() => {
       msgManager.pub("request", constants.MSG_TREQUEST_ROOM_INFO);
@@ -209,7 +217,8 @@ class Room extends React.Component<Props, State> {
   render() {
     document.title = getSiteTitle(this.props.match.params.username, this.state.roomInfo?.Title as string);
     const isConnected = this.state.roomInfo != null;
-    const isStreamStopped = this.state.roomInfo?.RoomStatus === RoomStatus.Stopped;
+    const isStreamStopped = this.state.roomInfo?.Status === RoomStatus.Stopped;
+    const isRoomExisted = this.state.roomInfo?.Status !== RoomStatus.NotExisted;
     const terminalSize: RectSize =  {
       width: this.state.termSize?.width ? this.state.termSize.width : -1,
       height: this.state.termSize?.height ? this.state.termSize.height : -1,
@@ -226,40 +235,49 @@ class Room extends React.Component<Props, State> {
           <>
             <div id="terminal-view" className="relative"
               onMouseMove={() => this.flashTitle()}>
-              {this.state.roomInfo && !isStreamStopped &&
+              {isConnected && !isStreamStopped && isRoomExisted &&
               <div id="info">
                 <div
                   className={`top-0 left-0 w-full absolute z-10 px-4 py-2 bg-opacity-80 bg-gray-800
                 ${this.state.mouseMove ? "visible" : "hidden"}`}>
-                  <p className="text-2xl">{this.state.roomInfo.Title}</p>
-                  <p className="text-md">@{this.state.roomInfo.StreamerID}</p>
+                  <p className="text-2xl">{this.state.roomInfo!.Title}</p>
+                  <p className="text-md">@{this.state.roomInfo!.StreamerID}</p>
                 </div>
                 <div id="info-uptime" className={`p-1 bg-red-400 rounded absolute top-4 ${this.state.hideChat ? "right-14" : "right-4"} z-10`}>
-                  <Uptime className="text-md text-white font-semibold" startTime={new Date(this.state.roomInfo.StartedTime)} />
+                  <Uptime className="text-md text-white font-semibold" startTime={new Date(this.state.roomInfo!.StartedTime)} />
                 </div>
 
                 <div id="info-nviewers" className="p-1 bg-gray-400 rounded absolute bottom-4 right-4 z-10">
-                  <p className="text-mdtext-whtie font-semibold"><PersonIcon/> {this.state.roomInfo.NViewers}</p>
+                  <p className="text-md text-whtie font-semibold"><PersonIcon/> {this.state.roomInfo!.NViewers}</p>
                 </div>
               </div>}
 
               <div id="terminal-window">
                 {!isConnected && <Loading />}
 
-                {isConnected && !isStreamStopped &&
-                <WSTerminal
-                  className="bg-black"
-                  msgManager={this.msgManager}
-                  width={terminalSize.width}
-                  height={terminalSize.height}
-                />}
+                {isConnected && !isStreamStopped && isRoomExisted &&
+                  <WSTerminal
+                    className="bg-black"
+                    msgManager={this.msgManager}
+                    width={terminalSize.width}
+                    height={terminalSize.height}
+                  />
+                }
 
-                {isConnected && isStreamStopped &&
-                  <div id="closed"
+                {isConnected && isStreamStopped && isRoomExisted &&
+                  <div
                     style={terminalSize}
                     className="bg-black flex justify-center items-center">
                     <p className="text-2xl font-bold">The stream has stopped</p>
                   </div>}
+
+                {isConnected && !isRoomExisted &&
+                  <div
+                    style={terminalSize}
+                    className="bg-black flex justify-center items-center">
+                    <p className="text-2xl font-bold">Stream not existed</p>
+                  </div>}
+
 
               </div>
             </div>

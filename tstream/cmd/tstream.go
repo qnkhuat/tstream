@@ -17,9 +17,11 @@ Inner working of streamer program
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"github.com/manifoldco/promptui"
+	"github.com/qnkhuat/tstream/internal/cfg"
 	"github.com/qnkhuat/tstream/internal/logging"
 	"github.com/qnkhuat/tstream/pkg/streamer"
 	"log"
@@ -29,12 +31,18 @@ import (
 )
 
 func main() {
+	// Check if current process is under a tstream session
+	if len(os.Getenv(cfg.STREAMER_ENVKEY_SESSIONID)) > 0 {
+		fmt.Printf("This terminal is currently running under session: %s\nType 'exit' to stop the current session!\n", os.Getenv(cfg.STREAMER_ENVKEY_SESSIONID))
+		os.Exit(1)
+	}
+
+	logging.Config("/tmp/tstream.log", "STREAMER: ")
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "To Stream: just type in `tstream`.\n\nAdvanced config:\n")
 		flag.PrintDefaults()
 	}
 
-	logging.Config("/tmp/tstream.log", "STREAMER: ")
 	var server = flag.String("server", "https://server.tstream.club", "Server endpoint")
 	var client = flag.String("client", "https://tstream.club", "TStream client url")
 
@@ -44,7 +52,14 @@ func main() {
 		log.Fatalf(err.Error())
 	}
 
-	username := user.Username
+	var username string
+	cfg, err := streamer.ReadCfg(streamer.CONFIG_PATH)
+	if err != nil {
+		username = user.Username
+	} else {
+		username = cfg.Username
+	}
+
 	validateUsername := func(input string) error {
 		var validUsername = regexp.MustCompile(`^[a-z][a-z0-9]*[._-]?[a-z0-9]+$`)
 		if validUsername.MatchString(input) && len(input) > 3 && len(input) < 20 {
@@ -83,8 +98,28 @@ func main() {
 	}
 
 	s := streamer.New(*client, *server, username, title)
+
+	statusCode := s.RequestAddRoom()
+	log.Printf("Got status code: %d", statusCode)
+	if statusCode == 400 {
+		fmt.Printf("Detected a session is streaming with the same username\nProceed to stream from this terminal? (y/n): ")
+		confirm, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+		if confirm[0] != 'y' {
+			os.Exit(1)
+		}
+	} else if statusCode == 401 {
+		fmt.Printf("Username: %s is currently used by other streamer. Please use a different username!\n", username)
+		os.Exit(1)
+	} else if statusCode == 426 {
+		fmt.Printf("Please update Tstream to continue streaming\nFind the latest version at: https://github.com/qnkhuat/tstream/releases\n")
+		os.Exit(1)
+	}
+	// Update config before start
+	cfg.Username = username
+	streamer.UpdateCfg(streamer.CONFIG_PATH, "Username", username)
+
 	err = s.Start()
 	if err != nil {
-		log.Panicf("Failed to start stream: %s", err)
+		log.Printf("Failed to start tstream : %s", err)
 	}
 }

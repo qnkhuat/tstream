@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+
 	"github.com/qnkhuat/tstream/internal/cfg"
 	"github.com/qnkhuat/tstream/pkg/message"
 	"github.com/qnkhuat/tstream/pkg/viewer"
@@ -22,28 +23,34 @@ type Room struct {
 	lock           sync.Mutex
 	streamer       *websocket.Conn
 	viewers        map[string]*viewer.Viewer
+	accViewers     uint64 // accumulated viewers
 	chats          map[string]*viewer.Viewer
-	ID             string
+	name           string // also is streamerID
+	id             uint64 // Id in DB
 	title          string
 	lastWinsize    *message.Winsize
 	startedTime    time.Time
 	lastActiveTime time.Time
 	msgBuffer      [][]byte
 	status         message.RoomStatus
+	secret         string // used to verify streamer
 	cacheChat      [][]byte
 }
 
-func New(ID string) *Room {
+func New(name, title, secret string) *Room {
 	viewers := make(map[string]*viewer.Viewer)
 	var buffer [][]byte
 	var cacheChat [][]byte
 	return &Room{
-		ID:             ID,
+		name:           name,
+		accViewers:     0,
 		viewers:        viewers,
 		lastActiveTime: time.Now(),
 		startedTime:    time.Now(),
 		msgBuffer:      buffer,
 		status:         message.RStreaming,
+		title:          title,
+		secret:         secret,
 		cacheChat:      cacheChat,
 	}
 }
@@ -60,8 +67,24 @@ func (r *Room) Viewers() map[string]*viewer.Viewer {
 	return r.viewers
 }
 
+func (r *Room) Id() uint64 {
+	return r.id
+}
+
+func (r *Room) Secret() string {
+	return r.secret
+}
+
 func (r *Room) SetTitle(title string) {
 	r.title = title
+}
+
+func (r *Room) SetId(id uint64) {
+	r.id = id
+}
+
+func (r *Room) SetStatus(status message.RoomStatus) {
+	r.status = status
 }
 
 func (r *Room) Status() message.RoomStatus {
@@ -92,7 +115,7 @@ func (r *Room) AddStreamer(conn *websocket.Conn) error {
 	})
 
 	r.streamer.SetCloseHandler(func(code int, text string) error {
-		log.Printf("Got streamer close message. Stopping room: %s", r.ID)
+		log.Printf("Got streamer close message. Stopping room: %s", r.name)
 		r.status = message.RStopped
 		r.Stop(message.RStopped)
 		return nil
@@ -109,7 +132,7 @@ func (r *Room) AddStreamer(conn *websocket.Conn) error {
 					return
 				}
 				if time.Now().Sub(r.lastActiveTime) > time.Second*cfg.SERVER_DISCONNECTED_THRESHHOLD {
-					r.status = message.RDisconnected
+					r.status = message.RStopped
 				} else {
 					r.status = message.RStreaming
 				}
@@ -122,6 +145,7 @@ func (r *Room) AddStreamer(conn *websocket.Conn) error {
 }
 
 func (r *Room) AddViewer(ID string, conn *websocket.Conn) error {
+	r.accViewers += 1
 	_, ok := r.viewers[ID]
 	if ok {
 		return fmt.Errorf("Viewer %s existed", conn)
@@ -166,9 +190,8 @@ func (r *Room) Start() {
 	for {
 		_, msg, err := r.streamer.ReadMessage()
 
-		log.Printf("Got a message from streamer: %d", len(msg))
 		if err != nil {
-			log.Printf("Failed to reaceive message from streamer: %s. Closing. Error: %s", r.ID, err)
+			log.Printf("Failed to reaceive message from streamer: %s. Closing. Error: %s", r.name, err)
 			r.streamer.Close()
 			return
 		}
@@ -189,6 +212,7 @@ func (r *Room) Start() {
 			} else {
 				r.SetTitle(msgObject.Title)
 			}
+			log.Printf("Set title: %s", msgObject.Title)
 
 		} else {
 			log.Printf("Unknown message type: %s", wrapperMsg.Type)
@@ -216,7 +240,6 @@ func (r *Room) ReadAndHandleViewerMessage(ID string) {
 		return
 	}
 	for {
-
 		msg, _ := <-viewer.In
 
 		msgObj, err := message.Unwrap(msg)
@@ -240,7 +263,8 @@ func (r *Room) ReadAndHandleViewerMessage(ID string) {
 			}
 		} else if msgObj.Type == message.TRequestRoomInfo {
 
-			msg, err := r.PrepareRoomInfo()
+			roomInfo := r.PrepareRoomInfo()
+			msg, err := message.Wrap(message.TRoomInfo, roomInfo)
 
 			if err == nil {
 				payload, _ := json.Marshal(msg)
@@ -302,12 +326,11 @@ func (r *Room) Broadcast(msg []uint8, IDExclude []string) {
 			r.RemoveViewer(id)
 		}
 	}
-	log.Printf("Broadcasted to %d viewers", count)
 }
 
-func (r *Room) Stop(roomStatus message.RoomStatus) {
-	log.Printf("Stopping room: %s, with Status: %s", r.ID, roomStatus)
-	r.status = roomStatus
+func (r *Room) Stop(status message.RoomStatus) {
+	log.Printf("Stopping room: %s, with Status: %s", r.name, status)
+	r.status = status
 	for id, viewer := range r.viewers {
 		viewer.Close()
 		r.RemoveViewer(id)
@@ -317,19 +340,16 @@ func (r *Room) Stop(roomStatus message.RoomStatus) {
 	r.lock.Unlock()
 }
 
-func (r *Room) PrepareRoomInfo() (message.Wrapper, error) {
-	msg, err := message.Wrap(message.TRoomInfo, message.RoomInfo{
-		Title:       r.Title(),
-		NViewers:    len(r.viewers),
-		StartedTime: r.StartedTime(),
-		StreamerID:  r.ID,
-		RoomStatus:  r.status,
-	})
-
-	if err != nil {
-		return msg, nil
-	} else {
-		return msg, err
+func (r *Room) PrepareRoomInfo() message.RoomInfo {
+	return message.RoomInfo{
+		Id:             r.id,
+		Title:          r.title,
+		NViewers:       len(r.viewers),
+		StartedTime:    r.startedTime,
+		LastActiveTime: r.lastActiveTime,
+		StreamerID:     r.name,
+		Status:         r.status,
+		AccNViewers:    r.accViewers,
 	}
 }
 

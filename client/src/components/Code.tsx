@@ -5,7 +5,7 @@ interface Props {
     className?: string,
 }
 const Code: React.FC<Props> = ({text, className=""}) => {
-  return <code className={`whitespace-pre rounded-md bg-gray-400 p-1 ${className}`}>{text}</code>;
+  return <code className={`rounded-md bg-gray-400 p-1 ${className}`}>{text}</code>;
 }
 
 export default Code;

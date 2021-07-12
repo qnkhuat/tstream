@@ -15,9 +15,8 @@ export function sendWhenConnected(ws: WebSocket, msg: any) {
   }, 5); // wait 5 milisecond for the connection...
 }
 
-export function getUpTime(time: dayjs.Dayjs): string {
-  const now = dayjs();
-  let diff = now.diff(time, "second");
+export function formatDuration(from:dayjs.Dayjs, to: dayjs.Dayjs): string {
+  let diff = from.diff(to, "second");
 
   let hours = Math.floor(diff / 3600);
   diff = diff - 3600 * hours;
@@ -27,6 +26,6 @@ export function getUpTime(time: dayjs.Dayjs): string {
 
   let seconds = diff;
 
-  return `${hours}:${minutes > 9 ? minutes : `0${minutes}` }:${seconds> 9 ? seconds: `0${seconds}` }`;
+  return `${hours > 9 ? hours : `0${hours}`}:${minutes > 9 ? minutes : `0${minutes}` }:${seconds> 9 ? seconds: `0${seconds}` }`;
 }
 
