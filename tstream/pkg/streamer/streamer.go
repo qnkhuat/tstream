@@ -13,7 +13,6 @@ import (
 	"github.com/qnkhuat/tstream/pkg/message"
 	"github.com/qnkhuat/tstream/pkg/ptyMaster"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -42,7 +41,7 @@ func New(clientAddr, serverAddr, username, title string) *Streamer {
 	out := make(chan []byte, 256) // buffer 256 send requests
 	in := make(chan []byte, 256)  // buffer 256 send requests
 
-	secret, _ := GetSecret(CONFIG_PATH)
+	secret := GetSecret(CONFIG_PATH)
 
 	return &Streamer{
 		secret:     secret,
@@ -174,13 +173,10 @@ func (s *Streamer) RequestAddRoom() int {
 	queries := url.Values{
 		"streamerID": {s.username},
 		"title":      {strings.TrimSpace(s.title)},
+		"version":    {cfg.STREAMER_VERSION},
 	}
 
-	resp, err := http.Post(fmt.Sprintf("%s/api/room?%s", s.serverAddr, queries.Encode()), "application/json", payload)
-	if err != nil {
-		log.Printf("%s", err)
-	}
-	log.Printf("%v", resp)
+	resp, _ := http.Post(fmt.Sprintf("%s/api/room?%s", s.serverAddr, queries.Encode()), "application/json", payload)
 	return resp.StatusCode
 }
 
@@ -242,26 +238,20 @@ func (s *Streamer) Winsize(rows, cols uint16) {
 	s.Out <- payload
 }
 
-func GetSecret(configPath string) (string, error) {
+func GetSecret(configPath string) string {
+	cfg, err := ReadCfg(CONFIG_PATH)
 	var secret string
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		secret = GenSecret("tstream")
-		f, err := os.Create(configPath)
-		defer f.Close()
-		if err != nil {
-			return "", err
-		} else {
-			f.WriteString(secret)
-		}
-	} else {
-		data, err := ioutil.ReadFile(configPath)
-		if err != nil {
-			return "", err
-		}
-		secret = string(data)
-	}
 
-	return secret, nil
+	// gen a new one if not existed
+	if err != nil {
+		cfg = NewCfg()
+		secret = GenSecret("tstream")
+		cfg.Secret = GenSecret("tstream")
+		WriteCfg(CONFIG_PATH, cfg)
+	} else {
+		secret = cfg.Secret
+	}
+	return secret
 }
 
 func GenSecret(key string) string {

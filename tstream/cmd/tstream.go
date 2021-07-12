@@ -52,7 +52,14 @@ func main() {
 		log.Fatalf(err.Error())
 	}
 
-	username := user.Username
+	var username string
+	cfg, err := streamer.ReadCfg(streamer.CONFIG_PATH)
+	if err != nil {
+		username = user.Username
+	} else {
+		username = cfg.Username
+	}
+
 	validateUsername := func(input string) error {
 		var validUsername = regexp.MustCompile(`^[a-z][a-z0-9]*[._-]?[a-z0-9]+$`)
 		if validUsername.MatchString(input) && len(input) > 3 && len(input) < 20 {
@@ -103,7 +110,14 @@ func main() {
 	} else if statusCode == 401 {
 		fmt.Printf("Username: %s is currently used by other streamer. Please use a different username!\n", username)
 		os.Exit(1)
+	} else if statusCode == 426 {
+		fmt.Printf("Please update Tstream to continue streaming\nFind the latest version at: https://github.com/qnkhuat/tstream/releases\n")
+		os.Exit(1)
 	}
+	// Update config before start
+	cfg.Username = username
+	streamer.UpdateCfg(streamer.CONFIG_PATH, "Username", username)
+
 	err = s.Start()
 	if err != nil {
 		log.Printf("Failed to start tstream : %s", err)
