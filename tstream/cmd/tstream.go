@@ -45,8 +45,16 @@ func main() {
 
 	var server = flag.String("server", "https://server.tstream.club", "Server endpoint")
 	var client = flag.String("client", "https://tstream.club", "TStream client url")
+	var version = flag.Bool("version", false, fmt.Sprintf("TStream version: %s", cfg.STREAMER_VERSION))
 
 	flag.Parse()
+
+	if *version {
+		fmt.Printf("Tstream %s\nGithub: https://github.com/qnkhuat/tstream\n", cfg.STREAMER_VERSION)
+		os.Exit(0)
+		return
+	}
+
 	user, err := user.Current()
 	if err != nil {
 		log.Fatalf(err.Error())

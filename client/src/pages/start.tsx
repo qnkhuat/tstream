@@ -17,13 +17,13 @@ function Start() {
             </li>
             <li>(Optional) Setup TStream so you can run it anywhere 
               <ul>
-                <li><Code className="text-white" text="cp tstream_{version}_{os}_{arch}/tstream /usr/local/bin"></Code></li>
+                <li><Code className="text-white" text="cp tstream /usr/local/bin"></Code></li>
               </ul>
             </li>
             <li>Start <span className="font-bold">tstream</span> 
               <ul>
                 <li><Code className="text-white" text="tstream"></Code></li>
-                <li>If you skipped step 3: <Code className="text-white" text="./tstream_{version}_{os}_{arch}/tstream"></Code></li>
+                <li>If you skipped step 3: <Code className="text-white" text="./tstream"></Code></li>
               </ul>
             </li>
           </ol>

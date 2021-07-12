@@ -88,7 +88,7 @@ func (s *Server) handleAddRoom(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// check if version neeeds to be updated
-	if compareVer(q.Version, cfg.SERVER_STREAMER_VERSION) == -1 {
+	if compareVer(q.Version, cfg.SERVER_STREAMER_REQUIRED_VERSION) == -1 {
 		log.Printf("Streamer version is too old: %s", q.Version)
 		http.Error(w, "Upgraded required", 426)
 		return
