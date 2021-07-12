@@ -60,11 +60,11 @@ func (s *Server) NewRoom(name, title, secret string) error {
 	if _, ok := s.rooms[name]; ok {
 		return fmt.Errorf("Room %s existed", name)
 	}
-  r := room.New(name, title, secret)
+	r := room.New(name, title, secret)
 	msg := r.PrepareRoomInfo()
 	id, err := s.db.AddRoom(msg)
-  r.SetId(id)
-  s.rooms[name] = r
+	r.SetId(id)
+	s.rooms[name] = r
 	if err != nil {
 		log.Println("Failed to add room to database")
 		return err
@@ -75,12 +75,13 @@ func (s *Server) NewRoom(name, title, secret string) error {
 
 func (s *Server) Start() {
 	log.Printf("Serving at: %s", s.addr)
+	fmt.Printf("Serving at: %s\n", s.addr)
 	router := mux.NewRouter()
 	router.Use(CORS)
 
 	router.HandleFunc("/api/health", handleHealth).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/rooms", s.handleListRooms).Methods("GET", "OPTIONS")
-  // Add room
+	// Add room
 	router.HandleFunc("/api/room", s.handleAddRoom).Queries("streamerID", "{streamerID}", "title", "{title}").Methods("POST", "OPTIONS")
 	router.HandleFunc("/ws/{roomName}/streamer", s.handleWSStreamer) // for streamers
 	router.HandleFunc("/ws/{roomName}/viewer", s.handleWSViewer)     // for viewers
@@ -88,10 +89,10 @@ func (s *Server) Start() {
 
 	s.server = &http.Server{Addr: s.addr, Handler: handler}
 
-	s.scanAndCleanRooms(cfg.SERVER_CLEAN_THRESHOLD) 
-  s.syncDB()
+	s.scanAndCleanRooms(cfg.SERVER_CLEAN_THRESHOLD)
+	s.syncDB()
 	go s.repeatedlyCleanRooms(cfg.SERVER_CLEAN_INTERVAL, cfg.SERVER_CLEAN_THRESHOLD)
-  go s.repeatedlySyncDB(cfg.SERVER_SYNCDB_INTERVAL)
+	go s.repeatedlySyncDB(cfg.SERVER_SYNCDB_INTERVAL)
 
 	if err := s.server.ListenAndServe(); err != nil { // blocking call
 		log.Panicf("Faield to start server: %s", err)
@@ -124,8 +125,8 @@ func (s *Server) scanAndCleanRooms(idleThreshold int) int {
 	count := 0
 	for roomName, room := range s.rooms {
 		if time.Since(room.LastActiveTime()) > threshold || room.Status() == message.RStopped {
+			room.Stop(message.RStopped)
 			s.deleteRoom(roomName)
-			room.SetStatus(message.RStopped) // in case room are current disconnected
 			msg := room.PrepareRoomInfo()
 			s.db.UpdateRooms(map[uint64]message.RoomInfo{room.Id(): msg})
 			count += 1
@@ -143,40 +144,37 @@ func (s *Server) deleteRoom(name string) {
 
 // Periodically sync server state with DB
 func (s *Server) repeatedlySyncDB(interval int) {
-  tick := time.NewTicker(time.Duration(interval) * time.Second)
-  for {
-    select {
-      case <-tick.C: {
-        s.syncDB()
-      }
-    }
-  }
+	tick := time.NewTicker(time.Duration(interval) * time.Second)
+	for {
+		select {
+		case <-tick.C:
+			s.syncDB()
+		}
+	}
 }
 
+func (s *Server) syncDB() {
+	toUpdateRooms := map[uint64]message.RoomInfo{}
 
+	// Update all room in RAM
+	for _, room := range s.rooms {
+		toUpdateRooms[room.Id()] = room.PrepareRoomInfo()
+	}
 
-func (s *Server) syncDB(){
-  toUpdateRooms := map[uint64]message.RoomInfo{}
+	// check if all streaming rooms inside DB are actually still streaming
+	// there is a case where server suddenly die so the streaming rooms inside DB will turn into zoombie state
+	// if found, we update its state to stopped
+	dbStreamingRooms, err := s.db.GetRooms([]message.RoomStatus{message.RStreaming}, 0, 0)
+	if err != nil {
+		log.Printf("failed to get rooms from db")
+	}
+	for _, streamingRoom := range dbStreamingRooms {
+		// this case should rarely happens
+		if _, found := toUpdateRooms[streamingRoom.Id]; !found {
+			streamingRoom.Status = message.RStopped
+			toUpdateRooms[streamingRoom.Id] = streamingRoom
+		}
+	}
 
-  // Update all room in RAM
-  for _, room := range s.rooms { 
-    toUpdateRooms[room.Id()] = room.PrepareRoomInfo()
-  }
-
-  // check if all streaming rooms inside DB are actually still streaming
-  // there is a case where server suddenly die so the streaming rooms inside DB will turn into zoombie state
-  // if found, we update its state to stopped
-  dbStreamingRooms, err := s.db.GetRooms([]message.RoomStatus{message.RStreaming}, 0, 0)
-  if err != nil {
-    log.Printf("failed to get rooms from db")
-  }
-  for _, streamingRoom := range dbStreamingRooms {
-    // this case should rarely happens
-    if _, found := toUpdateRooms[streamingRoom.Id]; !found {
-      streamingRoom.Status = message.RStopped
-      toUpdateRooms[streamingRoom.Id] = streamingRoom
-    }
-  }
-
-  s.db.UpdateRooms(toUpdateRooms)
+	s.db.UpdateRooms(toUpdateRooms)
 }

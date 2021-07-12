@@ -145,7 +145,6 @@ class Room extends React.Component<Props, State> {
     ws.onerror = () => {
       let roomInfo = {} as RoomInfo;
       roomInfo.Status = RoomStatus.NotExisted;
-      console.log("YO", roomInfo);
       this.setState({roomInfo: roomInfo});
     }
 
@@ -203,8 +202,8 @@ class Room extends React.Component<Props, State> {
       util.sendWhenConnected(ws, msg);
     })
 
-
     msgManager.pub("request", constants.MSG_TREQUEST_ROOM_INFO);
+
     // periodically update roominfo to get number of viewers
     setInterval(() => {
       msgManager.pub("request", constants.MSG_TREQUEST_ROOM_INFO);
@@ -221,12 +220,10 @@ class Room extends React.Component<Props, State> {
   }
 
   render() {
-    console.log(this.state.roomInfo);
     document.title = getSiteTitle(this.props.match.params.username, this.state.roomInfo?.Title as string);
     const isConnected = this.state.roomInfo != null;
     const isStreamStopped = this.state.roomInfo?.Status === RoomStatus.Stopped;
     const isRoomExisted = this.state.roomInfo?.Status !== RoomStatus.NotExisted;
-    console.log(isConnected, isStreamStopped, !isRoomExisted);
     const terminalSize: RectSize =  {
       width: this.state.termSize?.width ? this.state.termSize.width : -1,
       height: this.state.termSize?.height ? this.state.termSize.height : -1,
@@ -256,7 +253,7 @@ class Room extends React.Component<Props, State> {
                 </div>
 
                 <div id="info-nviewers" className="p-1 bg-gray-400 rounded absolute bottom-4 right-4 z-10">
-                  <p className="text-mdtext-whtie font-semibold"><PersonIcon/> {this.state.roomInfo!.NViewers}</p>
+                  <p className="text-md text-whtie font-semibold"><PersonIcon/> {this.state.roomInfo!.NViewers}</p>
                 </div>
               </div>}
 

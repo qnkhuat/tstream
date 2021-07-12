@@ -23,22 +23,13 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 var httpUpgrader = websocket.Upgrader{
 	ReadBufferSize:  cfg.SERVER_READ_BUFFER_SIZE,
 	WriteBufferSize: cfg.SERVER_WRITE_BBUFFER_SIZE,
-  CheckOrigin: func(r *http.Request) bool { 
-    return true 
-  },
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
 }
 
 var emptyByteArray []byte
 var decoder = schema.NewDecoder()
-
-type Room struct {
-	StreamerID     string             `json:"streamerID"`
-	LastActiveTime time.Time          `json:"lastActiveTime"`
-	StartedTime    time.Time          `json:"startedTime"`
-	NViewers       int                `json:"nViewers"`
-	Title          string             `json:"title"`
-	Status         message.RoomStatus `json:"roomStatus"`
-}
 
 // Queries:
 // - status - string : Status of Room to query. Leave blank to get any
@@ -75,49 +66,53 @@ func (s *Server) handleListRooms(w http.ResponseWriter, r *http.Request) {
 }
 
 type AddRoomQuery struct {
-	Title      string  `schema:"title,required"`
-	StreamerID string  `schema:"streamerID,required"`
+	Title      string `schema:"title,required"`
+	StreamerID string `schema:"streamerID,required"`
 }
 
 type AddRoomBody struct {
-  Secret string `schema:secret,required`
+	Secret string `schema:secret,required`
 }
 
 // Websocket connetion from streamer
 func (s *Server) handleAddRoom(w http.ResponseWriter, r *http.Request) {
-  var q AddRoomQuery
-  err := decoder.Decode(&q, r.URL.Query())
-  if err != nil {
-    log.Printf("Failed to decode:%s", err)
-    http.Error(w, err.Error(), 400)
-    return
-  }
+	log.Printf("GOt a request")
+	var q AddRoomQuery
+	err := decoder.Decode(&q, r.URL.Query())
+	if err != nil {
+		log.Printf("Failed to decode:%s", err)
+		http.Error(w, err.Error(), 400)
+		return
+	}
 
-  var b AddRoomBody
-  err = json.NewDecoder(r.Body).Decode(&b)
-  if err != nil {
-    log.Printf("Failed to decode:%s", err)
-    http.Error(w, err.Error(), 400)
-    return
-  }
+	var b AddRoomBody
+	err = json.NewDecoder(r.Body).Decode(&b)
+	if err != nil {
+		log.Printf("Failed to decode:%s", err)
+		http.Error(w, err.Error(), 400)
+		return
+	}
 
-  // TODO: this check is still very naive.
-  // Use can still connect to websocket and override current streamer
-  // Need to check at websocket level as well
-  if _, ok := s.rooms[q.StreamerID]; !ok {
-    s.NewRoom(q.StreamerID, q.Title, b.Secret)
-    log.Printf("Added a room %s, %s", q.StreamerID, q.Title)
-  } else {
-    if s.rooms[q.StreamerID].Secret() != b.Secret {
-      log.Printf("not authorized %s, %s", s.rooms[q.StreamerID].Secret(), b.Secret)
-      http.Error(w, "Room existed and you're not authorized to access this room", 401)
-      return
-    } else {
-      log.Printf("Room existed: %s", q.StreamerID)
-      http.Error(w, "Room existed", 400)
-      return
-    }
-  }
+	// TODO: this check is still very naive.
+	// User can still connect to websocket and override current streamer
+	// Need to check at websocket level as well
+	if _, ok := s.rooms[q.StreamerID]; !ok {
+		s.NewRoom(q.StreamerID, q.Title, b.Secret)
+		log.Printf("Added a room %s, %s", q.StreamerID, q.Title)
+		w.WriteHeader(200)
+		return
+	} else {
+		if s.rooms[q.StreamerID].Secret() != b.Secret {
+			log.Printf("not authorized %s, %s", s.rooms[q.StreamerID].Secret(), b.Secret)
+			http.Error(w, "Room existed and you're not authorized to access this room", 401)
+			return
+		} else {
+			log.Printf("Room existed: %s", q.StreamerID)
+			http.Error(w, "Room existed", 400)
+			return
+		}
+	}
+	log.Printf("?????")
 }
 
 // Websocket connetion from streamer
@@ -136,7 +131,6 @@ func (s *Server) handleWSViewer(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Failed to upgrade to websocket: %s", err)
 	}
 
-	// Now any message broadcasted to the room will also be broadcast to this connection
 	viewerID := uuid.New().String()
 	room.AddViewer(viewerID, conn)
 
@@ -155,7 +149,6 @@ func (s *Server) handleWSStreamer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-  // TODO config this
 	conn, err := httpUpgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("Failed to upgrade to websocket: %s", err)

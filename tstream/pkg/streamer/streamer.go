@@ -2,6 +2,9 @@ package streamer
 
 import (
 	"bufio"
+	"bytes"
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	ptyDevice "github.com/creack/pty"
@@ -10,16 +13,13 @@ import (
 	"github.com/qnkhuat/tstream/pkg/message"
 	"github.com/qnkhuat/tstream/pkg/ptyMaster"
 	"io"
-  "io/ioutil"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
 	"time"
-  "crypto/sha1"
-  "encoding/hex"
-  "bytes"
 )
 
 // TODO: if we supports windows this should be changed
@@ -38,22 +38,22 @@ type Streamer struct {
 }
 
 func New(clientAddr, serverAddr, username, title string) *Streamer {
-  pty := ptyMaster.New()
-  out := make(chan []byte, 256) // buffer 256 send requests
-  in := make(chan []byte, 256)  // buffer 256 send requests
+	pty := ptyMaster.New()
+	out := make(chan []byte, 256) // buffer 256 send requests
+	in := make(chan []byte, 256)  // buffer 256 send requests
 
-  secret, _ := GetSecret(CONFIG_PATH)
+	secret, _ := GetSecret(CONFIG_PATH)
 
-  return &Streamer{
-    secret:     secret,
-    pty:        pty,
-    serverAddr: serverAddr,
-    clientAddr: clientAddr,
-    username:   username,
-    title:      title,
-    Out:        out,
-    In:         in,
-  }
+	return &Streamer{
+		secret:     secret,
+		pty:        pty,
+		serverAddr: serverAddr,
+		clientAddr: clientAddr,
+		username:   username,
+		title:      title,
+		Out:        out,
+		In:         in,
+	}
 }
 
 var emptyByteArray []byte
@@ -63,12 +63,12 @@ var httpUpgrader = websocket.Upgrader{
 }
 
 func (s *Streamer) Start() error {
-  envVars := []string{fmt.Sprintf("%s=%s",cfg.STREAMER_ENVKEY_SESSIONID, s.username)}
+	envVars := []string{fmt.Sprintf("%s=%s", cfg.STREAMER_ENVKEY_SESSIONID, s.username)}
 	s.pty.StartShell(envVars)
 	fmt.Printf("Press Enter to continue!")
 	bufio.NewReader(os.Stdin).ReadString('\n')
 
-  err := s.ConnectWS()
+	err := s.ConnectWS()
 	if err != nil {
 		log.Println(err)
 		s.Stop("Failed to connect to server")
@@ -167,13 +167,21 @@ func (s *Streamer) Start() error {
 }
 
 func (s *Streamer) RequestAddRoom() int {
-  // TODO: handle cases when call add api return existed
-  body := map[string]string{"secret": s.secret}
-  jsonValue, _ := json.Marshal(body)
-  payload := bytes.NewBuffer(jsonValue)
+	// TODO: handle cases when call add api return existed
+	body := map[string]string{"secret": s.secret}
+	jsonValue, _ := json.Marshal(body)
+	payload := bytes.NewBuffer(jsonValue)
+	queries := url.Values{
+		"streamerID": {s.username},
+		"title":      {strings.TrimSpace(s.title)},
+	}
 
-  resp, _ := http.Post(fmt.Sprintf("%s/api/room?streamerID=%s&title=%s", s.serverAddr, s.username, s.title), "application/json", payload)
-  return resp.StatusCode
+	resp, err := http.Post(fmt.Sprintf("%s/api/room?%s", s.serverAddr, queries.Encode()), "application/json", payload)
+	if err != nil {
+		log.Printf("%s", err)
+	}
+	log.Printf("%v", resp)
+	return resp.StatusCode
 }
 
 func (s *Streamer) ConnectWS() error {
@@ -234,32 +242,31 @@ func (s *Streamer) Winsize(rows, cols uint16) {
 	s.Out <- payload
 }
 
-func GetSecret(configPath string) (string, error){
-  var secret string
-  if _, err := os.Stat(configPath); os.IsNotExist(err) {
-    secret = GenSecret("tstream")
-    f, err := os.Create(configPath)
-    defer f.Close()
-    if err != nil {
-      return "", err
-    } else {
-      f.WriteString(secret)
-    }
-  } else {
-    data, err := ioutil.ReadFile(configPath)
-    if err != nil {
-      return "", err
-    }
-    secret = string(data) 
-  }
+func GetSecret(configPath string) (string, error) {
+	var secret string
+	if _, err := os.Stat(configPath); os.IsNotExist(err) {
+		secret = GenSecret("tstream")
+		f, err := os.Create(configPath)
+		defer f.Close()
+		if err != nil {
+			return "", err
+		} else {
+			f.WriteString(secret)
+		}
+	} else {
+		data, err := ioutil.ReadFile(configPath)
+		if err != nil {
+			return "", err
+		}
+		secret = string(data)
+	}
 
-  return secret, nil
+	return secret, nil
 }
 
 func GenSecret(key string) string {
-  h := sha1.New()
-  h.Write([]byte(key))
-  sha1_hash := hex.EncodeToString(h.Sum(nil))
-  return sha1_hash
+	h := sha1.New()
+	h.Write([]byte(key))
+	sha1_hash := hex.EncodeToString(h.Sum(nil))
+	return sha1_hash
 }
-

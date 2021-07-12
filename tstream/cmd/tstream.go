@@ -17,12 +17,12 @@ Inner working of streamer program
 package main
 
 import (
-  "bufio"
+	"bufio"
 	"flag"
 	"fmt"
 	"github.com/manifoldco/promptui"
-	"github.com/qnkhuat/tstream/internal/logging"
 	"github.com/qnkhuat/tstream/internal/cfg"
+	"github.com/qnkhuat/tstream/internal/logging"
 	"github.com/qnkhuat/tstream/pkg/streamer"
 	"log"
 	"os"
@@ -30,13 +30,12 @@ import (
 	"regexp"
 )
 
-
 func main() {
-  // Check if current process is under a tstream session
-  if len(os.Getenv(cfg.STREAMER_ENVKEY_SESSIONID)) > 0 {
-    fmt.Printf("This terminal is currently running under session: %s\nType 'exit' to stop the current session!\n", os.Getenv(cfg.STREAMER_ENVKEY_SESSIONID))
-    os.Exit(1)
-  }
+	// Check if current process is under a tstream session
+	if len(os.Getenv(cfg.STREAMER_ENVKEY_SESSIONID)) > 0 {
+		fmt.Printf("This terminal is currently running under session: %s\nType 'exit' to stop the current session!\n", os.Getenv(cfg.STREAMER_ENVKEY_SESSIONID))
+		os.Exit(1)
+	}
 
 	logging.Config("/tmp/tstream.log", "STREAMER: ")
 	flag.Usage = func() {
@@ -93,21 +92,20 @@ func main() {
 
 	s := streamer.New(*client, *server, username, title)
 
-  statusCode := s.RequestAddRoom()
-  log.Printf("Got status code: %d", statusCode)
-  if statusCode == 400 {
-    fmt.Printf("Detected a session is streaming with the same username\nProceed to stream from this terminal? (y/n): " )
-    confirm, _ := bufio.NewReader(os.Stdin).ReadString('\n')
-    if confirm[0] != 'y' {
-      os.Exit(1)
-    }
-  } else if statusCode == 401 {
-    fmt.Printf("Username: %s is currently used by other streamer. Please use a different username!\n", username)
-    os.Exit(1)
-  } else {
-    err = s.Start()
-    if err != nil {
-      log.Printf("Failed to start tstream : %s", err)
-    }
-  }
+	statusCode := s.RequestAddRoom()
+	log.Printf("Got status code: %d", statusCode)
+	if statusCode == 400 {
+		fmt.Printf("Detected a session is streaming with the same username\nProceed to stream from this terminal? (y/n): ")
+		confirm, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+		if confirm[0] != 'y' {
+			os.Exit(1)
+		}
+	} else if statusCode == 401 {
+		fmt.Printf("Username: %s is currently used by other streamer. Please use a different username!\n", username)
+		os.Exit(1)
+	}
+	err = s.Start()
+	if err != nil {
+		log.Printf("Failed to start tstream : %s", err)
+	}
 }

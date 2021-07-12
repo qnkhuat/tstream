@@ -63,14 +63,14 @@ const (
 )
 
 type RoomInfo struct {
-  Id          uint64 // Id in DB
-	AccNViewers uint64 // Accumulated nviewers
-	NViewers    int
-	StartedTime time.Time
-	StoppedTime time.Time
-	Title       string
-	StreamerID  string
-	Status      RoomStatus
+	Id             uint64 // Id in DB
+	AccNViewers    uint64 // Accumulated nviewers
+	NViewers       int
+	StartedTime    time.Time
+	LastActiveTime time.Time
+	Title          string
+	StreamerID     string
+	Status         RoomStatus
 }
 
 // *** Helper functions ***
