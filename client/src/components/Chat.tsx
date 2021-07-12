@@ -1,6 +1,8 @@
 import React from "react";
 import * as constants from "../lib/constants";
 import PubSub from "../lib/pubsub";
+import TextField from '@material-ui/core/TextField';
+import KeyboardArrowRightRoundedIcon from '@material-ui/icons/KeyboardArrowRightRounded';
 
 interface TstreamUser {
   name: string,
@@ -16,6 +18,7 @@ interface ChatMsg {
   Name: string;
   Content: string;
   Color: string;
+  Time: string;
 }
 
 interface State {
@@ -24,16 +27,31 @@ interface State {
   name: string;
   color: string;
   isWaitingUsername: boolean,
-    tempMsg: string,
+  tempMsg: string,
 }
 
-const ChatSection: React.FC<ChatMsg> = ({ Name, Content, Color }) => {
+const ChatSection: React.FC<ChatMsg> = ({ Name, Content, Color, Time}) => {
   return (
     <>
-      <div className="w-full flex p-2 hover:bg-gray-800 rounded-lg">
-        {Name !== '' && <span style={{color: Color}} className="font-black">{Name}</span>}        
-        {Name !== '' && <span className="text-green-600 pl-2 pr-2">{">"}</span>}
-        <div style={{wordWrap: 'break-word', overflow: 'hidden'}}>{Content}</div>
+      <div className="w-full flex p-2 hover:bg-gray-900 rounded-lg">
+        <div className="break-all">
+          {
+            Name === '' ? 
+            <div className="font-bold">
+              {
+                Content === "Invalid Username" ? 
+                  <img src="./warning.png" alt="warning" height="30" width="30" className="inline-block m-2"/> :
+                  <img src="./hand-wave.png" alt="hand-wave" />
+              }
+                  {Content}
+            </div> : 
+            <>
+              <span style={{color: Color}} className="font-black">{Name}</span>
+              <span className="text-green-600 py-1"><KeyboardArrowRightRoundedIcon /></span>
+              {Content}
+            </>
+          }
+        </div>
       </div>
     </>
   )
@@ -58,12 +76,22 @@ class Chat extends React.Component<Props, State> {
     newMsgList.push(chatMsg);
     this.setState({
       msgList: newMsgList,
+      inputContent: "",
     })
   }
 
-  componentDidMount() {
-    this.props.msgManager?.sub(constants.MSG_TCHAT, (chatMsg: ChatMsg) => {
-      this.addNewMsg(chatMsg);
+  componentDidMount() {    
+    this.props.msgManager?.sub(constants.MSG_TCHAT, (cacheChat: Array<ChatMsg>) => {
+      if (cacheChat === null) {
+        return;
+      }
+      let newMsgList = this.state.msgList as ChatMsg[];
+      for (let i = 0; i < cacheChat.length; i++) {
+        newMsgList.push(cacheChat[i]);
+      }
+      this.setState({
+        msgList: newMsgList,
+      });
     });
 
     const payload = localStorage.getItem('tstreamUser');
@@ -80,12 +108,9 @@ class Chat extends React.Component<Props, State> {
       var code = e.keyCode || e.which;
       if (code === 13) {
         e.preventDefault();
-        let textarea = document.getElementById("textarea") as HTMLTextAreaElement;
-        textarea.rows = 1;
         this.onSendMsg(this.state.inputContent);
       }
     });
-    document.getElementById("chatbox")!.style.height = `calc(100vh - ${document.getElementById("textarea")!.clientHeight}px - 57px)`;
   }
 
   onSendMsg(content: string) {
@@ -99,7 +124,7 @@ class Chat extends React.Component<Props, State> {
 
       // ask for first time
       if (!this.state.isWaitingUsername) {
-        notification = "Please enter your username(I.e: elonmusk)"; 
+        notification = "Please enter your username (I.e: elonmusk)"; 
         this.setState({
           tempMsg: tempMsg,
           isWaitingUsername: true,
@@ -124,6 +149,9 @@ class Chat extends React.Component<Props, State> {
             name: tempMsg,
             color: color,
           }
+
+          localStorage.setItem('tstreamUser', JSON.stringify(tstreamUser));
+
           tempMsg = this.state.tempMsg;
 
           // if the first message is empty, just ignore it
@@ -142,11 +170,8 @@ class Chat extends React.Component<Props, State> {
           Name: '', 
           Content: notification,
           Color: '', 
+          Time: new Date().toISOString(),
         };
-
-        this.setState({
-          inputContent: "",
-        });
 
         this.addNewMsg(data);
         return ;
@@ -168,11 +193,8 @@ class Chat extends React.Component<Props, State> {
       Name: name,
       Content: tempMsg,
       Color: color,
+      Time: new Date().toISOString(),
     };
-
-    this.setState({
-      inputContent: "",
-    });
 
     this.addNewMsg(data);
     this.props.msgManager?.pub(constants.MSG_TREQUEST_CHAT, data);
@@ -180,30 +202,42 @@ class Chat extends React.Component<Props, State> {
 
   render() {
     return (
-      <div className={`w-full flex flex-col border-l border-gray-500 relative ${this.props.className}`} style={{fontFamily: "'Ubuntu Mono', monospace"}}>
-        <div className="bg-black overflow-y-auto overflow-x-none p-2 flex flex-col-reverse" id="chatbox">
+      <div 
+        id="chat-wrapper"
+        className={`flex flex-col w-full h-full flex flex-col border-l border-gray-500 relative pt-12 ${this.props.className}`} 
+        style={{width: '400px', fontFamily: "'Ubuntu Mono', monospace"}}
+      >
+        <div style={{height: '0px'}} className="bg-black overflow-y-auto overflow-x-none p-2 flex flex-col-reverse flex-grow" id="chatbox">
           {
             this.state.msgList.slice(0).reverse().map(
-            (item, index) => <ChatSection Name={item.Name} Content={item.Content} Color={item.Color} key={index}/>
-          )
+              (item, index) => <ChatSection Name={item.Name} Content={item.Content} Color={item.Color} Time={item.Time} key={index}/>
+            )
           }
         </div>
-        <div className="border-gray-500 flex-shrink-0 flex items-center justify-between">
-          <textarea
-            className="text-white px-3 py-3 flex-grow bg-gray-600 border-gray-500 focus:bg-gray-800 focus:border-purple-600 rounded-lg"
-            placeholder={"Chat with everyone..."}
-            value={this.state.inputContent}
-            onChange={(e) => {
-              this.setState({
-                inputContent: e.target.value,
-            });
-            let textarea = document.getElementById("textarea") as HTMLTextAreaElement;
-            textarea.rows = Math.floor(e.target.value.length / 45) + 1;
-            document.getElementById("chatbox")!.style.height = `calc(100vh - ${document.getElementById("textarea")!.clientHeight}px - 57px)`;
-            }}
-            rows={1}
-            id="textarea"
-          />
+        <div className="bottom-0 transform w-full" id="textarea">
+          <div 
+            className="border-b border-gray-500 flex-shrink-0 flex items-center justify-between"
+          >
+             <TextField
+              InputProps={{
+                style: {
+                  flexGrow: 1, 
+                  borderRadius: ".5rem",
+                  backgroundColor: "rgba(75,85,99,1)",
+                  fontFamily: "'Ubuntu Mono', monospace",
+               }
+              }}
+              placeholder={(this.state.isWaitingUsername) ? "Please enter your name..." : "Chat with everyone..."}
+              fullWidth
+              multiline
+              value={this.state.inputContent}
+              onChange={(e) => {
+                this.setState({
+                  inputContent: e.target.value,
+                });
+              }}
+            />
+          </div>
         </div>
       </div>
     )

@@ -34,11 +34,13 @@ type Room struct {
 	msgBuffer      [][]byte
 	status         message.RoomStatus
 	secret         string // used to verify streamer
+	cacheChat      [][]byte
 }
 
 func New(name, title, secret string) *Room {
 	viewers := make(map[string]*viewer.Viewer)
 	var buffer [][]byte
+	var cacheChat [][]byte
 	return &Room{
 		name:           name,
 		accViewers:     0,
@@ -49,6 +51,7 @@ func New(name, title, secret string) *Room {
 		status:         message.RStreaming,
 		title:          title,
 		secret:         secret,
+		cacheChat:      cacheChat,
 	}
 }
 
@@ -224,6 +227,13 @@ func (r *Room) addMsgBuffer(msg []byte) {
 	r.msgBuffer = append(r.msgBuffer, msg)
 }
 
+func (r *Room) addCachedChat(chat []byte) {
+	if len(r.cacheChat) >= cfg.ROOM_CACHE_MSG_SIZE {
+		r.cacheChat = r.cacheChat[1:]
+	}
+	r.cacheChat = append(r.cacheChat, chat)
+}
+
 func (r *Room) ReadAndHandleViewerMessage(ID string) {
 	viewer, ok := r.viewers[ID]
 	if !ok {
@@ -262,8 +272,24 @@ func (r *Room) ReadAndHandleViewerMessage(ID string) {
 			} else {
 				log.Printf("Error wrapping room info message: %s", err)
 			}
-		} else if msgObj.Type == message.TChat {
-			r.Broadcast(msg, []string{ID})
+		} else if msgObj.Type == message.TChat || msgObj.Type == message.TRequestCacheChat {
+
+			if msgObj.Type == message.TChat {
+				r.addCachedChat(msgObj.Data)
+			}
+
+			msg, err := r.PrepareChat(msgObj.Type == message.TRequestCacheChat)
+
+			if err == nil {
+				payload, _ := json.Marshal(msg)
+				if msgObj.Type == message.TRequestCacheChat {
+					viewer.Out <- payload
+				} else {
+					r.Broadcast(payload, []string{ID})
+				}
+			} else {
+				log.Printf("Error wrapping cache chat info message: %s", err)
+			}
 		}
 	}
 }
@@ -324,5 +350,34 @@ func (r *Room) PrepareRoomInfo() message.RoomInfo {
 		StreamerID:     r.name,
 		Status:         r.status,
 		AccNViewers:    r.accViewers,
+	}
+}
+
+func (r *Room) PrepareChat(cache bool) (message.Wrapper, error) {
+	var listChat []message.Chat
+
+	var iter_array [][]byte
+
+	if cache {
+		iter_array = r.cacheChat
+	} else {
+		iter_array = r.cacheChat[len(r.cacheChat)-1:]
+	}
+
+	for _, value := range iter_array {
+		curChat := &message.Chat{}
+		err := json.Unmarshal(value, curChat)
+		if err != nil {
+			log.Printf("There's error when unmarshal cache chat %s", err)
+		}
+		listChat = append(listChat, *curChat)
+	}
+
+	msg, err := message.Wrap(message.TChat, listChat)
+
+	if err != nil {
+		return msg, nil
+	} else {
+		return msg, err
 	}
 }
