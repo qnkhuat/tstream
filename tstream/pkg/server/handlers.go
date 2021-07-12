@@ -121,7 +121,6 @@ func (s *Server) handleAddRoom(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	log.Printf("?????")
 }
 
 // Websocket connetion from streamer

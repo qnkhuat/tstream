@@ -6,15 +6,26 @@ function Start() {
   return (
     <>
       <Navbar />
-      <div className="container m-auto justify-center flex">
+      <div className="container m-auto justify-center flex px-2">
 
-        <article className="prose lg:prose-xl mt-4 text-white">
+        <article className="prose lg:prose-xl mt-4 text-white overflow-hidden">
           <h1 className="text-white">How to start streaming</h1>
           <ol>
             <li>Download the <span className="font-bold">tstream</span> package from our <a href="https://github.com/qnkhuat/tstream/releases" className="text-green-term">Release</a> page. Make sure you download the version that matches your Operating System.</li>
-            <li>Unpack <Code className="text-white" text="tar -xzf tstream_{version}_{os}_{arch}.tar.gz"></Code></li>
-            <li>(Optional) Setup TStream so you can run it anywhere <Code className="text-white" text="cp tstream_{version}_{os}_{arch}/tstream /usr/local/bin"></Code></li>
-            <li>Start <span className="font-bold">tstream</span> <Code className="text-white" text="tstream"></Code> or <Code className="text-white" text="./tstream_{version}_{os}_{arch}/tstream/tstream"></Code> if you skipped step 3</li>
+            <li>Unpack it <ul>
+              <li><Code className="text-white" text="tar -xzf tstream_{version}_{os}_{arch}.tar.gz"></Code></li></ul>
+            </li>
+            <li>(Optional) Setup TStream so you can run it anywhere 
+              <ul>
+                <li><Code className="text-white" text="cp tstream_{version}_{os}_{arch}/tstream /usr/local/bin"></Code></li>
+              </ul>
+            </li>
+            <li>Start <span className="font-bold">tstream</span> 
+              <ul>
+                <li><Code className="text-white" text="tstream"></Code></li>
+                <li>If you skipped step 3: <Code className="text-white" text="./tstream_{version}_{os}_{arch}/tstream"></Code></li>
+              </ul>
+            </li>
           </ol>
 
           <h1 className="text-white">Tips</h1>
