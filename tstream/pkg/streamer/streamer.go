@@ -4,8 +4,6 @@ package streamer
 import (
 	"bufio"
 	"bytes"
-	"crypto/sha1"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -24,7 +22,6 @@ import (
 )
 
 // TODO: if we supports windows this should be changed
-var CONFIG_PATH = os.ExpandEnv("$HOME/.tstream.conf")
 
 type Streamer struct {
 	pty        *ptyMaster.PtyMaster
@@ -267,26 +264,4 @@ func (s *Streamer) Winsize(rows, cols uint16) {
 	}
 
 	s.Out <- payload
-}
-
-func GetSecret(configPath string) string {
-	cfg, err := ReadCfg(CONFIG_PATH)
-	var secret string
-
-	// gen a new one if not existed
-	if err != nil {
-		cfg = NewCfg()
-		cfg.Secret = GenSecret("tstream")
-		WriteCfg(CONFIG_PATH, cfg)
-	} else {
-		secret = cfg.Secret
-	}
-	return secret
-}
-
-func GenSecret(key string) string {
-	h := sha1.New()
-	h.Write([]byte(key))
-	sha1_hash := hex.EncodeToString(h.Sum(nil))
-	return sha1_hash
 }

@@ -200,14 +200,12 @@ func (s *Server) handleWSStreamer(w http.ResponseWriter, r *http.Request) {
 		return
 	} else {
 		// Connection is authorized
+		sucessMsg, _ := message.Wrap(message.TStreamerAuthorized, emptyByteArray)
+		payload, _ := json.Marshal(sucessMsg)
+		conn.WriteMessage(websocket.TextMessage, payload)
 
 		switch clientInfo.Role {
-
 		case message.RStreamer:
-			sucessMsg, _ := message.Wrap(message.TStreamerAuthorized, emptyByteArray)
-			payload, _ := json.Marshal(sucessMsg)
-			conn.WriteMessage(websocket.TextMessage, payload)
-
 			err = room.AddStreamer(conn)
 			if err != nil {
 				log.Printf("Failed to add streamer: %s", err)
@@ -215,10 +213,11 @@ func (s *Server) handleWSStreamer(w http.ResponseWriter, r *http.Request) {
 			room.Start() // Blocking call
 
 		case message.RStreamerChat:
-			log.Printf("Got a streamer chat")
 			clientID := uuid.New().String()
 			room.AddClient(clientID, message.RStreamerChat, conn)
 
+			// Handle incoming request from user
+			room.ReadAndHandleClientMessage(clientID) // Blocking call
 		default:
 			log.Printf("Invalid client role: %s", clientInfo.Role)
 		}

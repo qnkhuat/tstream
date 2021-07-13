@@ -6,7 +6,7 @@ import * as util from "../../lib/util";
 import * as constants from "../../lib/constants";
 import PubSub from "../../lib/pubsub";
 
-import Chat from "../../components/Chat";
+import Chat, { ChatMsg } from "../../components/Chat";
 import Navbar from "../../components/Navbar";
 import WSTerminal from "../../components/WSTerminal";
 import Uptime from "../../components/Uptime";
@@ -56,7 +56,7 @@ interface State {
 }
 
 function getSiteTitle(streamerId: string, title: string) {
-  var siteTitle: string = streamerId;
+  let siteTitle: string = streamerId;
   if (title) {
     siteTitle += ` - ${title}`;
   }
@@ -153,7 +153,7 @@ class Room extends React.Component<Props, State> {
 
       if (msg.Type === constants.MSG_TWRITE) {
 
-        var buffer = base64.toArrayBuffer(msg.Data)
+        let buffer = base64.str2ab(msg.Data)
         msgManager.pub(msg.Type, buffer);
 
       } else if (msg.Type === constants.MSG_TWINSIZE) {
@@ -162,8 +162,11 @@ class Room extends React.Component<Props, State> {
         msgManager.pub(msg.Type, winSizeMsg);
 
       } else if (msg.Type === constants.MSG_TCHAT) {
+
         let listChat = JSON.parse(window.atob(msg.Data));
-        msgManager.pub(msg.Type, listChat);
+        msgManager.pub(constants.MSG_TCHAT_IN, listChat);
+
+
       } else if (msg.Type === constants.MSG_ROOM_INFO) {
 
         let roomInfo = JSON.parse(window.atob(msg.Data));
@@ -175,28 +178,28 @@ class Room extends React.Component<Props, State> {
     // set up msg manager to manage all in and out request of websocket
     msgManager.sub("request", (msgType: string) => {
 
-      var payload_byte = base64.toArrayBuffer(window.btoa(""));
-      var wrapper = JSON.stringify({
+      let payload_byte = base64.str2ab(window.btoa(""));
+      let wrapper = JSON.stringify({
         Type: msgType,
         Data: Array.from(payload_byte),
       });
-      const payload = base64.toArrayBuffer(window.btoa(wrapper));
+      const payload = base64.str2ab(window.btoa(wrapper));
       util.sendWhenConnected(ws, payload);
 
     })
 
-    msgManager.sub(constants.MSG_TREQUEST_CHAT, (data) => {
-      var payload = JSON.stringify(data);
-      var payload_byte = base64.toArrayBuffer(window.btoa(payload));
-      var wrapper = JSON.stringify({
+    msgManager.sub(constants.MSG_TCHAT_OUT, (chat:ChatMsg) => {
+      let chatList: ChatMsg[] = [chat];
+
+      let payload_byte = base64.str2ab(window.btoa(JSON.stringify(chatList)));
+      let wrappedMsg = JSON.stringify({
         Type: constants.MSG_TCHAT,
         Data: Array.from(payload_byte),
       });
-      var msg = base64.toArrayBuffer(window.btoa(wrapper));
+      let msg = base64.str2ab(window.btoa(wrappedMsg));
       util.sendWhenConnected(ws, msg);
     })
-    
-    msgManager.pub("request", constants.MSG_TREQUEST_CACHE_CHAT);
+
     msgManager.pub("request", constants.MSG_TREQUEST_ROOM_INFO);
 
     // periodically update roominfo to get number of viewers

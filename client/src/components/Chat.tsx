@@ -14,7 +14,7 @@ interface Props {
   className?: string;
 }
 
-interface ChatMsg {
+export interface ChatMsg {
   Name: string;
   Content: string;
   Color: string;
@@ -27,7 +27,7 @@ interface State {
   name: string;
   color: string;
   isWaitingUsername: boolean,
-  tempMsg: string,
+    tempMsg: string,
 }
 
 const ChatSection: React.FC<ChatMsg> = ({ Name, Content, Color, Time}) => {
@@ -37,19 +37,19 @@ const ChatSection: React.FC<ChatMsg> = ({ Name, Content, Color, Time}) => {
         <div className="break-all">
           {
             Name === '' ? 
-            <div className="font-bold">
-              {
-                Content === "Invalid Username" ? 
-                  <img src="./warning.png" alt="warning" height="30" width="30" className="inline-block m-2"/> :
-                  <img src="./hand-wave.png" alt="hand-wave" />
-              }
+              <div className="font-bold">
+                {
+                  Content === "Invalid Username" ? 
+                    <img src="./warning.png" alt="warning" height="30" width="30" className="inline-block m-2"/> :
+                    <img src="./hand-wave.png" alt="hand-wave" />
+                }
+                {Content}
+              </div> : 
+                <>
+                  <span style={{color: Color}} className="font-black">{Name}</span>
+                  <span className="text-green-600 py-1"><KeyboardArrowRightRoundedIcon /></span>
                   {Content}
-            </div> : 
-            <>
-              <span style={{color: Color}} className="font-black">{Name}</span>
-              <span className="text-green-600 py-1"><KeyboardArrowRightRoundedIcon /></span>
-              {Content}
-            </>
+                </>
           }
         </div>
       </div>
@@ -81,7 +81,7 @@ class Chat extends React.Component<Props, State> {
   }
 
   componentDidMount() {    
-    this.props.msgManager?.sub(constants.MSG_TCHAT, (cacheChat: Array<ChatMsg>) => {
+    this.props.msgManager?.sub(constants.MSG_TCHAT_IN, (cacheChat: Array<ChatMsg>) => {
       if (cacheChat === null) {
         return;
       }
@@ -104,13 +104,15 @@ class Chat extends React.Component<Props, State> {
     } 
 
     // disable enter default behavior of textarea 
-    document.getElementById("textarea")!.addEventListener('keydown', (e) => {
+    document.getElementById("chat-input")!.addEventListener('keydown', (e) => {
       var code = e.keyCode || e.which;
       if (code === 13) {
         e.preventDefault();
         this.onSendMsg(this.state.inputContent);
       }
     });
+
+    this.props.msgManager.pub("request", constants.MSG_TREQUEST_CACHE_CHAT);
   }
 
   onSendMsg(content: string) {
@@ -197,7 +199,7 @@ class Chat extends React.Component<Props, State> {
     };
 
     this.addNewMsg(data);
-    this.props.msgManager?.pub(constants.MSG_TREQUEST_CHAT, data);
+    this.props.msgManager?.pub(constants.MSG_TCHAT_OUT, data);
   }
 
   render() {
@@ -210,22 +212,22 @@ class Chat extends React.Component<Props, State> {
         <div style={{height: '0px'}} className="bg-black overflow-y-auto overflow-x-none p-2 flex flex-col-reverse flex-grow" id="chatbox">
           {
             this.state.msgList.slice(0).reverse().map(
-              (item, index) => <ChatSection Name={item.Name} Content={item.Content} Color={item.Color} Time={item.Time} key={index}/>
-            )
+            (item, index) => <ChatSection Name={item.Name} Content={item.Content} Color={item.Color} Time={item.Time} key={index}/>
+          )
           }
         </div>
-        <div className="bottom-0 transform w-full" id="textarea">
+        <div className="bottom-0 transform w-full" id="chat-input">
           <div 
             className="border-b border-gray-500 flex-shrink-0 flex items-center justify-between"
           >
-             <TextField
+            <TextField
               InputProps={{
                 style: {
                   flexGrow: 1, 
-                  borderRadius: ".5rem",
-                  backgroundColor: "rgba(75,85,99,1)",
-                  fontFamily: "'Ubuntu Mono', monospace",
-               }
+                    borderRadius: ".5rem",
+                    backgroundColor: "rgba(75,85,99,1)",
+                    fontFamily: "'Ubuntu Mono', monospace",
+                }
               }}
               placeholder={(this.state.isWaitingUsername) ? "Please enter your name..." : "Chat with everyone..."}
               fullWidth

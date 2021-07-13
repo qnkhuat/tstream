@@ -30,7 +30,7 @@ type Room struct {
 	startedTime    time.Time
 	lastActiveTime time.Time
 	msgBuffer      [][]byte
-	cacheChat      [][]byte
+	cacheChat      []message.Chat
 	status         message.RoomStatus
 	secret         string // used to verify streamer
 }
@@ -38,7 +38,7 @@ type Room struct {
 func New(name, title, secret string) *Room {
 	clients := make(map[string]*Client)
 	var buffer [][]byte
-	var cacheChat [][]byte
+	var cacheChat []message.Chat
 	return &Room{
 		name:           name,
 		accViewers:     0,
@@ -200,9 +200,21 @@ func (r *Room) Start() {
 			continue
 		}
 
-		if wrapperMsg.Type == message.TWinsize || wrapperMsg.Type == message.TWrite {
-			r.lastActiveTime = time.Now()
+		if wrapperMsg.Type == message.TWinsize {
+			winsize := &message.Winsize{}
+			err := json.Unmarshal(wrapperMsg.Data, winsize)
+			if err == nil {
+				r.lastWinsize = winsize
+			}
+
 			r.addMsgBuffer(msg)
+			r.lastActiveTime = time.Now()
+			log.Printf("got a message from streamer: %v", msg)
+			r.Broadcast(msg, message.RViewer, []string{})
+		} else if wrapperMsg.Type == message.TWrite {
+			r.addMsgBuffer(msg)
+			r.lastActiveTime = time.Now()
+			log.Printf("got a message from streamer: %v", msg)
 			r.Broadcast(msg, message.RViewer, []string{})
 		} else {
 			log.Printf("Unknown message type: %s", wrapperMsg.Type)
@@ -217,7 +229,7 @@ func (r *Room) addMsgBuffer(msg []byte) {
 	r.msgBuffer = append(r.msgBuffer, msg)
 }
 
-func (r *Room) addCachedChat(chat []byte) {
+func (r *Room) addCacheChat(chat message.Chat) {
 	if len(r.cacheChat) >= cfg.ROOM_CACHE_MSG_SIZE {
 		r.cacheChat = r.cacheChat[1:]
 	}
@@ -262,39 +274,44 @@ func (r *Room) ReadAndHandleClientMessage(ID string) {
 			} else {
 				log.Printf("Error wrapping room info message: %s", err)
 			}
-		} else if msgObj.Type == message.TChat || msgObj.Type == message.TRequestCacheChat {
+		} else if msgObj.Type == message.TRequestCacheChat {
 
-			if msgObj.Type == message.TChat {
-				r.addCachedChat(msgObj.Data)
+			msg, err := message.Wrap(message.TChat, r.cacheChat)
+			if err == nil {
+				payload, _ := json.Marshal(msg)
+				client.Out <- payload
+			} else {
+				log.Printf("Error wrapping room info message: %s", err)
 			}
 
-			msg, err := r.PrepareChat(msgObj.Type == message.TRequestCacheChat)
+		} else if msgObj.Type == message.TChat {
+
+			var chatList []message.Chat
+			err := json.Unmarshal(msgObj.Data, &chatList)
+
+			if err != nil {
+				log.Printf("Error: %s", err)
+			}
+
+			for _, chat := range chatList {
+				r.addCacheChat(chat)
+			}
+
+			// TODO : find out why we can't just forward the incoming msg.
+			// we shouldn't have to rewrap it to transport the msg
+			msg, err := message.Wrap(message.TChat, chatList)
 
 			if err == nil {
 				payload, _ := json.Marshal(msg)
-				if msgObj.Type == message.TRequestCacheChat {
-					client.Out <- payload
-				} else {
-					r.Broadcast(payload, message.RViewer, []string{ID})
-					r.Broadcast(payload, message.RStreamerChat, []string{ID})
-				}
+				r.Broadcast(payload, message.RViewer, []string{ID})
 			} else {
-				log.Printf("Error wrapping cache chat info message: %s", err)
+				log.Printf("Failed to wrap message")
 			}
 		}
 	}
 }
 
 func (r *Room) Broadcast(msg []uint8, role message.CRole, IDExclude []string) {
-
-	msgObj, err := message.Unwrap(msg)
-	if err == nil && msgObj.Type == message.TWinsize {
-		winsize := &message.Winsize{}
-		err := json.Unmarshal(msgObj.Data, winsize)
-		if err == nil {
-			r.lastWinsize = winsize
-		}
-	}
 
 	for id, client := range r.clients {
 		if client.Role() != role {
@@ -312,6 +329,7 @@ func (r *Room) Broadcast(msg []uint8, role message.CRole, IDExclude []string) {
 		}
 
 		if client.Alive() {
+			log.Printf("sending mssg to: %s", id)
 			client.Out <- msg
 		} else {
 			log.Printf("Failed to boardcast to %s. Closing connection", id)
@@ -345,31 +363,13 @@ func (r *Room) PrepareRoomInfo() message.RoomInfo {
 	}
 }
 
-func (r *Room) PrepareChat(cache bool) (message.Wrapper, error) {
-	var listChat []message.Chat
-
-	var iter_array [][]byte
-
-	if cache {
-		iter_array = r.cacheChat
-	} else {
-		iter_array = r.cacheChat[len(r.cacheChat)-1:]
-	}
-
-	for _, value := range iter_array {
-		curChat := &message.Chat{}
-		err := json.Unmarshal(value, curChat)
-		if err != nil {
-			log.Printf("There's error when unmarshal cache chat %s", err)
-		}
-		listChat = append(listChat, *curChat)
-	}
-
-	msg, err := message.Wrap(message.TChat, listChat)
-
-	if err != nil {
-		return msg, nil
-	} else {
-		return msg, err
-	}
-}
+//func (r *Room) PrepareChat(chatList []message.Chat) (message.Wrapper, error) {
+//
+//	msg, err := message.Wrap(message.TChat, listChat)
+//
+//	if err != nil {
+//		return msg, nil
+//	} else {
+//		return msg, err
+//	}
+//}
