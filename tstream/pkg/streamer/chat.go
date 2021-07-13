@@ -9,6 +9,7 @@ import (
 	"github.com/qnkhuat/tstream/pkg/message"
 	"github.com/rivo/tview"
 	"log"
+	"math"
 	"net/url"
 	"strings"
 	"time"
@@ -21,9 +22,11 @@ type Chat struct {
 	color            string
 	conn             *websocket.Conn
 	app              *tview.Application
+	startedTime      time.Time
 	chatTextView     *tview.TextView
 	nviewersTextView *tview.TextView
 	uptimeTextView   *tview.TextView
+	titleTextView    *tview.TextView
 }
 
 func NewChat(sessionId, serverAddr, username string) *Chat {
@@ -43,6 +46,8 @@ func (c *Chat) Start() error {
 	if err != nil {
 		log.Printf("Error: %s", err)
 	}
+
+	// Receive
 	go func() {
 		for {
 			_, msg, err := c.conn.ReadMessage()
@@ -61,27 +66,56 @@ func (c *Chat) Start() error {
 					log.Printf("Failed to decode chat message: %s", err)
 					continue
 				}
+				c.addChatMsgs(chatList)
+			case message.TRoomInfo:
+				var roomInfo message.RoomInfo
+				err = json.Unmarshal(msgObj.Data, &roomInfo)
 
-				newChat := ""
-				for _, chatObj := range chatList {
-					newChat += FormatChat(chatObj.Name, chatObj.Content, chatObj.Color)
-				}
+				c.startedTime = roomInfo.StartedTime
+				c.nviewersTextView.SetText(fmt.Sprintf("%d 👤", roomInfo.NViewers))
+				c.titleTextView.SetText(fmt.Sprintf("%s", roomInfo.Title))
 
-				currentChat := c.chatTextView.GetText(false)
+			default:
+				log.Printf("Not implemented to handle message type: %s", msgObj.Type)
 
-				c.chatTextView.SetText(currentChat + newChat)
 			}
 		}
-
 	}()
 
-	reqChatMsg := message.Wrapper{
-		Type: message.TRequestCacheChat,
-		Data: []byte{},
-	}
-	payload, _ := json.Marshal(reqChatMsg)
+	c.requestServer(message.TRequestRoomInfo)
+	c.requestServer(message.TRequestCacheChat)
+	go func() {
+		tick := time.NewTicker(5 * time.Second)
+		for {
+			select {
+			case <-tick.C:
+				c.requestServer(message.TRequestRoomInfo)
+			}
+		}
+	}()
 
-	c.conn.WriteMessage(websocket.TextMessage, payload)
+	go func() {
+		tick := time.NewTicker(1 * time.Second)
+		for {
+			select {
+			case <-tick.C:
+				upTime := time.Since(c.startedTime)
+				hours := int(math.Floor(upTime.Hours()))
+				upTime = upTime - time.Duration(hours)*time.Hour
+
+				minutes := int(math.Floor(upTime.Minutes()))
+				upTime = upTime - time.Duration(minutes)*time.Minute
+
+				seconds := int(math.Floor(upTime.Seconds()))
+
+				upTimeStr := fmt.Sprintf("%02d:%02d:%02d", hours, minutes, seconds)
+				//c.app.QueueUpdateDraw(func() {
+				c.uptimeTextView.SetText(upTimeStr)
+				//})
+
+			}
+		}
+	}()
 
 	if err := c.app.EnableMouse(true).Run(); err != nil {
 		panic(err)
@@ -90,9 +124,18 @@ func (c *Chat) Start() error {
 	return nil
 }
 
+func (c *Chat) requestServer(msgType message.MType) error {
+	reqMsg := message.Wrapper{
+		Type: msgType,
+		Data: []byte{},
+	}
+	payload, _ := json.Marshal(reqMsg)
+	return c.conn.WriteMessage(websocket.TextMessage, payload)
+}
+
 func (c *Chat) initUI() error {
 	layout := tview.NewGrid().
-		SetRows(3, 0, 1).
+		SetRows(4, 0, 1).
 		SetColumns(0).
 		SetBorders(true)
 
@@ -100,26 +143,25 @@ func (c *Chat) initUI() error {
 		SetText("TStream").
 		SetTextAlign(tview.AlignCenter)
 
-	titleText := tview.NewTextView().
-		SetText("Title")
-
 	usernameText := tview.NewTextView().
-		SetText("Username")
+		SetText(fmt.Sprintf("@%s", c.username))
+
+	c.titleTextView = tview.NewTextView().
+		SetText("Title")
 
 	c.nviewersTextView = tview.NewTextView().
 		SetTextAlign(tview.AlignRight).
 		SetText("👤 10")
 
 	c.uptimeTextView = tview.NewTextView().
-		SetTextAlign(tview.AlignRight).
-		SetText("00:30:31")
+		SetTextAlign(tview.AlignRight)
 
 	header := tview.NewGrid().
 		SetRows(1, 0, 1).
 		SetColumns(0, 0, 0).
 		AddItem(tstreamText, 0, 0, 1, 3, 0, 0, false).
-		AddItem(titleText, 1, 0, 2, 2, 0, 0, false).
-		AddItem(usernameText, 2, 0, 1, 1, 0, 0, false).
+		AddItem(usernameText, 2, 0, 1, 2, 0, 0, false).
+		AddItem(c.titleTextView, 1, 0, 1, 2, 0, 0, false).
 		AddItem(c.nviewersTextView, 1, 2, 1, 1, 0, 0, false).
 		AddItem(c.uptimeTextView, 2, 2, 1, 1, 0, 0, false)
 
@@ -132,30 +174,26 @@ func (c *Chat) initUI() error {
 	messageInput := tview.NewInputField()
 	messageInput.SetLabel("[red]>[red] ").
 		SetDoneFunc(func(key tcell.Key) {
+			text := messageInput.GetText()
+
 			chat := message.Chat{
 				Name:    c.username,
 				Color:   c.color,
-				Content: messageInput.GetText(),
+				Content: text,
 				Time:    time.Now().String(),
 				Role:    "Streamer",
 			}
-			listChat := []message.Chat{chat}
 
-			//for _, value := range iter_array {
-			//	curChat := &message.Chat{}
-			//	err := json.Unmarshal(value, curChat)
-			//	if err != nil {
-			//		log.Printf("There's error when unmarshal cache chat %s", err)
-			//		continue
-			//	}
-			//	listChat = append(listChat, *curChat)
-			//}
+			chatList := []message.Chat{chat}
+			msg, err := message.Wrap(message.TChat, chatList)
 
-			//	err := json.Unmarshal(value, curChat)
-			msg, _ := message.Wrap(message.TChat, listChat)
-			payload, _ := json.Marshal(msg)
-			c.conn.WriteMessage(websocket.TextMessage, payload)
-
+			if err == nil {
+				payload, _ := json.Marshal(msg)
+				c.conn.WriteMessage(websocket.TextMessage, payload)
+			} else {
+				log.Printf("Failed to wrap message")
+			}
+			c.addChatMsgs(chatList)
 			messageInput.SetText("")
 		})
 
@@ -208,6 +246,25 @@ func (c *Chat) connectWS() error {
 	}
 
 	return nil
+}
+
+func (c *Chat) addChatMsgs(chatList []message.Chat) {
+	if len(chatList) == 0 {
+		return
+	}
+	newChat := ""
+	for _, chatObj := range chatList {
+		newChat += FormatChat(chatObj.Name, chatObj.Content, chatObj.Color)
+	}
+
+	currentChat := c.chatTextView.GetText(false)
+	//c.app.QueueUpdateDraw(func() {
+	c.chatTextView.SetText(currentChat + newChat)
+	//})
+}
+func (c *Chat) Stop() {
+	c.conn.Close()
+	c.app.Stop()
 }
 
 func FormatChat(name, content, color string) string {

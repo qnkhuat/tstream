@@ -6,14 +6,12 @@ package room
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/gorilla/websocket"
+	"github.com/qnkhuat/tstream/internal/cfg"
+	"github.com/qnkhuat/tstream/pkg/message"
 	"log"
 	"sync"
 	"time"
-
-	"github.com/gorilla/websocket"
-
-	"github.com/qnkhuat/tstream/internal/cfg"
-	"github.com/qnkhuat/tstream/pkg/message"
 )
 
 var emptyByteArray []byte
@@ -209,12 +207,11 @@ func (r *Room) Start() {
 
 			r.addMsgBuffer(msg)
 			r.lastActiveTime = time.Now()
-			log.Printf("got a message from streamer: %v", msg)
 			r.Broadcast(msg, message.RViewer, []string{})
+
 		} else if wrapperMsg.Type == message.TWrite {
 			r.addMsgBuffer(msg)
 			r.lastActiveTime = time.Now()
-			log.Printf("got a message from streamer: %v", msg)
 			r.Broadcast(msg, message.RViewer, []string{})
 		} else {
 			log.Printf("Unknown message type: %s", wrapperMsg.Type)
@@ -304,6 +301,7 @@ func (r *Room) ReadAndHandleClientMessage(ID string) {
 			if err == nil {
 				payload, _ := json.Marshal(msg)
 				r.Broadcast(payload, message.RViewer, []string{ID})
+				r.Broadcast(payload, message.RStreamerChat, []string{ID})
 			} else {
 				log.Printf("Failed to wrap message")
 			}
@@ -329,7 +327,6 @@ func (r *Room) Broadcast(msg []uint8, role message.CRole, IDExclude []string) {
 		}
 
 		if client.Alive() {
-			log.Printf("sending mssg to: %s", id)
 			client.Out <- msg
 		} else {
 			log.Printf("Failed to boardcast to %s. Closing connection", id)
@@ -362,14 +359,3 @@ func (r *Room) PrepareRoomInfo() message.RoomInfo {
 		AccNViewers:    r.accViewers,
 	}
 }
-
-//func (r *Room) PrepareChat(chatList []message.Chat) (message.Wrapper, error) {
-//
-//	msg, err := message.Wrap(message.TChat, listChat)
-//
-//	if err != nil {
-//		return msg, nil
-//	} else {
-//		return msg, err
-//	}
-//}
