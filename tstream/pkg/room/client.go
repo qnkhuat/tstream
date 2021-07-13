@@ -1,16 +1,19 @@
-package viewer
+/*
+Generic struct for a websocket connection
+Currently used for Viewer and Chat
+*/
+package room
 
 import (
 	"github.com/gorilla/websocket"
+	"github.com/qnkhuat/tstream/pkg/message"
 	"log"
 	"time"
 )
 
-var emptyByteArray []byte
-
-type Viewer struct {
+type Client struct {
 	conn *websocket.Conn
-	id   string
+	role message.CRole
 
 	// data go in Out channel will be send to user via websocket
 	Out chan []byte
@@ -21,30 +24,35 @@ type Viewer struct {
 	alive bool
 }
 
-func New(id string, conn *websocket.Conn) *Viewer {
+func NewClient(role message.CRole, conn *websocket.Conn) *Client {
 	out := make(chan []byte, 256) // buffer 256 send requests
 	in := make(chan []byte, 256)  // buffer 256 send requests
-	return &Viewer{
+	return &Client{
 		conn:  conn,
-		id:    id,
 		Out:   out,
 		In:    in,
+		role:  role,
 		alive: true,
 	}
 }
 
-func (v *Viewer) Alive() bool {
+func (v *Client) Role() message.CRole {
+	return v.role
+}
+
+func (v *Client) Alive() bool {
 	return v.alive
 }
 
-func (v *Viewer) Start() {
+func (v *Client) Start() {
+	// Receive message coroutine
 	go func() {
 		for {
 			msg, ok := <-v.Out
 			if ok {
 				err := v.conn.WriteMessage(websocket.TextMessage, msg)
 				if err != nil {
-					log.Printf("Failed to boardcast to %s. Closing connection", v.id)
+					log.Printf("Failed to boardcast to. Closing connection")
 					v.Close()
 				}
 			} else {
@@ -53,6 +61,7 @@ func (v *Viewer) Start() {
 		}
 	}()
 
+	// Send message coroutine
 	for {
 		_, msg, err := v.conn.ReadMessage()
 		if err == nil {
@@ -65,7 +74,7 @@ func (v *Viewer) Start() {
 	}
 }
 
-func (v *Viewer) Close() {
+func (v *Client) Close() {
 	v.conn.WriteControl(websocket.CloseMessage, emptyByteArray, time.Time{})
 	v.alive = false
 	v.conn.Close()

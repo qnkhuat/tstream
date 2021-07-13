@@ -3,23 +3,19 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"log"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/schema"
 	"github.com/gorilla/websocket"
 	"github.com/qnkhuat/tstream/internal/cfg"
 	"github.com/qnkhuat/tstream/pkg/message"
-	"log"
-	"net/http"
-	"strconv"
-	"strings"
-	"time"
 )
-
-func handleHealth(w http.ResponseWriter, r *http.Request) {
-	log.Printf("health check")
-	fmt.Fprintf(w, "I'm fine: %s\n", time.Now().String())
-}
 
 // upgrade an http request to websocket
 var httpUpgrader = websocket.Upgrader{
@@ -30,8 +26,13 @@ var httpUpgrader = websocket.Upgrader{
 	},
 }
 
-var emptyByteArray []byte
 var decoder = schema.NewDecoder()
+var emptyByteArray []byte
+
+const (
+	// Time to wait before force close on connection.
+	CLOSE_GRACE_PERIOD = 2 * time.Second
+)
 
 // Queries:
 // - status - string : Status of Room to query. Leave blank to get any
@@ -41,6 +42,11 @@ type ListRoomQuery struct {
 	Status string `schema:"status"`
 	N      int    `schema:"n"`
 	Skip   int    `schema:"skip"`
+}
+
+func handleHealth(w http.ResponseWriter, r *http.Request) {
+	log.Printf("health check")
+	fmt.Fprintf(w, "I'm fine: %s\n", time.Now().String())
 }
 
 func (s *Server) handleListRooms(w http.ResponseWriter, r *http.Request) {
@@ -83,7 +89,6 @@ func (s *Server) handleAddRoom(w http.ResponseWriter, r *http.Request) {
 	err := decoder.Decode(&q, r.URL.Query())
 	if err != nil {
 		log.Printf("Failed to decode queries:%s", err)
-		http.Error(w, err.Error(), 400)
 		return
 	}
 
@@ -108,7 +113,7 @@ func (s *Server) handleAddRoom(w http.ResponseWriter, r *http.Request) {
 	if _, ok := s.rooms[q.StreamerID]; !ok {
 		s.NewRoom(q.StreamerID, q.Title, b.Secret)
 		log.Printf("Added a room %s, %s", q.StreamerID, q.Title)
-		w.WriteHeader(200)
+		w.WriteHeader(http.StatusOK)
 		return
 	} else {
 		if s.rooms[q.StreamerID].Secret() != b.Secret {
@@ -143,34 +148,14 @@ func (s *Server) handleWSViewer(w http.ResponseWriter, r *http.Request) {
 	room.AddViewer(viewerID, conn)
 
 	// Handle incoming request from user
-	room.ReadAndHandleViewerMessage(viewerID) // Blocking call
-}
-
-// Websocket connection for streamer to chat
-func (s *Server) s.handleWSSChat(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	roomName := vars["roomName"]
-	log.Printf("Client %s entered room: %s", r.RemoteAddr, roomName)
-	room, ok := s.rooms[roomName]
-	if !ok {
-		fmt.Fprintf(w, "Room not existed")
-		log.Printf("Room :%s not existed", roomName)
-		return
-	}
-	conn, err := httpUpgrader.Upgrade(w, r, nil)
-	if err != nil {
-		log.Printf("Failed to upgrade to websocket: %s", err)
-	}
-
-	viewerID := uuid.New().String()
-	room.AddViewer(viewerID, conn)
-
-	// Handle incoming request from user
-	room.ReadAndHandleViewerMessage(viewerID) // Blocking call
+	room.ReadAndHandleClientMessage(viewerID) // Blocking call
 }
 
 // Websocket connection from streamer
-// TODO: Add key checking to make sure only streamer can stream via this endpoint
+// When connected server will wait for a clientinfo message from streamer
+// Server then verify this client info's secret.
+// If it matches => send back a message type authorized else send back unauthorized
+// This has to be happen in the exact order
 func (s *Server) handleWSStreamer(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	roomName := vars["roomName"]
@@ -185,12 +170,53 @@ func (s *Server) handleWSStreamer(w http.ResponseWriter, r *http.Request) {
 		log.Printf("Failed to upgrade to websocket: %s", err)
 	}
 	defer conn.Close()
-	err = s.rooms[roomName].AddStreamer(conn)
+
+	// Wait for client response
+	_, msg, err := conn.ReadMessage()
+	msgObj, err := message.Unwrap(msg)
+
 	if err != nil {
-		log.Printf("Failed to add streamer: %s", err)
+		log.Printf("Failed to decode info message")
+		conn.WriteControl(websocket.CloseMessage, []byte{}, time.Now().Add(time.Second))
+		time.Sleep(CLOSE_GRACE_PERIOD * time.Second)
+		return
 	}
 
-	s.rooms[roomName].Start() // Blocking call
+	if msgObj.Type != message.TClientInfo {
+		log.Printf("Required client info message")
+		conn.WriteControl(websocket.CloseMessage, []byte{}, time.Now().Add(time.Second))
+		time.Sleep(CLOSE_GRACE_PERIOD * time.Second)
+		return
+	}
+
+	clientInfo := &message.ClientInfo{}
+	err = json.Unmarshal(msgObj.Data, clientInfo)
+	if err != nil {
+		log.Printf("Failed to decode message")
+		conn.WriteControl(websocket.CloseMessage, []byte{}, time.Now().Add(time.Second))
+		time.Sleep(CLOSE_GRACE_PERIOD * time.Second)
+		return
+	}
+
+	if clientInfo.Role == message.RStreamer && clientInfo.Secret != s.rooms[roomName].Secret() {
+		log.Printf("Unauthorized streamer connection")
+		sucessMsg, _ := message.Wrap(message.TStreamerUnauthorized, emptyByteArray)
+		payload, _ := json.Marshal(sucessMsg)
+		conn.WriteMessage(websocket.TextMessage, payload)
+		time.Sleep(CLOSE_GRACE_PERIOD * time.Second)
+		return
+	} else {
+		log.Printf("Authorized connection: Secret: %s", clientInfo.Secret)
+		sucessMsg, _ := message.Wrap(message.TStreamerAuthorized, emptyByteArray)
+		payload, _ := json.Marshal(sucessMsg)
+		conn.WriteMessage(websocket.TextMessage, payload)
+
+		err = s.rooms[roomName].AddStreamer(conn)
+		if err != nil {
+			log.Printf("Failed to add streamer: %s", err)
+		}
+		s.rooms[roomName].Start() // Blocking call
+	}
 }
 
 // a > b => 1

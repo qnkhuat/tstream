@@ -20,22 +20,18 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"github.com/manifoldco/promptui"
-	"github.com/qnkhuat/tstream/internal/cfg"
-	"github.com/qnkhuat/tstream/internal/logging"
-	"github.com/qnkhuat/tstream/pkg/streamer"
 	"log"
 	"os"
 	"os/user"
 	"regexp"
+
+	"github.com/manifoldco/promptui"
+	"github.com/qnkhuat/tstream/internal/cfg"
+	"github.com/qnkhuat/tstream/internal/logging"
+	"github.com/qnkhuat/tstream/pkg/streamer"
 )
 
 func main() {
-	// Check if current process is under a tstream session
-	if len(os.Getenv(cfg.STREAMER_ENVKEY_SESSIONID)) > 0 {
-		fmt.Printf("This terminal is currently running under session: %s\nType 'exit' to stop the current session!\n", os.Getenv(cfg.STREAMER_ENVKEY_SESSIONID))
-		os.Exit(1)
-	}
 
 	logging.Config("/tmp/tstream.log", "STREAMER: ")
 	flag.Usage = func() {
@@ -55,6 +51,7 @@ func main() {
 		os.Exit(0)
 		return
 	}
+
 	validateUsername := func(input string) error {
 		var validUsername = regexp.MustCompile(`^[a-z][a-z0-9]*[._-]?[a-z0-9]+$`)
 		if validUsername.MatchString(input) && len(input) > 3 && len(input) < 20 {
@@ -78,11 +75,11 @@ func main() {
 	}
 
 	var username string
-	cfg, err := streamer.ReadCfg(streamer.CONFIG_PATH)
+	config, err := streamer.ReadCfg(streamer.CONFIG_PATH)
 	if err != nil {
 		username = u.Username
 	} else {
-		username = cfg.Username
+		username = config.Username
 	}
 
 	promptUsername := promptui.Prompt{
@@ -98,6 +95,12 @@ func main() {
 
 	if !*chat {
 		// Start Streaming session
+
+		// Check if current process is under a tstream session
+		if len(os.Getenv(cfg.STREAMER_ENVKEY_SESSIONID)) > 0 {
+			fmt.Printf("This terminal is currently running under session: %s\nType 'exit' to stop the current session!\n", os.Getenv(cfg.STREAMER_ENVKEY_SESSIONID))
+			os.Exit(1)
+		}
 		username, err = promptUsername.Run()
 		if err != nil {
 			os.Exit(1)
@@ -125,7 +128,7 @@ func main() {
 			os.Exit(1)
 		}
 		// Update config before start
-		cfg.Username = username
+		config.Username = username
 		streamer.UpdateCfg(streamer.CONFIG_PATH, "Username", username)
 
 		err = s.Start()
@@ -134,13 +137,13 @@ func main() {
 		}
 	} else {
 		var username = "" // also is sessionID
-		cfg, err := streamer.ReadCfg(streamer.CONFIG_PATH)
+		config, err := streamer.ReadCfg(streamer.CONFIG_PATH)
 
 		if err != nil {
 			fmt.Printf("No stream session detected\n")
 			os.Exit(1)
 		} else {
-			username = cfg.Username
+			username = config.Username
 		}
 
 		if username == "" {

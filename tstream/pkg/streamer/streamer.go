@@ -8,11 +8,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	ptyDevice "github.com/creack/pty"
-	"github.com/gorilla/websocket"
-	"github.com/qnkhuat/tstream/internal/cfg"
-	"github.com/qnkhuat/tstream/pkg/message"
-	"github.com/qnkhuat/tstream/pkg/ptyMaster"
 	"io"
 	"log"
 	"net/http"
@@ -20,6 +15,12 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	ptyDevice "github.com/creack/pty"
+	"github.com/gorilla/websocket"
+	"github.com/qnkhuat/tstream/internal/cfg"
+	"github.com/qnkhuat/tstream/pkg/message"
+	"github.com/qnkhuat/tstream/pkg/ptyMaster"
 )
 
 // TODO: if we supports windows this should be changed
@@ -71,7 +72,9 @@ func (s *Streamer) Start() error {
 	err := s.ConnectWS()
 	if err != nil {
 		log.Println(err)
-		s.Stop("Failed to connect to server")
+		fmt.Println(err.Error())
+		s.Stop(err.Error())
+		return err
 	}
 
 	fmt.Printf("🔥 Streaming at: %s/%s\n", s.clientAddr, s.username)
@@ -86,15 +89,6 @@ func (s *Streamer) Start() error {
 	s.pty.SetWinChangeCB(func(ws *ptyDevice.Winsize) {
 		s.Winsize(ws.Rows, ws.Cols)
 	})
-
-	// Send room title
-	msg, err := message.Wrap(message.TStreamerConnect, &message.StreamerConnect{Title: s.title})
-	if err == nil {
-		payload, _ := json.Marshal(msg)
-		s.conn.WriteMessage(websocket.TextMessage, payload)
-	} else {
-		log.Printf("Failed to wrap connect message: %s", err)
-	}
 
 	// Pipe command response to Pty and server
 	go func() {
@@ -144,7 +138,9 @@ func (s *Streamer) Start() error {
 	// Current for ping message only
 	// TODO: secure this, otherwise server can control streamer terminal
 	go func() {
-		_, _, err := s.conn.ReadMessage()
+		_, msg, _ := s.conn.ReadMessage()
+		wrappedMsg, _ := message.Unwrap(msg)
+		log.Printf("Not implemented response for message: %s", wrappedMsg.Type)
 		if err != nil {
 			log.Printf("Failed to receive message from server: %s", err)
 		}
@@ -167,7 +163,6 @@ func (s *Streamer) Start() error {
 }
 
 func (s *Streamer) RequestAddRoom() int {
-	// TODO: handle cases when call add api return existed
 	body := map[string]string{"secret": s.secret}
 	jsonValue, _ := json.Marshal(body)
 	payload := bytes.NewBuffer(jsonValue)
@@ -181,6 +176,9 @@ func (s *Streamer) RequestAddRoom() int {
 	return resp.StatusCode
 }
 
+// When connect is initlialized, streamer send a client info to server
+// Then wait for a confirmation from server for whether or not this connection
+// is authorized
 func (s *Streamer) ConnectWS() error {
 	scheme := "wss"
 	if strings.HasPrefix(s.serverAddr, "http://") {
@@ -192,24 +190,56 @@ func (s *Streamer) ConnectWS() error {
 	log.Printf("Openning socket at %s", url.String())
 
 	conn, _, err := websocket.DefaultDialer.Dial(url.String(), nil)
+	s.conn = conn
 	if err != nil {
-		return fmt.Errorf("Failed to connected to websocket: %s", err)
+		return fmt.Errorf("Failed to connect to server")
 	}
 
-	// Handle server ping
+	//Handle server ping
 	conn.SetPingHandler(func(appData string) error {
 		return s.conn.WriteControl(websocket.PongMessage, emptyByteArray, time.Time{})
 	})
 
-	s.conn = conn
+	// Handle server ping
+	conn.SetCloseHandler(func(code int, text string) error {
+		s.Stop("Closed connection by server")
+		return nil
+	})
+
+	// send client info so server can verify
+	clientInfo := message.ClientInfo{
+		Name:   s.username,
+		Role:   message.RStreamer,
+		Secret: s.secret,
+	}
+
+	msg, _ := message.Wrap(message.TClientInfo, clientInfo)
+	payload, _ := json.Marshal(msg)
+	err = conn.WriteMessage(websocket.TextMessage, payload)
+	if err != nil {
+		return fmt.Errorf("Failed to connect to server")
+	}
+
+	// Verify server's response
+	_, resp, err := conn.ReadMessage()
+	wrappedMsg, err := message.Unwrap(resp)
+	log.Printf("Got a message: %s", wrappedMsg)
+	if wrappedMsg.Type == message.TStreamerUnauthorized {
+		return fmt.Errorf("Unauthorized connection")
+	} else if wrappedMsg.Type != message.TStreamerAuthorized {
+		return fmt.Errorf("Expect connect confirmation from server")
+	}
+
 	return nil
 }
 
 func (s *Streamer) Stop(msg string) {
 	s.conn.WriteControl(websocket.CloseMessage, emptyByteArray, time.Time{})
 	s.conn.Close()
-	s.pty.Stop()
-	s.pty.Restore()
+	if s.pty != nil {
+		s.pty.Stop()
+		s.pty.Restore()
+	}
 	fmt.Println()
 	fmt.Println(msg)
 }
@@ -246,7 +276,6 @@ func GetSecret(configPath string) string {
 	// gen a new one if not existed
 	if err != nil {
 		cfg = NewCfg()
-		secret = GenSecret("tstream")
 		cfg.Secret = GenSecret("tstream")
 		WriteCfg(CONFIG_PATH, cfg)
 	} else {
