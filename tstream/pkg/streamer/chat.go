@@ -53,8 +53,7 @@ func (c *Chat) Start() error {
 			_, msg, err := c.conn.ReadMessage()
 			if err != nil {
 				log.Printf("Failed to read message: %s", err)
-				// TODO implement stop
-				//c.Stop()
+				c.Stop()
 				return
 			}
 			msgObj, err := message.Unwrap(msg)
@@ -84,6 +83,7 @@ func (c *Chat) Start() error {
 
 	c.requestServer(message.TRequestRoomInfo)
 	c.requestServer(message.TRequestCacheChat)
+
 	go func() {
 		tick := time.NewTicker(5 * time.Second)
 		for {
@@ -108,10 +108,10 @@ func (c *Chat) Start() error {
 
 				seconds := int(math.Floor(upTime.Seconds()))
 
-				upTimeStr := fmt.Sprintf("%02d:%02d:%02d", hours, minutes, seconds)
-				//c.app.QueueUpdateDraw(func() {
-				c.uptimeTextView.SetText(upTimeStr)
-				//})
+				upTimeStr := fmt.Sprintf("[red]%02d:%02d:%02d[white]", hours, minutes, seconds)
+				c.app.QueueUpdateDraw(func() {
+					c.uptimeTextView.SetText(upTimeStr)
+				})
 
 			}
 		}
@@ -144,17 +144,21 @@ func (c *Chat) initUI() error {
 		SetTextAlign(tview.AlignCenter)
 
 	usernameText := tview.NewTextView().
+		SetDynamicColors(true).
 		SetText(fmt.Sprintf("@%s", c.username))
 
 	c.titleTextView = tview.NewTextView().
+		SetDynamicColors(true).
 		SetText("Title")
 
 	c.nviewersTextView = tview.NewTextView().
+		SetDynamicColors(true).
 		SetTextAlign(tview.AlignRight).
 		SetText("👤 10")
 
 	c.uptimeTextView = tview.NewTextView().
-		SetTextAlign(tview.AlignRight)
+		SetTextAlign(tview.AlignRight).
+		SetDynamicColors(true)
 
 	header := tview.NewGrid().
 		SetRows(1, 0, 1).
@@ -175,6 +179,10 @@ func (c *Chat) initUI() error {
 	messageInput.SetLabel("[red]>[red] ").
 		SetDoneFunc(func(key tcell.Key) {
 			text := messageInput.GetText()
+			if text == "/exit" {
+				c.Stop()
+				return
+			}
 
 			chat := message.Chat{
 				Name:    c.username,
@@ -258,16 +266,24 @@ func (c *Chat) addChatMsgs(chatList []message.Chat) {
 	}
 
 	currentChat := c.chatTextView.GetText(false)
-	//c.app.QueueUpdateDraw(func() {
+	if len(currentChat) > 1 && currentChat[len(currentChat)-1] == '\n' {
+		currentChat = currentChat[0 : len(currentChat)-1]
+	}
+
 	c.chatTextView.SetText(currentChat + newChat)
-	//})
 }
+
 func (c *Chat) Stop() {
 	c.conn.Close()
 	c.app.Stop()
 }
 
 func FormatChat(name, content, color string) string {
+	if len(content) == 0 {
+		return ""
+	}
+	content = strings.TrimPrefix(content, "\n")
+	log.Printf("content: %s|", content)
 	if content[len(content)-1] != '\n' {
 		content += "\n"
 	}
