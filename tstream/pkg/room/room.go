@@ -21,31 +21,28 @@ var emptyByteArray []byte
 type Room struct {
 	lock           sync.Mutex
 	streamer       *websocket.Conn
-	chats          map[string]*Client // Chat only connection
-	viewers        map[string]*Client
-	accViewers     uint64 // accumulated viewers
-	name           string // also is streamerID
-	id             uint64 // Id in DB
+	clients        map[string]*Client // Chats + viewrer connection
+	accViewers     uint64             // accumulated viewers
+	name           string             // also is streamerID
+	id             uint64             // Id in DB
 	title          string
 	lastWinsize    *message.Winsize
 	startedTime    time.Time
 	lastActiveTime time.Time
 	msgBuffer      [][]byte
+	cacheChat      [][]byte
 	status         message.RoomStatus
 	secret         string // used to verify streamer
-	cacheChat      [][]byte
 }
 
 func New(name, title, secret string) *Room {
-	viewers := make(map[string]*Client)
-	chats := make(map[string]*Client)
+	clients := make(map[string]*Client)
 	var buffer [][]byte
 	var cacheChat [][]byte
 	return &Room{
 		name:           name,
 		accViewers:     0,
-		viewers:        viewers,
-		chats:          chats,
+		clients:        clients,
 		lastActiveTime: time.Now(),
 		startedTime:    time.Now(),
 		msgBuffer:      buffer,
@@ -64,8 +61,8 @@ func (r *Room) StartedTime() time.Time {
 	return r.startedTime
 }
 
-func (r *Room) Viewers() map[string]*Client {
-	return r.viewers
+func (r *Room) Clients() map[string]*Client {
+	return r.clients
 }
 
 func (r *Room) Id() uint64 {
@@ -74,6 +71,16 @@ func (r *Room) Id() uint64 {
 
 func (r *Room) Secret() string {
 	return r.secret
+}
+
+func (r *Room) NViewers() int {
+	count := 0
+	for _, client := range r.clients {
+		if client.Role() == message.RViewer {
+			count += 1
+		}
+	}
+	return count
 }
 
 func (r *Room) SetTitle(title string) {
@@ -145,48 +152,39 @@ func (r *Room) AddStreamer(conn *websocket.Conn) error {
 	return nil
 }
 
-func (r *Room) AddViewer(ID string, conn *websocket.Conn) error {
-	r.accViewers += 1
-	_, ok := r.viewers[ID]
+func (r *Room) AddClient(ID string, role message.CRole, conn *websocket.Conn) error {
+	_, ok := r.clients[ID]
 	if ok {
-		return fmt.Errorf("Viewer %s existed", conn)
+		return fmt.Errorf("Client %s existed", conn)
 	}
 
-	v := NewClient(message.RStreamer, conn)
-	r.viewers[ID] = v
+	if role == message.RViewer {
+		r.accViewers += 1
+	} else if role == message.RStreamerChat {
+	} else {
+		return fmt.Errorf("Invalid client role: %s", role)
+	}
+
+	v := NewClient(role, conn)
+	r.clients[ID] = v
 	go v.Start()
-
-	// send winsize if existed
-	if r.lastWinsize != nil {
-		msg, err := message.Wrap(message.TWinsize, message.Winsize{
-			Rows: r.lastWinsize.Rows,
-			Cols: r.lastWinsize.Cols,
-		})
-
-		if err != nil {
-			log.Printf("Failed to decode message: %s", err)
-		} else {
-			payload, _ := json.Marshal(msg)
-			v.Out <- payload
-		}
-	}
 
 	return nil
 }
 
-func (r *Room) RemoveViewer(ID string) error {
-	_, ok := r.viewers[ID]
+func (r *Room) RemoveClient(ID string) error {
+	_, ok := r.clients[ID]
 	if !ok {
-		return fmt.Errorf("Viewer %s not found", ID)
+		return fmt.Errorf("CLient %s not found", ID)
 	}
 
 	r.lock.Lock()
-	delete(r.viewers, ID)
+	delete(r.clients, ID)
 	r.lock.Unlock()
 	return nil
 }
 
-// Wait for request from streamer and broadcast those message to viewers
+// Wait for request from streamer and broadcast those message to clients
 func (r *Room) Start() {
 	for {
 		_, msg, err := r.streamer.ReadMessage()
@@ -205,7 +203,7 @@ func (r *Room) Start() {
 		if wrapperMsg.Type == message.TWinsize || wrapperMsg.Type == message.TWrite {
 			r.lastActiveTime = time.Now()
 			r.addMsgBuffer(msg)
-			r.Broadcast(msg, []string{})
+			r.Broadcast(msg, message.RViewer, []string{})
 		} else {
 			log.Printf("Unknown message type: %s", wrapperMsg.Type)
 		}
@@ -227,7 +225,7 @@ func (r *Room) addCachedChat(chat []byte) {
 }
 
 func (r *Room) ReadAndHandleClientMessage(ID string) {
-	client, ok := r.viewers[ID]
+	client, ok := r.clients[ID]
 	if !ok {
 		return
 	}
@@ -249,7 +247,7 @@ func (r *Room) ReadAndHandleClientMessage(ID string) {
 			client.Out <- payload
 
 		} else if msgObj.Type == message.TRequestCacheContent {
-			// Send msg buffer so viewers doesn't face a idle screen when first started
+			// Send msg buffer so clients doesn't face a idle screen when first started
 			for _, msg := range r.msgBuffer {
 				client.Out <- msg
 			}
@@ -277,7 +275,8 @@ func (r *Room) ReadAndHandleClientMessage(ID string) {
 				if msgObj.Type == message.TRequestCacheChat {
 					client.Out <- payload
 				} else {
-					r.Broadcast(payload, []string{ID})
+					r.Broadcast(payload, message.RViewer, []string{ID})
+					r.Broadcast(payload, message.RStreamerChat, []string{ID})
 				}
 			} else {
 				log.Printf("Error wrapping cache chat info message: %s", err)
@@ -286,7 +285,7 @@ func (r *Room) ReadAndHandleClientMessage(ID string) {
 	}
 }
 
-func (r *Room) Broadcast(msg []uint8, IDExclude []string) {
+func (r *Room) Broadcast(msg []uint8, role message.CRole, IDExclude []string) {
 
 	msgObj, err := message.Unwrap(msg)
 	if err == nil && msgObj.Type == message.TWinsize {
@@ -297,7 +296,10 @@ func (r *Room) Broadcast(msg []uint8, IDExclude []string) {
 		}
 	}
 
-	for id, viewer := range r.viewers {
+	for id, client := range r.clients {
+		if client.Role() != role {
+			continue
+		}
 		// TODO: make this for loop run in parallel
 		var isExcluded bool = false
 		for _, idExclude := range IDExclude {
@@ -309,11 +311,11 @@ func (r *Room) Broadcast(msg []uint8, IDExclude []string) {
 			continue
 		}
 
-		if viewer.Alive() {
-			viewer.Out <- msg
+		if client.Alive() {
+			client.Out <- msg
 		} else {
 			log.Printf("Failed to boardcast to %s. Closing connection", id)
-			r.RemoveViewer(id)
+			r.RemoveClient(id)
 		}
 	}
 }
@@ -321,9 +323,9 @@ func (r *Room) Broadcast(msg []uint8, IDExclude []string) {
 func (r *Room) Stop(status message.RoomStatus) {
 	log.Printf("Stopping room: %s, with Status: %s", r.name, status)
 	r.status = status
-	for id, viewer := range r.viewers {
-		viewer.Close()
-		r.RemoveViewer(id)
+	for id, client := range r.clients {
+		client.Close()
+		r.RemoveClient(id)
 	}
 	r.lock.Lock()
 	r.streamer.Close()
@@ -334,7 +336,7 @@ func (r *Room) PrepareRoomInfo() message.RoomInfo {
 	return message.RoomInfo{
 		Id:             r.id,
 		Title:          r.title,
-		NViewers:       len(r.viewers),
+		NViewers:       r.NViewers(),
 		StartedTime:    r.startedTime,
 		LastActiveTime: r.lastActiveTime,
 		StreamerID:     r.name,

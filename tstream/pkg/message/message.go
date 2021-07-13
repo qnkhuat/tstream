@@ -66,12 +66,7 @@ type Chat struct {
 	Role    string
 }
 
-type StreamerConnect struct {
-	Title string
-}
-
 // *** Room ***
-
 type RoomStatus string
 
 const (
@@ -93,6 +88,7 @@ type RoomInfo struct {
 }
 
 // *** Client ***
+// Client Roles
 type CRole string
 
 const (
