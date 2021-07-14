@@ -116,6 +116,11 @@ class Chat extends React.Component<Props, State> {
   handleCommand(command: string) {
     let args = command.split(' ');
     switch (args[0]) {
+      case "help":
+        this.addNotiMessage(`TStream - Streaming from terminal`);
+        this.addNotiMessage(`/name (name) - to set username`);
+        break;
+
       case "name":
         if (args.length == 2) {
           let userConfig = this.getUserConfig()
