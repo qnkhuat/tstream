@@ -228,6 +228,7 @@ TStream - Streaming from terimnal
 
 [green]/title[yellow] title[white] - to change stream title 
 [green]/exit[white] - to exit chat room`)
+
 	case "title":
 		if len(args) > 1 {
 			newTitle := strings.Trim(strings.Join(args[1:], " "), "\"")
@@ -240,10 +241,13 @@ TStream - Streaming from terimnal
 			if err != nil {
 				log.Printf("Failed to set new title : %s", err)
 				c.addNoti(`[red]Faield to change title. Please try again[white]`)
+			} else {
+				c.addNoti(fmt.Sprintf(`[yellow]Changed room title to: %s[white]`, newTitle))
 			}
 		} else {
 			c.addNoti(`[yellow]/title : no title found[white]`)
 		}
+
 	case "exit":
 		c.Stop()
 
