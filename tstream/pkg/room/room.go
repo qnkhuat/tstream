@@ -198,7 +198,8 @@ func (r *Room) Start() {
 			continue
 		}
 
-		if wrapperMsg.Type == message.TWinsize {
+		switch msgType := wrapperMsg.Type; msgType {
+		case message.TWinsize:
 			winsize := &message.Winsize{}
 			err := json.Unmarshal(wrapperMsg.Data, winsize)
 			if err == nil {
@@ -207,13 +208,15 @@ func (r *Room) Start() {
 
 			r.addMsgBuffer(msg)
 			r.lastActiveTime = time.Now()
-			r.Broadcast(msg, message.RViewer, []string{})
+			r.Broadcast(msg, []message.CRole{message.RViewer}, []string{})
 
-		} else if wrapperMsg.Type == message.TWrite {
+		case message.TWrite:
+
 			r.addMsgBuffer(msg)
 			r.lastActiveTime = time.Now()
-			r.Broadcast(msg, message.RViewer, []string{})
-		} else {
+			r.Broadcast(msg, []message.CRole{message.RViewer}, []string{})
+
+		default:
 			log.Printf("Unknown message type: %s", wrapperMsg.Type)
 		}
 	}
@@ -246,7 +249,8 @@ func (r *Room) ReadAndHandleClientMessage(ID string) {
 			log.Printf("Failed to decode msg", err)
 		}
 
-		if msgObj.Type == message.TRequestWinsize {
+		switch msgType := msgObj.Type; msgType {
+		case message.TRequestWinsize:
 
 			msg, _ := message.Wrap(message.TWinsize, message.Winsize{
 				Rows: r.lastWinsize.Rows,
@@ -255,12 +259,13 @@ func (r *Room) ReadAndHandleClientMessage(ID string) {
 			payload, _ := json.Marshal(msg)
 			client.Out <- payload
 
-		} else if msgObj.Type == message.TRequestCacheContent {
+		case message.TRequestCacheContent:
 			// Send msg buffer so clients doesn't face a idle screen when first started
 			for _, msg := range r.msgBuffer {
 				client.Out <- msg
 			}
-		} else if msgObj.Type == message.TRequestRoomInfo {
+
+		case message.TRequestRoomInfo:
 
 			roomInfo := r.PrepareRoomInfo()
 			msg, err := message.Wrap(message.TRoomInfo, roomInfo)
@@ -271,7 +276,7 @@ func (r *Room) ReadAndHandleClientMessage(ID string) {
 			} else {
 				log.Printf("Error wrapping room info message: %s", err)
 			}
-		} else if msgObj.Type == message.TRequestCacheChat {
+		case message.TRequestCacheChat:
 
 			msg, err := message.Wrap(message.TChat, r.cacheChat)
 			if err == nil {
@@ -281,7 +286,7 @@ func (r *Room) ReadAndHandleClientMessage(ID string) {
 				log.Printf("Error wrapping room info message: %s", err)
 			}
 
-		} else if msgObj.Type == message.TChat {
+		case message.TChat:
 
 			var chatList []message.Chat
 			err := json.Unmarshal(msgObj.Data, &chatList)
@@ -300,21 +305,60 @@ func (r *Room) ReadAndHandleClientMessage(ID string) {
 
 			if err == nil {
 				payload, _ := json.Marshal(msg)
-				r.Broadcast(payload, message.RViewer, []string{ID})
-				r.Broadcast(payload, message.RStreamerChat, []string{ID})
+				r.Broadcast(payload, []message.CRole{message.RViewer, message.RStreamerChat}, []string{ID})
 			} else {
 				log.Printf("Failed to wrap message")
 			}
+		case message.TRoomUpdate:
+			if client.Role() != message.RStreamerChat && client.Role() != message.RStreamer {
+				log.Printf("Unauthorized set room title")
+				continue
+			}
+
+			newRoomInfo := message.RoomUpdate{}
+			err := json.Unmarshal(msgObj.Data, &newRoomInfo)
+			if err != nil {
+				log.Printf("Failed to decode roominfo: %s", err)
+				continue
+			} else {
+				r.title = newRoomInfo.Title
+				roomInfo := r.PrepareRoomInfo()
+				msg, err := message.Wrap(message.TRoomInfo, roomInfo)
+				if err != nil {
+					log.Printf("Failed to wrap roominfo message")
+					continue
+				}
+
+				payload, _ := json.Marshal(msg)
+				// Broadcast to all participants
+				r.Broadcast(payload,
+					[]message.CRole{message.RStreamer, message.RStreamerChat, message.RViewer},
+					[]string{})
+			}
+
+		default:
+			log.Printf("Unknown message type :%s", msgType)
+
 		}
 	}
 }
 
-func (r *Room) Broadcast(msg []uint8, role message.CRole, IDExclude []string) {
+func (r *Room) Broadcast(msg []uint8, roles []message.CRole, IDExclude []string) {
 
 	for id, client := range r.clients {
-		if client.Role() != role {
+		// Check if client is in the list of roles to broadcast
+		found := false
+		for _, role := range roles {
+			if role == client.Role() {
+				found = true
+				break
+			}
+		}
+
+		if !found {
 			continue
 		}
+
 		// TODO: make this for loop run in parallel
 		var isExcluded bool = false
 		for _, idExclude := range IDExclude {

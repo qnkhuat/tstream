@@ -23,6 +23,7 @@ const (
 	TError      MType = "Error"
 	TRoomInfo   MType = "RoomInfo"
 	TClientInfo MType = "ClientInfo"
+	TRoomUpdate MType = "RoomUpdate"
 
 	// When streamer resize their termianl
 	TWinsize MType = "Winsize"
@@ -63,7 +64,7 @@ type Chat struct {
 	Content string
 	Color   string
 	Time    string
-	Role    string
+	Role    CRole
 }
 
 // *** Room ***
@@ -85,6 +86,11 @@ type RoomInfo struct {
 	Title          string
 	StreamerID     string
 	Status         RoomStatus
+}
+
+// used for streamer to update room info
+type RoomUpdate struct {
+	Title string
 }
 
 // *** Client ***

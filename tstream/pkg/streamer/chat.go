@@ -45,6 +45,9 @@ func (c *Chat) Start() error {
 	err := c.connectWS()
 	if err != nil {
 		log.Printf("Error: %s", err)
+		fmt.Printf("Failed to connect to server\n")
+		c.app.Stop()
+		return err
 	}
 
 	// Receive
@@ -179,30 +182,33 @@ func (c *Chat) initUI() error {
 	messageInput.SetLabel("[red]>[red] ").
 		SetDoneFunc(func(key tcell.Key) {
 			text := messageInput.GetText()
-			if text == "/exit" {
-				c.Stop()
+			if len(text) > 0 && text[0] == '/' {
+				command := strings.TrimSpace(strings.ToLower(text[1:]))
+				c.HandleCommand(command)
+				messageInput.SetText("")
 				return
-			}
-
-			chat := message.Chat{
-				Name:    c.username,
-				Color:   c.color,
-				Content: text,
-				Time:    time.Now().String(),
-				Role:    "Streamer",
-			}
-
-			chatList := []message.Chat{chat}
-			msg, err := message.Wrap(message.TChat, chatList)
-
-			if err == nil {
-				payload, _ := json.Marshal(msg)
-				c.conn.WriteMessage(websocket.TextMessage, payload)
 			} else {
-				log.Printf("Failed to wrap message")
+				chat := message.Chat{
+					Name:    c.username,
+					Color:   c.color,
+					Content: text,
+					Time:    time.Now().String(),
+					Role:    message.RStreamer,
+				}
+
+				chatList := []message.Chat{chat}
+				msg, err := message.Wrap(message.TChat, chatList)
+
+				if err == nil {
+					payload, _ := json.Marshal(msg)
+					c.conn.WriteMessage(websocket.TextMessage, payload)
+				} else {
+					log.Printf("Failed to wrap message")
+				}
+				c.addChatMsgs(chatList)
+				messageInput.SetText("")
 			}
-			c.addChatMsgs(chatList)
-			messageInput.SetText("")
+
 		})
 
 	layout.AddItem(header, 0, 0, 1, 1, 0, 0, false).
@@ -210,6 +216,41 @@ func (c *Chat) initUI() error {
 		AddItem(messageInput, 2, 0, 1, 1, 0, 0, true)
 
 	c.app.SetRoot(layout, true)
+	return nil
+}
+
+func (c *Chat) HandleCommand(command string) error {
+	args := strings.Split(command, " ")
+	switch args[0] {
+	case "help":
+		c.addNoti(`
+TStream - Streaming from terimnal
+
+[green]/title[yellow] title[white] - to change stream title 
+[green]/exit[white] - to exit chat room`)
+	case "title":
+		if len(args) > 1 {
+			newTitle := strings.Trim(strings.Join(args[1:], " "), "\"")
+			msg := message.RoomUpdate{
+				Title: newTitle,
+			}
+			wrappedMsg, _ := message.Wrap(message.TRoomUpdate, msg)
+			payload, _ := json.Marshal(wrappedMsg)
+			err := c.conn.WriteMessage(websocket.TextMessage, payload)
+			if err != nil {
+				log.Printf("Failed to set new title : %s", err)
+				c.addNoti(`[red]Faield to change title. Please try again[white]`)
+			}
+		} else {
+			c.addNoti(`[yellow]/title : no title found[white]`)
+		}
+	case "exit":
+		c.Stop()
+
+	default:
+		c.addNoti(`Unknown command. Type /help to get list of available commands.`)
+	}
+
 	return nil
 }
 
@@ -254,6 +295,20 @@ func (c *Chat) connectWS() error {
 	}
 
 	return nil
+}
+
+func (c *Chat) addNoti(msg string) {
+
+	if len(msg) > 0 && msg[len(msg)-1] != '\n' {
+		msg += "\n"
+	}
+
+	currentChat := c.chatTextView.GetText(false)
+	if len(currentChat) > 1 && currentChat[len(currentChat)-1] == '\n' {
+		currentChat = currentChat[0 : len(currentChat)-1]
+	}
+
+	c.chatTextView.SetText(currentChat + msg)
 }
 
 func (c *Chat) addChatMsgs(chatList []message.Chat) {
