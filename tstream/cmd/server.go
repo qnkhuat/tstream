@@ -8,11 +8,12 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
+	"os"
+
 	"github.com/qnkhuat/tstream/internal/cfg"
 	"github.com/qnkhuat/tstream/internal/logging"
 	"github.com/qnkhuat/tstream/pkg/server"
-	"log"
-	"os"
 )
 
 func main() {

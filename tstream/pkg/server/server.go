@@ -95,7 +95,8 @@ func (s *Server) Start() {
 	go s.repeatedlySyncDB(cfg.SERVER_SYNCDB_INTERVAL)
 
 	if err := s.server.ListenAndServe(); err != nil { // blocking call
-		log.Panicf("Faield to start server: %s", err)
+		log.Panicf("Failed to start server: %s", err)
+		return
 	}
 }
 
@@ -118,7 +119,6 @@ func (s *Server) repeatedlyCleanRooms(interval, idleThreshold int) {
 	}
 }
 
-// TODO : clean inside the DB as well, DB should only store room that are STopped
 // Clean in active rooms or stopped one
 func (s *Server) scanAndCleanRooms(idleThreshold int) int {
 	threshold := time.Duration(idleThreshold) * time.Second

@@ -36,7 +36,7 @@ const StreamPreview: FC<Props> = ({ title, wsUrl, streamerID, nViewers, startedT
 
       if (msg.Type === constants.MSG_TWRITE) {
 
-        var buffer = base64.toArrayBuffer(msg.Data)
+        var buffer = base64.str2ab(msg.Data)
         tempMsg.pub(msg.Type, buffer);
 
       } else if (msg.Type === constants.MSG_TWINSIZE) {
@@ -49,12 +49,12 @@ const StreamPreview: FC<Props> = ({ title, wsUrl, streamerID, nViewers, startedT
 
     tempMsg.sub("request", (msgType: string) => {
 
-      var payload_byte = base64.toArrayBuffer(window.btoa(""));
+      var payload_byte = base64.str2ab(window.btoa(""));
       var wrapper = JSON.stringify({
         Type: msgType,
         Data: Array.from(payload_byte),
       });
-      const payload = base64.toArrayBuffer(window.btoa(wrapper))
+      const payload = base64.str2ab(window.btoa(wrapper))
       util.sendWhenConnected(ws, payload);
     })
 

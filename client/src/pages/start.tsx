@@ -28,10 +28,19 @@ function Start() {
             </li>
           </ol>
 
-          <h1 className="text-white">Tips</h1>
-          <p>The current version of <span className="font-bold">tstream</span> can only work on one terminal tap.</p>
-          <p>So in order for Streamer to stream multiple taps, we suggest using a terminal multiplexer like <a className="text-green-term" href="https://github.com/tmux/tmux/wiki/Installing">tmux</a> or <a className="text-green-term" href="https://www.byobu.org">byobu</a></p>
-          <p>Just make sure you start <span className="font-bold">tstream</span> before you start your terminal multiplexer.</p>
+          <h3 className="text-white">Chat from terminal</h3>
+          <p>Want to chat with your viewers but not willing to leave terminal?</p>
+          <p>We've got you covered!</p> 
+          <p>Just type: <Code className="text-white" text="tstream -chat"></Code> after you started your stream session</p>
+          
+          <img alt="chat-demo" className="w-4/5 m-auto"src="./chat.gif"/>
+
+          <h3 className="text-gray-400">Voice chat - Coming soon</h3>
+
+          <h2 className="text-white">Tips</h2>
+          <p>The current version of <span className="font-bold">tstream</span> can only work on one terminal tap</p>
+          <p>In order for Streamers to stream with multiple taps, we suggest using a terminal multiplexer like <a className="text-green-term" href="https://github.com/tmux/tmux/wiki/Installing">tmux</a> or <a className="text-green-term" href="https://www.byobu.org">byobu</a></p>
+          <p>Just make sure you start tstream <span className="font-bold">before</span> you start your terminal multiplexer.</p>
           <p>If you're a new tmux user, <a className="text-green-term" href ="https://thoughtbot.com/blog/a-tmux-crash-course">this</a> is a simple tutorial that provides all you need to know to get started with tmux.</p>
 
           <h3 className="text-red-400">Happy streaming!</h3>

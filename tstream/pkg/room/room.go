@@ -6,15 +6,12 @@ package room
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/gorilla/websocket"
+	"github.com/qnkhuat/tstream/internal/cfg"
+	"github.com/qnkhuat/tstream/pkg/message"
 	"log"
 	"sync"
 	"time"
-
-	"github.com/gorilla/websocket"
-
-	"github.com/qnkhuat/tstream/internal/cfg"
-	"github.com/qnkhuat/tstream/pkg/message"
-	"github.com/qnkhuat/tstream/pkg/viewer"
 )
 
 var emptyByteArray []byte
@@ -22,29 +19,28 @@ var emptyByteArray []byte
 type Room struct {
 	lock           sync.Mutex
 	streamer       *websocket.Conn
-	viewers        map[string]*viewer.Viewer
-	accViewers     uint64 // accumulated viewers
-	chats          map[string]*viewer.Viewer
-	name           string // also is streamerID
-	id             uint64 // Id in DB
+	clients        map[string]*Client // Chats + viewrer connection
+	accViewers     uint64             // accumulated viewers
+	name           string             // also is streamerID
+	id             uint64             // Id in DB
 	title          string
 	lastWinsize    *message.Winsize
 	startedTime    time.Time
 	lastActiveTime time.Time
 	msgBuffer      [][]byte
+	cacheChat      []message.Chat
 	status         message.RoomStatus
 	secret         string // used to verify streamer
-	cacheChat      [][]byte
 }
 
 func New(name, title, secret string) *Room {
-	viewers := make(map[string]*viewer.Viewer)
+	clients := make(map[string]*Client)
 	var buffer [][]byte
-	var cacheChat [][]byte
+	var cacheChat []message.Chat
 	return &Room{
 		name:           name,
 		accViewers:     0,
-		viewers:        viewers,
+		clients:        clients,
 		lastActiveTime: time.Now(),
 		startedTime:    time.Now(),
 		msgBuffer:      buffer,
@@ -63,8 +59,8 @@ func (r *Room) StartedTime() time.Time {
 	return r.startedTime
 }
 
-func (r *Room) Viewers() map[string]*viewer.Viewer {
-	return r.viewers
+func (r *Room) Clients() map[string]*Client {
+	return r.clients
 }
 
 func (r *Room) Id() uint64 {
@@ -73,6 +69,16 @@ func (r *Room) Id() uint64 {
 
 func (r *Room) Secret() string {
 	return r.secret
+}
+
+func (r *Room) NViewers() int {
+	count := 0
+	for _, client := range r.clients {
+		if client.Role() == message.RViewer {
+			count += 1
+		}
+	}
+	return count
 }
 
 func (r *Room) SetTitle(title string) {
@@ -100,11 +106,11 @@ func (r *Room) Streamer() *websocket.Conn {
 }
 
 func (r *Room) AddStreamer(conn *websocket.Conn) error {
-	// TODO: hanlde case when streamer already existed
 	if r.streamer != nil {
 		r.streamer.Close()
-		//return fmt.Errorf("Streamer existed")
 	}
+	// Verify streamer secret
+
 	log.Printf("New streamer")
 	r.streamer = conn
 	r.status = message.RStreaming
@@ -144,48 +150,39 @@ func (r *Room) AddStreamer(conn *websocket.Conn) error {
 	return nil
 }
 
-func (r *Room) AddViewer(ID string, conn *websocket.Conn) error {
-	r.accViewers += 1
-	_, ok := r.viewers[ID]
+func (r *Room) AddClient(ID string, role message.CRole, conn *websocket.Conn) error {
+	_, ok := r.clients[ID]
 	if ok {
-		return fmt.Errorf("Viewer %s existed", conn)
+		return fmt.Errorf("Client %s existed", conn)
 	}
 
-	v := viewer.New(ID, conn)
-	r.viewers[ID] = v
+	if role == message.RViewer {
+		r.accViewers += 1
+	} else if role == message.RStreamerChat {
+	} else {
+		return fmt.Errorf("Invalid client role: %s", role)
+	}
+
+	v := NewClient(role, conn)
+	r.clients[ID] = v
 	go v.Start()
-
-	// send winsize if existed
-	if r.lastWinsize != nil {
-		msg, err := message.Wrap(message.TWinsize, message.Winsize{
-			Rows: r.lastWinsize.Rows,
-			Cols: r.lastWinsize.Cols,
-		})
-
-		if err != nil {
-			log.Printf("Failed to decode message: %s", err)
-		} else {
-			payload, _ := json.Marshal(msg)
-			v.Out <- payload
-		}
-	}
 
 	return nil
 }
 
-func (r *Room) RemoveViewer(ID string) error {
-	_, ok := r.viewers[ID]
+func (r *Room) RemoveClient(ID string) error {
+	_, ok := r.clients[ID]
 	if !ok {
-		return fmt.Errorf("Viewer %s not found", ID)
+		return fmt.Errorf("CLient %s not found", ID)
 	}
 
 	r.lock.Lock()
-	delete(r.viewers, ID)
+	delete(r.clients, ID)
 	r.lock.Unlock()
 	return nil
 }
 
-// Wait for request from streamer and broadcast those message to viewers
+// Wait for request from streamer and broadcast those message to clients
 func (r *Room) Start() {
 	for {
 		_, msg, err := r.streamer.ReadMessage()
@@ -200,21 +197,26 @@ func (r *Room) Start() {
 			log.Printf("Unable to decode message: %s", err)
 			continue
 		}
-		if wrapperMsg.Type == message.TWinsize || wrapperMsg.Type == message.TWrite {
-			r.lastActiveTime = time.Now()
-			r.addMsgBuffer(msg)
-			r.Broadcast(msg, []string{})
-		} else if wrapperMsg.Type == message.TStreamerConnect {
-			msgObject := &message.StreamerConnect{}
-			err := json.Unmarshal(wrapperMsg.Data, msgObject)
-			if err != nil {
-				log.Printf("Failed to decode message: %s", err)
-			} else {
-				r.SetTitle(msgObject.Title)
-			}
-			log.Printf("Set title: %s", msgObject.Title)
 
-		} else {
+		switch msgType := wrapperMsg.Type; msgType {
+		case message.TWinsize:
+			winsize := &message.Winsize{}
+			err := json.Unmarshal(wrapperMsg.Data, winsize)
+			if err == nil {
+				r.lastWinsize = winsize
+			}
+
+			r.addMsgBuffer(msg)
+			r.lastActiveTime = time.Now()
+			r.Broadcast(msg, []message.CRole{message.RViewer}, []string{})
+
+		case message.TWrite:
+
+			r.addMsgBuffer(msg)
+			r.lastActiveTime = time.Now()
+			r.Broadcast(msg, []message.CRole{message.RViewer}, []string{})
+
+		default:
 			log.Printf("Unknown message type: %s", wrapperMsg.Type)
 		}
 	}
@@ -227,86 +229,136 @@ func (r *Room) addMsgBuffer(msg []byte) {
 	r.msgBuffer = append(r.msgBuffer, msg)
 }
 
-func (r *Room) addCachedChat(chat []byte) {
+func (r *Room) addCacheChat(chat message.Chat) {
 	if len(r.cacheChat) >= cfg.ROOM_CACHE_MSG_SIZE {
 		r.cacheChat = r.cacheChat[1:]
 	}
 	r.cacheChat = append(r.cacheChat, chat)
 }
 
-func (r *Room) ReadAndHandleViewerMessage(ID string) {
-	viewer, ok := r.viewers[ID]
+func (r *Room) ReadAndHandleClientMessage(ID string) {
+	client, ok := r.clients[ID]
 	if !ok {
 		return
 	}
 	for {
-		msg, _ := <-viewer.In
+		msg, _ := <-client.In
 
 		msgObj, err := message.Unwrap(msg)
 		if err != nil {
 			log.Printf("Failed to decode msg", err)
 		}
 
-		if msgObj.Type == message.TRequestWinsize {
+		switch msgType := msgObj.Type; msgType {
+		case message.TRequestWinsize:
 
 			msg, _ := message.Wrap(message.TWinsize, message.Winsize{
 				Rows: r.lastWinsize.Rows,
 				Cols: r.lastWinsize.Cols,
 			})
 			payload, _ := json.Marshal(msg)
-			viewer.Out <- payload
+			client.Out <- payload
 
-		} else if msgObj.Type == message.TRequestCacheMessage {
-			// Send msg buffer so viewers doesn't face a idle screen when first started
+		case message.TRequestCacheContent:
+			// Send msg buffer so clients doesn't face a idle screen when first started
 			for _, msg := range r.msgBuffer {
-				viewer.Out <- msg
+				client.Out <- msg
 			}
-		} else if msgObj.Type == message.TRequestRoomInfo {
+
+		case message.TRequestRoomInfo:
 
 			roomInfo := r.PrepareRoomInfo()
 			msg, err := message.Wrap(message.TRoomInfo, roomInfo)
 
 			if err == nil {
 				payload, _ := json.Marshal(msg)
-				viewer.Out <- payload
+				client.Out <- payload
 			} else {
 				log.Printf("Error wrapping room info message: %s", err)
 			}
-		} else if msgObj.Type == message.TChat || msgObj.Type == message.TRequestCacheChat {
+		case message.TRequestCacheChat:
 
-			if msgObj.Type == message.TChat {
-				r.addCachedChat(msgObj.Data)
+			msg, err := message.Wrap(message.TChat, r.cacheChat)
+			if err == nil {
+				payload, _ := json.Marshal(msg)
+				client.Out <- payload
+			} else {
+				log.Printf("Error wrapping room info message: %s", err)
 			}
 
-			msg, err := r.PrepareChat(msgObj.Type == message.TRequestCacheChat)
+		case message.TChat:
+
+			var chatList []message.Chat
+			err := json.Unmarshal(msgObj.Data, &chatList)
+
+			if err != nil {
+				log.Printf("Error: %s", err)
+			}
+
+			for _, chat := range chatList {
+				r.addCacheChat(chat)
+			}
+
+			// TODO : find out why we can't just forward the incoming msg.
+			// we shouldn't have to rewrap it to transport the msg
+			msg, err := message.Wrap(message.TChat, chatList)
 
 			if err == nil {
 				payload, _ := json.Marshal(msg)
-				if msgObj.Type == message.TRequestCacheChat {
-					viewer.Out <- payload
-				} else {
-					r.Broadcast(payload, []string{ID})
-				}
+				r.Broadcast(payload, []message.CRole{message.RViewer, message.RStreamerChat}, []string{ID})
 			} else {
-				log.Printf("Error wrapping cache chat info message: %s", err)
+				log.Printf("Failed to wrap message")
 			}
+		case message.TRoomUpdate:
+			if client.Role() != message.RStreamerChat && client.Role() != message.RStreamer {
+				log.Printf("Unauthorized set room title")
+				continue
+			}
+
+			newRoomInfo := message.RoomUpdate{}
+			err := json.Unmarshal(msgObj.Data, &newRoomInfo)
+			if err != nil {
+				log.Printf("Failed to decode roominfo: %s", err)
+				continue
+			} else {
+				r.title = newRoomInfo.Title
+				roomInfo := r.PrepareRoomInfo()
+				msg, err := message.Wrap(message.TRoomInfo, roomInfo)
+				if err != nil {
+					log.Printf("Failed to wrap roominfo message")
+					continue
+				}
+
+				payload, _ := json.Marshal(msg)
+				// Broadcast to all participants
+				r.Broadcast(payload,
+					[]message.CRole{message.RStreamer, message.RStreamerChat, message.RViewer},
+					[]string{})
+			}
+
+		default:
+			log.Printf("Unknown message type :%s", msgType)
+
 		}
 	}
 }
 
-func (r *Room) Broadcast(msg []uint8, IDExclude []string) {
+func (r *Room) Broadcast(msg []uint8, roles []message.CRole, IDExclude []string) {
 
-	msgObj, err := message.Unwrap(msg)
-	if err == nil && msgObj.Type == message.TWinsize {
-		winsize := &message.Winsize{}
-		err := json.Unmarshal(msgObj.Data, winsize)
-		if err == nil {
-			r.lastWinsize = winsize
+	for id, client := range r.clients {
+		// Check if client is in the list of roles to broadcast
+		found := false
+		for _, role := range roles {
+			if role == client.Role() {
+				found = true
+				break
+			}
 		}
-	}
 
-	count := 0
-	for id, viewer := range r.viewers {
+		if !found {
+			continue
+		}
+
 		// TODO: make this for loop run in parallel
 		var isExcluded bool = false
 		for _, idExclude := range IDExclude {
@@ -318,12 +370,11 @@ func (r *Room) Broadcast(msg []uint8, IDExclude []string) {
 			continue
 		}
 
-		if viewer.Alive() {
-			count += 1
-			viewer.Out <- msg
+		if client.Alive() {
+			client.Out <- msg
 		} else {
 			log.Printf("Failed to boardcast to %s. Closing connection", id)
-			r.RemoveViewer(id)
+			r.RemoveClient(id)
 		}
 	}
 }
@@ -331,9 +382,9 @@ func (r *Room) Broadcast(msg []uint8, IDExclude []string) {
 func (r *Room) Stop(status message.RoomStatus) {
 	log.Printf("Stopping room: %s, with Status: %s", r.name, status)
 	r.status = status
-	for id, viewer := range r.viewers {
-		viewer.Close()
-		r.RemoveViewer(id)
+	for id, client := range r.clients {
+		client.Close()
+		r.RemoveClient(id)
 	}
 	r.lock.Lock()
 	r.streamer.Close()
@@ -344,40 +395,11 @@ func (r *Room) PrepareRoomInfo() message.RoomInfo {
 	return message.RoomInfo{
 		Id:             r.id,
 		Title:          r.title,
-		NViewers:       len(r.viewers),
+		NViewers:       r.NViewers(),
 		StartedTime:    r.startedTime,
 		LastActiveTime: r.lastActiveTime,
 		StreamerID:     r.name,
 		Status:         r.status,
 		AccNViewers:    r.accViewers,
-	}
-}
-
-func (r *Room) PrepareChat(cache bool) (message.Wrapper, error) {
-	var listChat []message.Chat
-
-	var iter_array [][]byte
-
-	if cache {
-		iter_array = r.cacheChat
-	} else {
-		iter_array = r.cacheChat[len(r.cacheChat)-1:]
-	}
-
-	for _, value := range iter_array {
-		curChat := &message.Chat{}
-		err := json.Unmarshal(value, curChat)
-		if err != nil {
-			log.Printf("There's error when unmarshal cache chat %s", err)
-		}
-		listChat = append(listChat, *curChat)
-	}
-
-	msg, err := message.Wrap(message.TChat, listChat)
-
-	if err != nil {
-		return msg, nil
-	} else {
-		return msg, err
 	}
 }

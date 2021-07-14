@@ -77,7 +77,7 @@ function Home() {
                   {recentStreams.sort((a, b) => dayjs(b.StartedTime).diff(dayjs(a.StartedTime))).map((r, i) =>
                   <div key={i} className="w-full sm:w-5/12 lg:w-3/12 bg-gray-600 p-4 rounded-lg flex justify-between m-4 flex-wrap relative">
 
-                    <div className="left mr-16">
+                    <div className="left mr-20">
                       <p className="font-bold ">{r.Title}</p>
                       <p>@{r.StreamerID}</p>
                       <p>{dayjs(r.StartedTime).fromNow()}</p>
