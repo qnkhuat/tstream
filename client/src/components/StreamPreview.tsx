@@ -41,7 +41,7 @@ const StreamPreview: FC<Props> = ({ title, wsUrl, streamerID, nViewers, startedT
 
       } else if (msg.Type === constants.MSG_TWINSIZE) {
 
-        let winSizeMsg = JSON.parse(window.atob(msg.Data));
+        let winSizeMsg = msg.Data;
         tempMsg.pub(msg.Type, winSizeMsg);
 
       }
@@ -49,12 +49,10 @@ const StreamPreview: FC<Props> = ({ title, wsUrl, streamerID, nViewers, startedT
 
     tempMsg.sub("request", (msgType: string) => {
 
-      var payload_byte = base64.str2ab(window.btoa(""));
-      var wrapper = JSON.stringify({
+      var payload = JSON.stringify({
         Type: msgType,
-        Data: Array.from(payload_byte),
+        Data: "",
       });
-      const payload = base64.str2ab(window.btoa(wrapper))
       util.sendWhenConnected(ws, payload);
     })
 

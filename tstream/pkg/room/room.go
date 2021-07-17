@@ -4,7 +4,6 @@ A room is virtual object that wrap one streamer and multiple viewers togethher
 package room
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/gorilla/websocket"
 	"github.com/qnkhuat/tstream/internal/cfg"
@@ -24,10 +23,10 @@ type Room struct {
 	name           string             // also is streamerID
 	id             uint64             // Id in DB
 	title          string
-	lastWinsize    *message.Winsize
+	lastWinsize    message.Winsize
 	startedTime    time.Time
 	lastActiveTime time.Time
-	msgBuffer      [][]byte
+	msgBuffer      []message.Wrapper
 	cacheChat      []message.Chat
 	status         message.RoomStatus
 	secret         string // used to verify streamer
@@ -35,7 +34,7 @@ type Room struct {
 
 func New(name, title, secret string) *Room {
 	clients := make(map[string]*Client)
-	var buffer [][]byte
+	var buffer []message.Wrapper
 	var cacheChat []message.Chat
 	return &Room{
 		name:           name,
@@ -185,30 +184,32 @@ func (r *Room) RemoveClient(ID string) error {
 // Wait for request from streamer and broadcast those message to clients
 func (r *Room) Start() {
 	for {
-		_, msg, err := r.streamer.ReadMessage()
+		msg := message.Wrapper{}
+		err := r.streamer.ReadJSON(&msg)
+		log.Printf("got message: %v", msg)
 
 		if err != nil {
-			log.Printf("Failed to reaceive message from streamer: %s. Closing. Error: %s", r.name, err)
+			log.Printf("Failed to receive message from streamer: %s. Closing. Error: %s", r.name, err)
 			r.streamer.Close()
 			return
 		}
-		wrapperMsg, err := message.Unwrap(msg)
-		if err != nil {
-			log.Printf("Unable to decode message: %s", err)
-			continue
-		}
 
-		switch msgType := wrapperMsg.Type; msgType {
+		log.Printf("Server got message: %s", msg.Type)
+
+		switch msgType := msg.Type; msgType {
 		case message.TWinsize:
-			winsize := &message.Winsize{}
-			err := json.Unmarshal(wrapperMsg.Data, winsize)
+
+			winsize := message.Winsize{}
+			err = message.ToStruct(msg.Data, &winsize)
+
 			if err == nil {
 				r.lastWinsize = winsize
+				r.addMsgBuffer(msg)
+				r.lastActiveTime = time.Now()
+				r.Broadcast(msg, []message.CRole{message.RViewer}, []string{})
+			} else {
+				log.Printf("Failed to decode winsize message: %s", err)
 			}
-
-			r.addMsgBuffer(msg)
-			r.lastActiveTime = time.Now()
-			r.Broadcast(msg, []message.CRole{message.RViewer}, []string{})
 
 		case message.TWrite:
 
@@ -217,12 +218,12 @@ func (r *Room) Start() {
 			r.Broadcast(msg, []message.CRole{message.RViewer}, []string{})
 
 		default:
-			log.Printf("Unknown message type: %s", wrapperMsg.Type)
+			log.Printf("Unknown message type: %s", msgType)
 		}
 	}
 }
 
-func (r *Room) addMsgBuffer(msg []byte) {
+func (r *Room) addMsgBuffer(msg message.Wrapper) {
 	if len(r.msgBuffer) > cfg.ROOM_BUFFER_SIZE {
 		r.msgBuffer = r.msgBuffer[1:]
 	}
@@ -244,19 +245,16 @@ func (r *Room) ReadAndHandleClientMessage(ID string) {
 	for {
 		msg, _ := <-client.In
 
-		msgObj, err := message.Unwrap(msg)
-		if err != nil {
-			log.Printf("Failed to decode msg", err)
-		}
-
-		switch msgType := msgObj.Type; msgType {
+		switch msgType := msg.Type; msgType {
 		case message.TRequestWinsize:
 
-			msg, _ := message.Wrap(message.TWinsize, message.Winsize{
-				Rows: r.lastWinsize.Rows,
-				Cols: r.lastWinsize.Cols,
-			})
-			payload, _ := json.Marshal(msg)
+			payload := message.Wrapper{
+				Type: message.TWinsize,
+				Data: message.Winsize{
+					Rows: r.lastWinsize.Rows,
+					Cols: r.lastWinsize.Cols,
+				},
+			}
 			client.Out <- payload
 
 		case message.TRequestCacheContent:
@@ -268,28 +266,26 @@ func (r *Room) ReadAndHandleClientMessage(ID string) {
 		case message.TRequestRoomInfo:
 
 			roomInfo := r.PrepareRoomInfo()
-			msg, err := message.Wrap(message.TRoomInfo, roomInfo)
-
-			if err == nil {
-				payload, _ := json.Marshal(msg)
-				client.Out <- payload
-			} else {
-				log.Printf("Error wrapping room info message: %s", err)
+			payload := message.Wrapper{
+				Type: message.TRoomInfo,
+				Data: roomInfo,
 			}
+
+			client.Out <- payload
+
 		case message.TRequestCacheChat:
 
 			msg, err := message.Wrap(message.TChat, r.cacheChat)
 			if err == nil {
-				payload, _ := json.Marshal(msg)
-				client.Out <- payload
+				client.Out <- msg
 			} else {
 				log.Printf("Error wrapping room info message: %s", err)
 			}
 
 		case message.TChat:
-
 			var chatList []message.Chat
-			err := json.Unmarshal(msgObj.Data, &chatList)
+
+			err := message.ToStruct(msg.Data, &chatList)
 
 			if err != nil {
 				log.Printf("Error: %s", err)
@@ -299,37 +295,24 @@ func (r *Room) ReadAndHandleClientMessage(ID string) {
 				r.addCacheChat(chat)
 			}
 
-			// TODO : find out why we can't just forward the incoming msg.
-			// we shouldn't have to rewrap it to transport the msg
-			msg, err := message.Wrap(message.TChat, chatList)
-
-			if err == nil {
-				payload, _ := json.Marshal(msg)
-				r.Broadcast(payload, []message.CRole{message.RViewer, message.RStreamerChat}, []string{ID})
-			} else {
-				log.Printf("Failed to wrap message")
-			}
+			r.Broadcast(msg, []message.CRole{message.RViewer, message.RStreamerChat}, []string{ID})
 		case message.TRoomUpdate:
 			if client.Role() != message.RStreamerChat && client.Role() != message.RStreamer {
 				log.Printf("Unauthorized set room title")
 				continue
 			}
 
-			newRoomInfo := message.RoomUpdate{}
-			err := json.Unmarshal(msgObj.Data, &newRoomInfo)
-			if err != nil {
-				log.Printf("Failed to decode roominfo: %s", err)
+			newRoomInfo, ok := msg.Data.(message.RoomInfo)
+			if !ok {
+				log.Printf("Failed to decode roominfo: %s")
 				continue
 			} else {
 				r.title = newRoomInfo.Title
 				roomInfo := r.PrepareRoomInfo()
-				msg, err := message.Wrap(message.TRoomInfo, roomInfo)
-				if err != nil {
-					log.Printf("Failed to wrap roominfo message")
-					continue
+				payload := message.Wrapper{
+					Type: message.TRoomInfo,
+					Data: roomInfo,
 				}
-
-				payload, _ := json.Marshal(msg)
 				// Broadcast to all participants
 				r.Broadcast(payload,
 					[]message.CRole{message.RStreamer, message.RStreamerChat, message.RViewer},
@@ -343,7 +326,7 @@ func (r *Room) ReadAndHandleClientMessage(ID string) {
 	}
 }
 
-func (r *Room) Broadcast(msg []uint8, roles []message.CRole, IDExclude []string) {
+func (r *Room) Broadcast(msg message.Wrapper, roles []message.CRole, IDExclude []string) {
 
 	for id, client := range r.clients {
 		// Check if client is in the list of roles to broadcast
@@ -371,6 +354,7 @@ func (r *Room) Broadcast(msg []uint8, roles []message.CRole, IDExclude []string)
 		}
 
 		if client.Alive() {
+			log.Printf("Broadcasting to: %s", id)
 			client.Out <- msg
 		} else {
 			log.Printf("Failed to boardcast to %s. Closing connection", id)

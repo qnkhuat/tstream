@@ -153,24 +153,21 @@ class Room extends React.Component<Props, State> {
 
       if (msg.Type === constants.MSG_TWRITE) {
 
-        let buffer = base64.str2ab(msg.Data)
+        let buffer = base64.str2ab(msg.Data);
         msgManager.pub(msg.Type, buffer);
 
       } else if (msg.Type === constants.MSG_TWINSIZE) {
 
-        let winSizeMsg = JSON.parse(window.atob(msg.Data));
-        msgManager.pub(msg.Type, winSizeMsg);
+        console.log("Got winsize message: ", msg);
+        msgManager.pub(msg.Type, msg.Data);
 
       } else if (msg.Type === constants.MSG_TCHAT) {
 
-        let listChat = JSON.parse(window.atob(msg.Data));
-        msgManager.pub(constants.MSG_TCHAT_IN, listChat);
-
+        msgManager.pub(constants.MSG_TCHAT_IN, msg.Data);
 
       } else if (msg.Type === constants.MSG_ROOM_INFO) {
 
-        let roomInfo = JSON.parse(window.atob(msg.Data));
-        this.setState({roomInfo: roomInfo});
+        this.setState({roomInfo: msg.Data});
 
       }
     }
@@ -178,12 +175,11 @@ class Room extends React.Component<Props, State> {
     // set up msg manager to manage all in and out request of websocket
     msgManager.sub("request", (msgType: string) => {
 
-      let payload_byte = base64.str2ab(window.btoa(""));
-      let wrapper = JSON.stringify({
+      let payload = JSON.stringify({
         Type: msgType,
-        Data: Array.from(payload_byte),
+        Data: "",
       });
-      const payload = base64.str2ab(window.btoa(wrapper));
+
       util.sendWhenConnected(ws, payload);
 
     })
@@ -191,13 +187,12 @@ class Room extends React.Component<Props, State> {
     msgManager.sub(constants.MSG_TCHAT_OUT, (chat:ChatMsg) => {
       let chatList: ChatMsg[] = [chat];
 
-      let payload_byte = base64.str2ab(window.btoa(JSON.stringify(chatList)));
-      let wrappedMsg = JSON.stringify({
+      let payload = JSON.stringify({
         Type: constants.MSG_TCHAT,
-        Data: Array.from(payload_byte),
+        Data: chatList,
       });
-      let msg = base64.str2ab(window.btoa(wrappedMsg));
-      util.sendWhenConnected(ws, msg);
+
+      util.sendWhenConnected(ws, payload);
     })
 
     msgManager.pub("request", constants.MSG_TREQUEST_ROOM_INFO);

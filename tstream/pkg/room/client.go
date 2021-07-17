@@ -16,17 +16,17 @@ type Client struct {
 	role message.CRole
 
 	// data go in Out channel will be send to user via websocket
-	Out chan []byte
+	Out chan message.Wrapper
 
 	// Data sent from user will be stored in In channel
-	In chan []byte
+	In chan message.Wrapper
 
 	alive bool
 }
 
 func NewClient(role message.CRole, conn *websocket.Conn) *Client {
-	out := make(chan []byte, 256) // buffer 256 send requests
-	in := make(chan []byte, 256)  // buffer 256 send requests
+	out := make(chan message.Wrapper, 256) // buffer 256 send requests
+	in := make(chan message.Wrapper, 256)  // buffer 256 send requests
 	return &Client{
 		conn:  conn,
 		Out:   out,
@@ -50,7 +50,7 @@ func (v *Client) Start() {
 		for {
 			msg, ok := <-v.Out
 			if ok {
-				err := v.conn.WriteMessage(websocket.TextMessage, msg)
+				err := v.conn.WriteJSON(msg)
 				if err != nil {
 					log.Printf("Failed to boardcast to. Closing connection")
 					v.Close()
@@ -63,7 +63,8 @@ func (v *Client) Start() {
 
 	// Send message coroutine
 	for {
-		_, msg, err := v.conn.ReadMessage()
+		msg := message.Wrapper{}
+		err := v.conn.ReadJSON(&msg)
 		if err == nil {
 			v.In <- msg // Will be handled in Room
 		} else {

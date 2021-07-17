@@ -176,16 +176,18 @@ func (s *Server) handleWSStreamer(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Wait for client response
-	_, msg, err := conn.ReadMessage()
-	msgObj, err := message.Unwrap(msg)
+	msg := message.Wrapper{}
+	err = conn.ReadJSON(&msg)
 
-	if err != nil || msgObj.Type != message.TClientInfo {
+	if err != nil || msg.Type != message.TClientInfo {
 		graceClose("Required client info message")
 		return
 	}
 
-	clientInfo := &message.ClientInfo{}
-	err = json.Unmarshal(msgObj.Data, clientInfo)
+	//clientInfo, ok := msg.Data.(message.ClientInfo)
+	clientInfo := message.ClientInfo{}
+	err = message.ToStruct(msg.Data, &clientInfo)
+
 	if err != nil {
 		graceClose("Failed to decode message")
 		return
@@ -193,16 +195,14 @@ func (s *Server) handleWSStreamer(w http.ResponseWriter, r *http.Request) {
 
 	if clientInfo.Secret != room.Secret() {
 		log.Printf("Unauthorized streamer connection")
-		sucessMsg, _ := message.Wrap(message.TStreamerUnauthorized, emptyByteArray)
-		payload, _ := json.Marshal(sucessMsg)
-		conn.WriteMessage(websocket.TextMessage, payload)
+		payload, _ := message.Wrap(message.TStreamerUnauthorized, emptyByteArray)
+		conn.WriteJSON(payload)
 		time.Sleep(CLOSE_GRACE_PERIOD * time.Second)
 		return
 	} else {
 		// Connection is authorized
-		sucessMsg, _ := message.Wrap(message.TStreamerAuthorized, emptyByteArray)
-		payload, _ := json.Marshal(sucessMsg)
-		conn.WriteMessage(websocket.TextMessage, payload)
+		payload, _ := message.Wrap(message.TStreamerAuthorized, emptyByteArray)
+		conn.WriteJSON(payload)
 
 		switch clientInfo.Role {
 		case message.RStreamer:

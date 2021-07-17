@@ -2,7 +2,6 @@
 package streamer
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/gdamore/tcell/v2"
 	"github.com/gorilla/websocket"
@@ -53,32 +52,36 @@ func (c *Chat) Start() error {
 	// Receive
 	go func() {
 		for {
-			_, msg, err := c.conn.ReadMessage()
+			msg := message.Wrapper{}
+			err := c.conn.ReadJSON(&msg)
 			if err != nil {
 				log.Printf("Failed to read message: %s", err)
 				c.Stop()
 				return
 			}
-			msgObj, err := message.Unwrap(msg)
-			switch msgObj.Type {
+
+			switch msg.Type {
 			case message.TChat:
 				var chatList []message.Chat
-				err = json.Unmarshal(msgObj.Data, &chatList)
+				err := message.ToStruct(msg.Data, &chatList)
 				if err != nil {
 					log.Printf("Failed to decode chat message: %s", err)
 					continue
 				}
 				c.addChatMsgs(chatList)
 			case message.TRoomInfo:
-				var roomInfo message.RoomInfo
-				err = json.Unmarshal(msgObj.Data, &roomInfo)
-
-				c.startedTime = roomInfo.StartedTime
-				c.nviewersTextView.SetText(fmt.Sprintf("%d 👤", roomInfo.NViewers))
-				c.titleTextView.SetText(fmt.Sprintf("%s", roomInfo.Title))
+				roomInfo := message.RoomInfo{}
+				err = message.ToStruct(msg.Data, &roomInfo)
+				if err != nil {
+					log.Printf("Failed to decode roominfo message: %s", err)
+				} else {
+					c.startedTime = roomInfo.StartedTime
+					c.nviewersTextView.SetText(fmt.Sprintf("%d 👤", roomInfo.NViewers))
+					c.titleTextView.SetText(fmt.Sprintf("%s", roomInfo.Title))
+				}
 
 			default:
-				log.Printf("Not implemented to handle message type: %s", msgObj.Type)
+				log.Printf("Not implemented to handle message type: %s", msg.Type)
 
 			}
 		}
@@ -128,12 +131,11 @@ func (c *Chat) Start() error {
 }
 
 func (c *Chat) requestServer(msgType message.MType) error {
-	reqMsg := message.Wrapper{
+	payload := message.Wrapper{
 		Type: msgType,
-		Data: []byte{},
+		Data: "",
 	}
-	payload, _ := json.Marshal(reqMsg)
-	return c.conn.WriteMessage(websocket.TextMessage, payload)
+	return c.conn.WriteJSON(payload)
 }
 
 func (c *Chat) initUI() error {
@@ -197,11 +199,10 @@ func (c *Chat) initUI() error {
 				}
 
 				chatList := []message.Chat{chat}
-				msg, err := message.Wrap(message.TChat, chatList)
+				payload, err := message.Wrap(message.TChat, chatList)
 
 				if err == nil {
-					payload, _ := json.Marshal(msg)
-					c.conn.WriteMessage(websocket.TextMessage, payload)
+					c.conn.WriteJSON(payload)
 				} else {
 					log.Printf("Failed to wrap message")
 				}
@@ -235,9 +236,8 @@ TStream - Streaming from terimnal
 			msg := message.RoomUpdate{
 				Title: newTitle,
 			}
-			wrappedMsg, _ := message.Wrap(message.TRoomUpdate, msg)
-			payload, _ := json.Marshal(wrappedMsg)
-			err := c.conn.WriteMessage(websocket.TextMessage, payload)
+			payload, _ := message.Wrap(message.TRoomUpdate, msg)
+			err := c.conn.WriteJSON(payload)
 			if err != nil {
 				log.Printf("Failed to set new title : %s", err)
 				c.addNoti(`[red]Faield to change title. Please try again[white]`)
@@ -281,20 +281,23 @@ func (c *Chat) connectWS() error {
 		Secret: GetSecret(CONFIG_PATH),
 	}
 
-	msg, _ := message.Wrap(message.TClientInfo, clientInfo)
-	payload, _ := json.Marshal(msg)
-	err = conn.WriteMessage(websocket.TextMessage, payload)
+	payload, _ := message.Wrap(message.TClientInfo, clientInfo)
+	err = conn.WriteJSON(payload)
 	if err != nil {
 		return fmt.Errorf("Failed to connect to server")
 	}
 
 	// Verify server's response
-	_, resp, err := conn.ReadMessage()
-	wrappedMsg, err := message.Unwrap(resp)
-	log.Printf("Got a message: %s", wrappedMsg)
-	if wrappedMsg.Type == message.TStreamerUnauthorized {
+	msg := message.Wrapper{}
+	err = conn.ReadJSON(&msg)
+	if err != nil {
+		log.Printf("Failed to read websocket message: %s", err)
+		return fmt.Errorf("Failed to read websocket message: %s", err)
+	}
+
+	if msg.Type == message.TStreamerUnauthorized {
 		return fmt.Errorf("Unauthorized connection")
-	} else if wrappedMsg.Type != message.TStreamerAuthorized {
+	} else if msg.Type != message.TStreamerAuthorized {
 		return fmt.Errorf("Expect connect confirmation from server")
 	}
 

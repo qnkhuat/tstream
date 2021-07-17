@@ -31,14 +31,14 @@ type Streamer struct {
 	secret     string
 	title      string
 	conn       *websocket.Conn
-	Out        chan []byte
-	In         chan []byte
+	Out        chan interface{}
+	In         chan interface{}
 }
 
 func New(clientAddr, serverAddr, username, title string) *Streamer {
 	pty := ptyMaster.New()
-	out := make(chan []byte, 256) // buffer 256 send requests
-	in := make(chan []byte, 256)  // buffer 256 send requests
+	out := make(chan interface{}, 256) // buffer 256 send requests
+	in := make(chan interface{}, 256)  // buffer 256 send requests
 
 	secret := GetSecret(CONFIG_PATH)
 
@@ -116,7 +116,7 @@ func (s *Streamer) Start() error {
 			}
 			// TODO: Don't close pty when connection failed
 			// This make users lose their work while streaming
-			err := s.conn.WriteMessage(websocket.TextMessage, msg)
+			err := s.conn.WriteJSON(msg)
 			if err != nil {
 				log.Printf("Failed to send message. Streamer closing: %s", err)
 				time.Sleep(cfg.STREAMER_RETRY_CONNECT_AFTER * time.Second)
@@ -135,9 +135,9 @@ func (s *Streamer) Start() error {
 	// Current for ping message only
 	// TODO: secure this, otherwise server can control streamer terminal
 	go func() {
-		_, msg, _ := s.conn.ReadMessage()
-		wrappedMsg, _ := message.Unwrap(msg)
-		log.Printf("Not implemented response for message: %s", wrappedMsg.Type)
+		msg := message.Wrapper{}
+		err := s.conn.ReadJSON(&msg)
+		log.Printf("Not implemented response for message: %s", msg.Type)
 		if err != nil {
 			log.Printf("Failed to receive message from server: %s", err)
 		}
@@ -210,23 +210,23 @@ func (s *Streamer) ConnectWS() error {
 		Secret: s.secret,
 	}
 
-	msg, _ := message.Wrap(message.TClientInfo, clientInfo)
-	payload, _ := json.Marshal(msg)
-	err = conn.WriteMessage(websocket.TextMessage, payload)
+	payload := message.Wrapper{
+		Type: message.TClientInfo,
+		Data: clientInfo,
+	}
+	err = conn.WriteJSON(payload)
 	if err != nil {
 		return fmt.Errorf("Failed to connect to server")
 	}
 
 	// Verify server's response
-	_, resp, err := conn.ReadMessage()
-	wrappedMsg, err := message.Unwrap(resp)
-	log.Printf("Got a message: %s", wrappedMsg)
-	if wrappedMsg.Type == message.TStreamerUnauthorized {
+	msg := message.Wrapper{}
+	err = conn.ReadJSON(&msg)
+	if msg.Type == message.TStreamerUnauthorized {
 		return fmt.Errorf("Unauthorized connection")
-	} else if wrappedMsg.Type != message.TStreamerAuthorized {
+	} else if msg.Type != message.TStreamerAuthorized {
 		return fmt.Errorf("Expect connect confirmation from server")
 	}
-
 	return nil
 }
 
@@ -248,20 +248,14 @@ func (s *Streamer) Write(data []byte) (int, error) {
 		Data: data,
 	}
 
-	payload, err := json.Marshal(msg)
-	if err != nil {
-		log.Printf("Failed to wrap message: %s", err)
-	}
-	s.Out <- payload
+	s.Out <- msg
 	return len(data), nil
 }
 
 func (s *Streamer) Winsize(rows, cols uint16) {
-	msg, err := message.Wrap(message.TWinsize, message.Winsize{Rows: rows, Cols: cols})
-	payload, err := json.Marshal(msg)
-	if err != nil {
-		log.Printf("Failed to wrap message: %s", err)
+	payload := message.Wrapper{
+		Type: message.TWinsize,
+		Data: message.Winsize{Rows: rows, Cols: cols},
 	}
-
 	s.Out <- payload
 }

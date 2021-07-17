@@ -7,7 +7,6 @@ package message
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 )
 
@@ -51,7 +50,7 @@ const (
 
 type Wrapper struct {
 	Type MType
-	Data []byte
+	Data interface{}
 }
 
 type Winsize struct {
@@ -117,41 +116,20 @@ func Unwrap(buff []byte) (Wrapper, error) {
 	return obj, err
 }
 
-// Unwrap the wrapper data as well
-func Unwrap2(buff []byte) (MType, interface{}, error) {
-	msg := Wrapper{}
-	err := json.Unmarshal(buff, &msg)
-	if err != nil {
-		return msg.Type, nil, err
-	}
-
-	var msgObj interface{}
-	switch msg.Type {
-	case TChat:
-		msgObj = Chat{}
-		err = json.Unmarshal(msg.Data, msgObj)
-
-	case TRequestClientInfo:
-		msgObj = ClientInfo{}
-		err = json.Unmarshal(msg.Data, msgObj)
-
-	default:
-		err = fmt.Errorf("Not implemented")
-	}
-
-	return msg.Type, msgObj, err
-}
-
-func Wrap(msgType MType, msgObject interface{}) (Wrapper, error) {
-
-	data, err := json.Marshal(msgObject)
-	if err != nil {
-		return Wrapper{}, err
-	}
+func Wrap(msgType MType, data interface{}) (Wrapper, error) {
 
 	msg := Wrapper{
 		Type: msgType,
 		Data: data,
 	}
 	return msg, nil
+}
+
+// convert a map to struct
+// data is a map
+// v is a reference to a typed variable
+func ToStruct(data interface{}, v interface{}) error {
+	dataByte, _ := json.Marshal(data)
+	err := json.Unmarshal(dataByte, v)
+	return err
 }

@@ -36,11 +36,13 @@ class WSTerminal extends React.Component<Props, {}> {
 
 
   componentDidMount() {
-    this.props.msgManager.sub(constants.MSG_TWRITE, (buffer: Uint8Array) => {
-      this.termRef.current?.writeUtf8(buffer);
+    this.props.msgManager.sub(constants.MSG_TWRITE, (buffer: string) => {
+      console.log("wstermianl got: ", buffer);
+      this.termRef.current?.write(buffer);
     })
 
     this.props.msgManager.sub(constants.MSG_TWINSIZE, (winsize: Winsize) => {
+      console.log("Seetting winsize to :", winsize);
       this.termRef.current?.resize(winsize.Cols, winsize.Rows)
       this.rescale();
     })
