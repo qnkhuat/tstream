@@ -2,9 +2,12 @@
 package streamer
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/gdamore/tcell/v2"
+	"github.com/gorilla/schema"
 	"github.com/gorilla/websocket"
+	"github.com/pion/webrtc/v3"
 	"github.com/qnkhuat/tstream/pkg/message"
 	"github.com/rivo/tview"
 	"log"
@@ -14,12 +17,15 @@ import (
 	"time"
 )
 
+var decoder = schema.NewDecoder()
+
 type Chat struct {
 	username         string
 	sessionId        string
 	serverAddr       string
 	color            string
-	conn             *websocket.Conn
+	wsConn           *websocket.Conn        // for chat and roominfo
+	peerConn         *webrtc.PeerConnection // for voice
 	app              *tview.Application
 	startedTime      time.Time
 	chatTextView     *tview.TextView
@@ -41,10 +47,8 @@ func NewChat(sessionId, serverAddr, username string) *Chat {
 	}
 }
 
-func (c *Chat) Start() error {
-	c.initUI()
-
-	err := c.connectWS()
+func (c *Chat) StartChatService() error {
+	conn, err := c.connectWS(message.RStreamerChat)
 	if err != nil {
 		log.Printf("Error: %s", err)
 		fmt.Printf("Failed to connect to server\n")
@@ -52,11 +56,12 @@ func (c *Chat) Start() error {
 		return err
 	}
 
-	// Receive
+	c.wsConn = conn
+
 	go func() {
 		for {
 			msg := message.Wrapper{}
-			err := c.conn.ReadJSON(&msg)
+			err := c.wsConn.ReadJSON(&msg)
 			if err != nil {
 				log.Printf("Failed to read message: %s", err)
 				c.Stop()
@@ -125,6 +130,157 @@ func (c *Chat) Start() error {
 			}
 		}
 	}()
+	return nil
+}
+
+func (c *Chat) StartVoiceService() error {
+	config := webrtc.Configuration{
+		ICEServers: []webrtc.ICEServer{{
+			URLs: []string{"stun:stun.l.google.com:19302"}},
+		},
+	}
+
+	peerConn, err := webrtc.NewPeerConnection(config)
+
+	wsConn, err := c.connectWS(message.RProducerRTC)
+	if err != nil {
+		log.Printf("Failed to start voice ws: %s", err)
+		return err
+	}
+
+	peerConn.OnConnectionStateChange(func(p webrtc.PeerConnectionState) {
+		switch p {
+
+		case webrtc.PeerConnectionStateFailed:
+			if err := peerConn.Close(); err != nil {
+				log.Print(err)
+			}
+
+		case webrtc.PeerConnectionStateClosed, webrtc.PeerConnectionStateDisconnected:
+			log.Printf("Close or disconnected")
+
+		case webrtc.PeerConnectionStateConnected:
+			log.Printf("Connected!!!!!!!!!!!")
+
+		default:
+			log.Printf("Not implemented: %s", p)
+		}
+
+	})
+
+	// Trickle ICE. Emit server candidate to client
+	peerConn.OnICECandidate(func(ice *webrtc.ICECandidate) {
+		if ice == nil {
+			return
+		}
+
+		candidate, err := json.Marshal(ice.ToJSON())
+		if err != nil {
+			log.Printf("Failed to decode ice candidate: %s", err)
+			return
+		}
+
+		payload := message.Wrapper{
+			Type: message.TRTC,
+			Data: message.RTC{
+				Event: message.RTCCandidate,
+				Data:  string(candidate),
+			}}
+
+		wsConn.WriteJSON(payload)
+	})
+
+	go func() {
+		for {
+			msg := message.Wrapper{}
+			err := wsConn.ReadJSON(&msg)
+			if err != nil {
+				log.Printf("Failed to read message: %s", err)
+				c.Stop()
+				return
+			}
+
+			if msg.Type != message.TRTC {
+				log.Printf("Expected RTC Event message, Got :%s", msg.Type)
+				continue
+			}
+
+			event := message.RTC{}
+			if err = message.ToStruct(msg.Data, &event); err != nil {
+				log.Printf("Failed to decode RTCevent message")
+				continue
+			}
+
+			switch eventType := event.Event; eventType {
+
+			case message.RTCOffer:
+				// set offer SDP as remote description
+				offer := webrtc.SessionDescription{}
+				if err := json.Unmarshal([]byte(event.Data), &offer); err != nil {
+					log.Println(err)
+					continue
+				}
+
+				if err := peerConn.SetRemoteDescription(offer); err != nil {
+					log.Printf("Failed to set remote description: %s", err)
+					continue
+				}
+
+				// send back SDP answer and set it as local description
+				answer, err := peerConn.CreateAnswer(nil)
+				if err != nil {
+					log.Printf("Failed to create Offer")
+					continue
+				}
+
+				if err := peerConn.SetLocalDescription(answer); err != nil {
+					log.Printf("Failed to set local description: %s", err)
+					continue
+				}
+
+				answerByte, _ := json.Marshal(answer)
+
+				payload := message.Wrapper{
+					Type: message.TRTC,
+					Data: message.RTC{
+						Event: message.RTCAnswer,
+						Data:  string(answerByte),
+					},
+				}
+				wsConn.WriteJSON(payload)
+
+			case message.RTCCandidate:
+				candidate := webrtc.ICECandidateInit{}
+				if err := json.Unmarshal([]byte(event.Data), &candidate); err != nil {
+					log.Println(err)
+					continue
+				}
+
+				if err := peerConn.AddICECandidate(candidate); err != nil {
+					log.Println(err)
+					continue
+				}
+
+			default:
+				log.Printf("Not implemented to handle message type: %s", msg.Type)
+
+			}
+		}
+	}()
+	return nil
+
+}
+
+func (c *Chat) Start() error {
+	c.initUI()
+
+	if err := c.StartChatService(); err != nil {
+		log.Printf("Failed to start chat service : %s", err)
+	}
+
+	if err := c.StartVoiceService(); err != nil {
+		log.Printf("Failed to start voice service : %s", err)
+	}
 
 	if err := c.app.EnableMouse(true).Run(); err != nil {
 		panic(err)
@@ -138,7 +294,7 @@ func (c *Chat) requestServer(msgType message.MType) error {
 		Type: msgType,
 		Data: "",
 	}
-	return c.conn.WriteJSON(payload)
+	return c.wsConn.WriteJSON(payload)
 }
 
 func (c *Chat) initUI() error {
@@ -203,7 +359,7 @@ func (c *Chat) initUI() error {
 
 				chatList := []message.Chat{chat}
 				payload := message.Wrapper{Type: message.TChat, Data: chatList}
-				c.conn.WriteJSON(payload)
+				c.wsConn.WriteJSON(payload)
 				c.addChatMsgs(chatList)
 				messageInput.SetText("")
 			}
@@ -250,7 +406,7 @@ TStream - Streaming from terimnal
 				Title: newTitle,
 			}
 			payload := message.Wrapper{Type: message.TRoomUpdate, Data: roomUpdate}
-			err := c.conn.WriteJSON(payload)
+			err := c.wsConn.WriteJSON(payload)
 			if err != nil {
 				log.Printf("Failed to set new title : %s", err)
 				c.addNoti(`[red]Failed to change title. Please try again[white]`)
@@ -280,33 +436,31 @@ TStream - Streaming from terimnal
 	return nil
 }
 
-func (c *Chat) connectWS() error {
-	scheme := "wss"
-	if strings.HasPrefix(c.serverAddr, "http://") {
-		scheme = "ws"
-	}
+func (c *Chat) ConnctWSVoice() error {
+	return nil
+}
 
-	host := strings.Replace(strings.Replace(c.serverAddr, "http://", "", 1), "https://", "", 1)
-	url := url.URL{Scheme: scheme, Host: host, Path: fmt.Sprintf("/ws/%s", c.username)}
-	log.Printf("Openning socket at %s", url.String())
+func (c *Chat) connectWS(role message.CRole) (*websocket.Conn, error) {
+	url := getWSUrl(c.serverAddr, c.username)
 
-	conn, _, err := websocket.DefaultDialer.Dial(url.String(), nil)
+	log.Printf("Openning socket at %s", url)
+
+	conn, _, err := websocket.DefaultDialer.Dial(url, nil)
 	if err != nil {
-		return fmt.Errorf("Failed to connected to websocket: %s", err)
+		return conn, fmt.Errorf("Failed to connected to websocket: %s", err)
 	}
-	c.conn = conn
 
 	// send client info so server can verify
 	clientInfo := message.ClientInfo{
 		Name:   c.username,
-		Role:   message.RStreamerChat,
+		Role:   role,
 		Secret: GetSecret(CONFIG_PATH),
 	}
 
 	payload := message.Wrapper{Type: message.TClientInfo, Data: clientInfo}
 	err = conn.WriteJSON(payload)
 	if err != nil {
-		return fmt.Errorf("Failed to connect to server")
+		return conn, fmt.Errorf("Failed to connect to server")
 	}
 
 	// Verify server's response
@@ -314,16 +468,16 @@ func (c *Chat) connectWS() error {
 	err = conn.ReadJSON(&msg)
 	if err != nil {
 		log.Printf("Failed to read websocket message: %s", err)
-		return fmt.Errorf("Failed to read websocket message: %s", err)
+		return conn, fmt.Errorf("Failed to read websocket message: %s", err)
 	}
 
 	if msg.Type == message.TStreamerUnauthorized {
-		return fmt.Errorf("Unauthorized connection")
+		return conn, fmt.Errorf("Unauthorized connection")
 	} else if msg.Type != message.TStreamerAuthorized {
-		return fmt.Errorf("Expect connect confirmation from server")
+		return conn, fmt.Errorf("Expect connect confirmation from server")
 	}
 
-	return nil
+	return conn, nil
 }
 
 func (c *Chat) toggleMute() {
@@ -370,7 +524,8 @@ func (c *Chat) addChatMsgs(chatList []message.Chat) {
 }
 
 func (c *Chat) Stop() {
-	c.conn.Close()
+	c.wsConn.Close()
+	c.peerConn.Close()
 	c.app.Stop()
 }
 
@@ -379,9 +534,19 @@ func FormatChat(name, content, color string) string {
 		return ""
 	}
 	content = strings.TrimPrefix(content, "\n")
-	log.Printf("content: %s|", content)
 	if content[len(content)-1] != '\n' {
 		content += "\n"
 	}
 	return fmt.Sprintf("[%s]%s[white]: %s", color, name, content)
+}
+
+func getWSUrl(serverAddr, username string) string {
+	scheme := "wss"
+	if strings.HasPrefix(serverAddr, "http://") {
+		scheme = "ws"
+	}
+
+	host := strings.Replace(strings.Replace(serverAddr, "http://", "", 1), "https://", "", 1)
+	url := url.URL{Scheme: scheme, Host: host, Path: fmt.Sprintf("/ws/%s", username)}
+	return url.String()
 }
