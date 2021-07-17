@@ -175,13 +175,9 @@ func (r *Room) AddClient(ID string, role message.CRole, conn *websocket.Conn) er
 		r.ReadAndHandleClientMessage(ID) // Blocking call
 		return nil
 
-	case message.RProducerRTC:
+	case message.RProducerRTC, message.RConsumerRTC:
 		go cl.Start()
-		r.sfu.AddProducer(cl) // Blocking call
-
-	case message.RConsumerRTC:
-		go cl.Start()
-		r.sfu.AddConsumer(cl) // Blocking call
+		r.sfu.AddPeer(cl) // Blocking call
 
 	default:
 		return fmt.Errorf("Invalid client role: %s", role)
@@ -204,6 +200,7 @@ func (r *Room) RemoveClient(ID string) error {
 
 // Wait for request from streamer and broadcast those message to clients
 func (r *Room) Start() {
+	r.sfu.Start()
 	for {
 		msg := message.Wrapper{}
 		err := r.streamer.ReadJSON(&msg)
@@ -389,11 +386,12 @@ func (r *Room) Broadcast(msg message.Wrapper, roles []message.CRole, IDExclude [
 func (r *Room) Stop(status message.RoomStatus) {
 	log.Printf("Stopping room: %s, with Status: %s", r.name, status)
 	r.status = status
+	r.lock.Lock()
 	for id, client := range r.clients {
 		client.Close()
 		r.RemoveClient(id)
 	}
-	r.lock.Lock()
+	r.sfu.Stop()
 	r.streamer.Close()
 	r.lock.Unlock()
 }

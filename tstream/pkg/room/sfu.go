@@ -12,43 +12,53 @@ package room
 import (
 	"encoding/json"
 	"github.com/google/uuid"
+	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v3"
 	"github.com/qnkhuat/tstream/pkg/message"
 	"log"
 	"sync"
+	"time"
 )
 
-type participant struct {
+type Participant struct {
 	peer   *webrtc.PeerConnection
 	client *Client // contain role and websocket connection
 }
 
 type SFU struct {
-	lock        sync.RWMutex
-	trackLocals map[string]*webrtc.TrackLocalStaticRTP
-	consumers   map[string]*participant
-	producers   map[string]*participant
+	lock         sync.RWMutex
+	trackLocals  map[string]*webrtc.TrackLocalStaticRTP
+	participants map[string]*Participant
 }
 
 func NewSFU() *SFU {
 	trackLocals := map[string]*webrtc.TrackLocalStaticRTP{}
-	consumers := map[string]*participant{}
-	producers := map[string]*participant{}
-
+	participants := map[string]*Participant{} // contain both producers and consumers
 	return &SFU{
-		trackLocals: trackLocals,
-		consumers:   consumers,
-		producers:   producers,
+		trackLocals:  trackLocals,
+		participants: participants,
 	}
 }
 
-func (s *SFU) AddProducer(cl *Client) error {
+func (s *SFU) Start() {
+	// request a keyframe every 3 seconds
+	go func() {
+		for range time.NewTicker(time.Second * 3).C {
+			s.sendKeyFrame()
+		}
+	}()
+}
+
+// TODO : break down this func
+func (s *SFU) AddPeer(cl *Client) error {
+
 	peerConn, err := webrtc.NewPeerConnection(webrtc.Configuration{})
 	if err != nil {
 		log.Printf("Failed to init peer connection: %s", err)
 		return err
 	}
 	defer peerConn.Close()
+	defer cl.Close()
 
 	// Accept one audio and one video track incoming
 	for _, typ := range []webrtc.RTPCodecType{webrtc.RTPCodecTypeVideo, webrtc.RTPCodecTypeAudio} {
@@ -60,23 +70,22 @@ func (s *SFU) AddProducer(cl *Client) error {
 		}
 	}
 
-	log.Printf("About to add producer")
-
-	//s.lock.Lock()
-	producerID := s.newProducerID()
-	s.producers[producerID] = &participant{
+	participant := &Participant{
 		peer:   peerConn,
 		client: cl,
 	}
-	//s.lock.Unlock()
+	participantID := s.newParticipantID()
+	s.lock.Lock()
+	s.participants[participantID] = participant
+	s.lock.Unlock()
 
 	// Trickle ICE. Emit server candidate to client
-	peerConn.OnICECandidate(func(i *webrtc.ICECandidate) {
-		if i == nil {
+	peerConn.OnICECandidate(func(ice *webrtc.ICECandidate) {
+		if ice == nil {
 			return
 		}
 
-		candidate, err := json.Marshal(i.ToJSON())
+		candidate, err := json.Marshal(ice.ToJSON())
 		if err != nil {
 			log.Println(err)
 			return
@@ -88,242 +97,66 @@ func (s *SFU) AddProducer(cl *Client) error {
 				Event: message.RTCCandidate,
 				Data:  string(candidate),
 			}}
-		log.Printf("Sent candidate")
 
 		cl.Out <- payload
 	})
 
-	// If PeerConnection is closed remove it from global list
 	peerConn.OnConnectionStateChange(func(p webrtc.PeerConnectionState) {
 		switch p {
+
 		case webrtc.PeerConnectionStateFailed:
 			if err := peerConn.Close(); err != nil {
 				log.Print(err)
 			}
 
-		case webrtc.PeerConnectionStateClosed:
-			s.removeProducer(producerID)
+		case webrtc.PeerConnectionStateClosed, webrtc.PeerConnectionStateDisconnected:
+			s.removeParticipant(participantID)
+
+		case webrtc.PeerConnectionStateConnected:
+			// nothing yet
 
 		default:
 			log.Printf("Not implemented: %s", p)
 		}
+
 	})
 
-	peerConn.OnTrack(func(t *webrtc.TrackRemote, _ *webrtc.RTPReceiver) {
-		log.Printf("Got a new track: %s", t.Kind())
-		// Create a track to fan out our incoming video to all peers
-		trackLocal := s.addTrack(t)
-		defer s.removeTrack(t.ID())
-
-		buf := make([]byte, 1500)
-		for {
-			i, _, err := t.Read(buf)
-			log.Printf("(Track: %s) Reading: %d", trackLocal.Kind(), len(buf))
-			if err != nil {
-				return
-			}
-
-			if _, err = trackLocal.Write(buf[:i]); err != nil {
-				return
-			}
-		}
-	})
-
-	// send offer
-	offer, err := peerConn.CreateOffer(nil)
-	if err != nil {
-		return err
-	}
-
-	if err = peerConn.SetLocalDescription(offer); err != nil {
-		return err
-	}
-
-	offerByte, err := json.Marshal(offer)
-	if err != nil {
-		return err
-	}
-
-	offerMsg := message.RTC{
-		Event: message.RTCOffer,
-		Data:  string(offerByte),
-	}
-	payload := message.Wrapper{
-		Type: message.TRTC,
-		Data: offerMsg,
-	}
-	cl.Out <- payload
-	log.Printf("Offer sent")
-
-	for {
-
-		msg := <-cl.In
-		if msg.Type != message.TRTC {
-			log.Printf("not RTC message: %s", msg.Type)
-			continue
-		}
-
-		rtcMsg := message.RTC{}
-		if err := message.ToStruct(msg.Data, &rtcMsg); err != nil {
-			log.Printf("Failed to decode RTC message: %v", msg.Data)
-			continue
-		}
-
-		log.Printf("Got RTC Event: %s", rtcMsg.Event)
-		switch rtcMsg.Event {
-		case message.RTCCandidate:
-			candidate := webrtc.ICECandidateInit{}
-			if err := json.Unmarshal([]byte(rtcMsg.Data), &candidate); err != nil {
-				log.Println(err)
-				return err
-			}
-
-			if err := peerConn.AddICECandidate(candidate); err != nil {
-				log.Println(err)
-				return err
-			}
-		case message.RTCAnswer:
-			answer := webrtc.SessionDescription{}
-			if err := json.Unmarshal([]byte(rtcMsg.Data), &answer); err != nil {
-				log.Println(err)
-				return err
-			}
-
-			if err := peerConn.SetRemoteDescription(answer); err != nil {
-				log.Println(err)
-				return err
-			}
-		}
-
-	}
-
-	return nil
-}
-
-func (s *SFU) AddConsumer(cl *Client) error {
-	peerConn, err := webrtc.NewPeerConnection(webrtc.Configuration{})
-	if err != nil {
-		log.Printf("Failed to init peer connection: %s", err)
-		return err
-	}
-	defer peerConn.Close()
-
-	log.Printf("About to add consumer")
-
-	//s.lock.Lock()
-	ID := s.newConsumerID()
-	s.producers[ID] = &participant{
-		peer:   peerConn,
-		client: cl,
-	}
-	//s.lock.Unlock()
-	// Accept one audio and one video track incoming
-	for _, typ := range []webrtc.RTPCodecType{webrtc.RTPCodecTypeVideo, webrtc.RTPCodecTypeAudio} {
-		if _, err := peerConn.AddTransceiverFromKind(typ, webrtc.RTPTransceiverInit{
-			Direction: webrtc.RTPTransceiverDirectionRecvonly,
-		}); err != nil {
-			log.Printf("Failed to add transeiver: %s", err)
-			return err
-		}
-	}
-
-	// Trickle ICE. Emit server candidate to client
-	peerConn.OnICECandidate(func(i *webrtc.ICECandidate) {
-		if i == nil {
-			return
-		}
-
-		candidate, err := json.Marshal(i.ToJSON())
-		if err != nil {
-			log.Println(err)
-			return
-		}
-
-		payload := message.Wrapper{
-			Type: message.TRTC,
-			Data: message.RTC{
-				Event: message.RTCCandidate,
-				Data:  string(candidate),
-			}}
-		log.Printf("Sent candidate")
-
-		cl.Out <- payload
-	})
-
-	// If PeerConnection is closed remove it from global list
-	peerConn.OnConnectionStateChange(func(p webrtc.PeerConnectionState) {
-		switch p {
-		case webrtc.PeerConnectionStateFailed:
-			if err := peerConn.Close(); err != nil {
-				log.Print(err)
-			}
-
-		case webrtc.PeerConnectionStateClosed:
-		//c.removeProducer(producerID)
-
-		default:
-			log.Printf("Not implemented: %s", p)
-		}
-	})
-
-	peerConn.OnTrack(func(t *webrtc.TrackRemote, _ *webrtc.RTPReceiver) {
-		log.Printf("Got a new track from consumer: %s", t.Kind())
-		log.Printf("Consumer tried to addtrack. Nice try")
-		//// Create a track to fan out our incoming video to all peers
-		//trackLocal := s.addTrack(t)
-		//defer s.removeTrack(t.ID())
-
-		//buf := make([]byte, 1500)
-		//for {
-		//	i, _, err := t.Read(buf)
-		//	log.Printf("(Track: %s) Consumer Reading: %d", trackLocal.Kind(), len(buf))
-		//	if err != nil {
-		//		return
-		//	}
-
-		//	if _, err = trackLocal.Write(buf[:i]); err != nil {
-		//		return
-		//	}
-		//}
-	})
-
+	// Add all current tracks to this peer
 	for _, track := range s.trackLocals {
 		if _, err := peerConn.AddTrack(track); err != nil {
-			log.Printf("Failed to add track")
+			log.Printf("Failed to add track: %s", err)
 		}
 	}
 
-	// send offer
-	offer, err := peerConn.CreateOffer(nil)
-	if err != nil {
-		return err
+	// only producer can broadcast
+	if cl.Role() == message.RProducerRTC {
+		peerConn.OnTrack(func(t *webrtc.TrackRemote, _ *webrtc.RTPReceiver) {
+			// Create a track to fan out our incoming video to all peerse
+			trackLocal := s.addLocalTrack(t)
+			defer s.removeLocalTrack(t.ID())
+
+			buf := make([]byte, 1500)
+			for {
+				i, _, err := t.Read(buf)
+				//log.Printf("(Track: %s) Reading: %d", trackLocal.Kind(), len(buf))
+				if err != nil {
+					return
+				}
+
+				if _, err = trackLocal.Write(buf[:i]); err != nil {
+					return
+				}
+			}
+		})
 	}
 
-	if err = peerConn.SetLocalDescription(offer); err != nil {
-		return err
-	}
-
-	offerByte, err := json.Marshal(offer)
-	if err != nil {
-		return err
-	}
-
-	offerMsg := message.RTC{
-		Event: message.RTCOffer,
-		Data:  string(offerByte),
-	}
-	payload := message.Wrapper{
-		Type: message.TRTC,
-		Data: offerMsg,
-	}
-	cl.Out <- payload
-	log.Printf("Offer sent")
+	err = s.sendOffer(participant)
 
 	for {
-
 		msg := <-cl.In
+
 		if msg.Type != message.TRTC {
-			log.Printf("not RTC message: %s", msg.Type)
+			log.Printf("Expected RTCEvent, Got: %s", msg.Type)
 			continue
 		}
 
@@ -333,8 +166,8 @@ func (s *SFU) AddConsumer(cl *Client) error {
 			continue
 		}
 
-		log.Printf("Got RTC Event: %s", rtcMsg.Event)
 		switch rtcMsg.Event {
+
 		case message.RTCCandidate:
 			candidate := webrtc.ICECandidateInit{}
 			if err := json.Unmarshal([]byte(rtcMsg.Data), &candidate); err != nil {
@@ -346,6 +179,7 @@ func (s *SFU) AddConsumer(cl *Client) error {
 				log.Println(err)
 				return err
 			}
+
 		case message.RTCAnswer:
 			answer := webrtc.SessionDescription{}
 			if err := json.Unmarshal([]byte(rtcMsg.Data), &answer); err != nil {
@@ -357,6 +191,8 @@ func (s *SFU) AddConsumer(cl *Client) error {
 				log.Println(err)
 				return err
 			}
+		default:
+			log.Printf("Invalid RTCEvent: %s", rtcMsg.Event)
 		}
 
 	}
@@ -364,7 +200,79 @@ func (s *SFU) AddConsumer(cl *Client) error {
 	return nil
 }
 
-func (s *SFU) addTrack(t *webrtc.TrackRemote) *webrtc.TrackLocalStaticRTP {
+// TODO: add filter so that only sending offer for who need to update
+func (s *SFU) syncPeers() {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	attemptSync := func() (tryAgain bool) {
+		for _, participant := range s.participants {
+
+			// map of sender we already are seanding, so we don't double send
+			existingSenders := map[string]bool{}
+
+			for _, sender := range participant.peer.GetSenders() {
+				if sender.Track() == nil {
+					continue
+				}
+
+				existingSenders[sender.Track().ID()] = true
+
+				// If we have a RTPSender that doesn't map to a existing track remove and signal
+				if _, ok := s.trackLocals[sender.Track().ID()]; !ok {
+					if err := participant.peer.RemoveTrack(sender); err != nil {
+						return true
+					}
+				}
+			}
+
+			// Don't receive videos we are sending, make sure we don't have loopback
+			for _, receiver := range participant.peer.GetReceivers() {
+				if receiver.Track() == nil {
+					continue
+				}
+
+				existingSenders[receiver.Track().ID()] = true
+			}
+
+			// Add all track we aren't sending yet to the PeerConnection
+			for trackID := range s.trackLocals {
+				if _, ok := existingSenders[trackID]; !ok {
+					if _, err := participant.peer.AddTrack(s.trackLocals[trackID]); err != nil {
+						return true
+					}
+				}
+			}
+
+			err := s.sendOffer(participant)
+			if err != nil {
+				return true
+			}
+
+			return false
+		}
+		return
+	}
+
+	for syncAttempt := 0; ; syncAttempt++ {
+		if syncAttempt == 25 {
+			// Release the lock and attempt a sync in 3 seconds. We might be blocking a RemoveTrack or AddTrack
+			go func() {
+				time.Sleep(time.Second * 3)
+				s.syncPeers()
+			}()
+			return
+		}
+
+		if !attemptSync() {
+			break
+		}
+	}
+
+	return
+}
+
+func (s *SFU) addLocalTrack(t *webrtc.TrackRemote) *webrtc.TrackLocalStaticRTP {
 	s.lock.Lock()
 
 	// Create a new TrackLocal with the same codec as our incoming
@@ -374,40 +282,84 @@ func (s *SFU) addTrack(t *webrtc.TrackRemote) *webrtc.TrackLocalStaticRTP {
 	}
 
 	s.trackLocals[t.ID()] = trackLocal
+	s.lock.Unlock()
 
+	// sync this new track with all current peers
+	s.syncPeers()
 	return trackLocal
 }
 
-func (s *SFU) removeTrack(id string) {
+func (s *SFU) removeLocalTrack(id string) {
 	s.lock.Lock()
 	delete(s.trackLocals, id)
-	//s.updateProducers()
 	s.lock.Unlock()
+	s.syncPeers()
 }
 
-func (s *SFU) newConsumerID() string {
-	var id string
+func (s *SFU) newParticipantID() string {
 	for {
-		id = uuid.New().String()
-		if _, ok := s.consumers[id]; !ok {
+		id := uuid.New().String()
+		if _, ok := s.participants[id]; !ok {
 			return id
 		}
 	}
 }
 
-func (s *SFU) newProducerID() string {
-	var id string
-	for {
-		id = uuid.New().String()
-		if _, ok := s.consumers[id]; !ok {
-			return id
-		}
-	}
-}
-
-func (s *SFU) removeProducer(id string) {
+func (s *SFU) removeParticipant(id string) {
 	s.lock.Lock()
-	delete(s.producers, id)
+	delete(s.participants, id)
 	s.lock.Unlock()
+	s.syncPeers()
 	return
+}
+
+func (s *SFU) sendOffer(participant *Participant) error {
+	offer, err := participant.peer.CreateOffer(nil)
+	if err != nil {
+		return err
+	}
+
+	if err = participant.peer.SetLocalDescription(offer); err != nil {
+		return err
+	}
+
+	offerByte, err := json.Marshal(offer)
+	if err != nil {
+		return err
+	}
+	payload := message.Wrapper{
+		Type: message.TRTC,
+		Data: message.RTC{
+			Event: message.RTCOffer,
+			Data:  string(offerByte),
+		},
+	}
+	participant.client.Out <- payload
+	return nil
+}
+
+func (s *SFU) Stop() {
+	for _, participant := range s.participants {
+		participant.peer.Close()
+		participant.client.Close()
+	}
+}
+
+func (s *SFU) sendKeyFrame() {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	for _, participant := range s.participants {
+		for _, receiver := range participant.peer.GetReceivers() {
+			if receiver.Track() == nil {
+				continue
+			}
+
+			_ = participant.peer.WriteRTCP([]rtcp.Packet{
+				&rtcp.PictureLossIndication{
+					MediaSSRC: uint32(receiver.Track().SSRC()),
+				},
+			})
+		}
+	}
 }
