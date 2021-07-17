@@ -8,6 +8,7 @@ import * as constants from "../lib/constants";
 import dayjs from "dayjs";
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 
+import PersonIcon from '@material-ui/icons/Person';
 dayjs.extend(customParseFormat);
 
 interface Props {
@@ -35,7 +36,6 @@ const StreamPreview: FC<Props> = ({ title, wsUrl, streamerID, nViewers, startedT
       Data: {Role: "Viewer"}
     });
     util.sendWhenConnected(ws, payload);
-    console.log("Send clientinfo");
 
     const tempMsg = new PubSub();
     ws.onmessage = (ev: MessageEvent) => {
@@ -91,7 +91,7 @@ const StreamPreview: FC<Props> = ({ title, wsUrl, streamerID, nViewers, startedT
         <p className="font-semibold">{title}</p>
         <div className="flex justify-between">
           <p className="text-md">@{streamerID}</p>
-          <p className="text-md hidden">{nViewers} Viewers</p>
+          <p className="text-md font-bold"> <PersonIcon/> {nViewers}</p>
         </div>
       </div>
     </div>

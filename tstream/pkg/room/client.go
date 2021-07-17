@@ -49,7 +49,6 @@ func (v *Client) Start() {
 	go func() {
 		for {
 			msg, ok := <-v.Out
-			log.Printf("sent message from client: %s", msg.Type)
 			if ok {
 				err := v.conn.WriteJSON(msg)
 				if err != nil {
@@ -67,7 +66,6 @@ func (v *Client) Start() {
 	for {
 		msg := message.Wrapper{}
 		err := v.conn.ReadJSON(&msg)
-		log.Printf("got message from client: %s", msg.Type)
 		if err == nil {
 			v.In <- msg // Will be handled in Room
 		} else {

@@ -137,8 +137,8 @@ func (s *SFU) AddPeer(cl *Client) error {
 
 			buf := make([]byte, 1500)
 			for {
+				log.Printf("%s", trackLocal.Kind())
 				i, _, err := t.Read(buf)
-				//log.Printf("(Track: %s) Reading: %d", trackLocal.Kind(), len(buf))
 				if err != nil {
 					return
 				}

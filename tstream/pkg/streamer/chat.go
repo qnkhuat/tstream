@@ -26,6 +26,8 @@ type Chat struct {
 	nviewersTextView *tview.TextView
 	uptimeTextView   *tview.TextView
 	titleTextView    *tview.TextView
+	muteBtn          *tview.Button
+	mute             bool
 }
 
 func NewChat(sessionId, serverAddr, username string) *Chat {
@@ -35,6 +37,7 @@ func NewChat(sessionId, serverAddr, username string) *Chat {
 		serverAddr: serverAddr,
 		color:      "red",
 		app:        tview.NewApplication(),
+		mute:       true,
 	}
 }
 
@@ -185,7 +188,7 @@ func (c *Chat) initUI() error {
 		SetDoneFunc(func(key tcell.Key) {
 			text := messageInput.GetText()
 			if len(text) > 0 && text[0] == '/' {
-				command := strings.TrimSpace(strings.ToLower(text[1:]))
+				command := strings.TrimSpace(text[1:])
 				c.HandleCommand(command)
 				messageInput.SetText("")
 				return
@@ -207,9 +210,22 @@ func (c *Chat) initUI() error {
 
 		})
 
+		// Default is mute
+	c.muteBtn = tview.NewButton("🔇").
+		SetSelectedFunc(func() {
+			c.toggleMute()
+		})
+	c.muteBtn.SetBackgroundColor(tcell.ColorBlack)
+
+	footer := tview.NewGrid().
+		SetRows(1).
+		SetColumns(3, 0).
+		AddItem(c.muteBtn, 0, 0, 1, 1, 0, 0, false).
+		AddItem(messageInput, 0, 1, 1, 1, 0, 0, true)
+
 	layout.AddItem(header, 0, 0, 1, 1, 0, 0, false).
 		AddItem(c.chatTextView, 1, 0, 1, 1, 0, 0, false).
-		AddItem(messageInput, 2, 0, 1, 1, 0, 0, true)
+		AddItem(footer, 2, 0, 1, 1, 0, 0, true)
 
 	c.app.SetRoot(layout, true)
 	return nil
@@ -223,6 +239,8 @@ func (c *Chat) HandleCommand(command string) error {
 TStream - Streaming from terimnal
 
 [green]/title[yellow] title[white] - to change stream title 
+[green]/mute[white] - to turn on microphone
+[green]/unmute[white] - to turn off microphone
 [green]/exit[white] - to exit chat room`)
 
 	case "title":
@@ -235,12 +253,21 @@ TStream - Streaming from terimnal
 			err := c.conn.WriteJSON(payload)
 			if err != nil {
 				log.Printf("Failed to set new title : %s", err)
-				c.addNoti(`[red]Faield to change title. Please try again[white]`)
+				c.addNoti(`[red]Failed to change title. Please try again[white]`)
 			} else {
 				c.addNoti(fmt.Sprintf(`[yellow]Changed room title to: %s[white]`, newTitle))
 			}
 		} else {
 			c.addNoti(`[yellow]/title : no title found[white]`)
+		}
+
+	case "mute":
+		if !c.mute {
+			c.toggleMute()
+		}
+	case "unmute":
+		if c.mute {
+			c.toggleMute()
 		}
 
 	case "exit":
@@ -260,7 +287,7 @@ func (c *Chat) connectWS() error {
 	}
 
 	host := strings.Replace(strings.Replace(c.serverAddr, "http://", "", 1), "https://", "", 1)
-	url := url.URL{Scheme: scheme, Host: host, Path: fmt.Sprintf("/ws/%s/streamer", c.username)}
+	url := url.URL{Scheme: scheme, Host: host, Path: fmt.Sprintf("/ws/%s", c.username)}
 	log.Printf("Openning socket at %s", url.String())
 
 	conn, _, err := websocket.DefaultDialer.Dial(url.String(), nil)
@@ -297,6 +324,18 @@ func (c *Chat) connectWS() error {
 	}
 
 	return nil
+}
+
+func (c *Chat) toggleMute() {
+	c.mute = !c.mute
+	if c.mute {
+		c.muteBtn.SetLabel("🔇")
+		c.addNoti(`[yellow]Microphone: On[white]`)
+	} else {
+		c.muteBtn.SetLabel("🔈")
+		c.addNoti(`[yellow]Microphone: Off[white]`)
+	}
+
 }
 
 func (c *Chat) addNoti(msg string) {
