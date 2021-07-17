@@ -199,13 +199,8 @@ func (c *Chat) initUI() error {
 				}
 
 				chatList := []message.Chat{chat}
-				payload, err := message.Wrap(message.TChat, chatList)
-
-				if err == nil {
-					c.conn.WriteJSON(payload)
-				} else {
-					log.Printf("Failed to wrap message")
-				}
+				payload := message.Wrapper{Type: message.TChat, Data: chatList}
+				c.conn.WriteJSON(payload)
 				c.addChatMsgs(chatList)
 				messageInput.SetText("")
 			}
@@ -233,10 +228,10 @@ TStream - Streaming from terimnal
 	case "title":
 		if len(args) > 1 {
 			newTitle := strings.Trim(strings.Join(args[1:], " "), "\"")
-			msg := message.RoomUpdate{
+			roomUpdate := message.RoomUpdate{
 				Title: newTitle,
 			}
-			payload, _ := message.Wrap(message.TRoomUpdate, msg)
+			payload := message.Wrapper{Type: message.TRoomUpdate, Data: roomUpdate}
 			err := c.conn.WriteJSON(payload)
 			if err != nil {
 				log.Printf("Failed to set new title : %s", err)
@@ -281,7 +276,7 @@ func (c *Chat) connectWS() error {
 		Secret: GetSecret(CONFIG_PATH),
 	}
 
-	payload, _ := message.Wrap(message.TClientInfo, clientInfo)
+	payload := message.Wrapper{Type: message.TClientInfo, Data: clientInfo}
 	err = conn.WriteJSON(payload)
 	if err != nil {
 		return fmt.Errorf("Failed to connect to server")

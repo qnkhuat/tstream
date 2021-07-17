@@ -36,7 +36,7 @@ const StreamPreview: FC<Props> = ({ title, wsUrl, streamerID, nViewers, startedT
 
       if (msg.Type === constants.MSG_TWRITE) {
 
-        var buffer = base64.str2ab(msg.Data)
+        let buffer = base64.str2ab(JSON.parse(window.atob(msg.Data)).Data);
         tempMsg.pub(msg.Type, buffer);
 
       } else if (msg.Type === constants.MSG_TWINSIZE) {

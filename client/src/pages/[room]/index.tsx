@@ -153,12 +153,11 @@ class Room extends React.Component<Props, State> {
 
       if (msg.Type === constants.MSG_TWRITE) {
 
-        let buffer = base64.str2ab(msg.Data);
+        let buffer = base64.str2ab(JSON.parse(window.atob(msg.Data)).Data);
         msgManager.pub(msg.Type, buffer);
 
       } else if (msg.Type === constants.MSG_TWINSIZE) {
 
-        console.log("Got winsize message: ", msg);
         msgManager.pub(msg.Type, msg.Data);
 
       } else if (msg.Type === constants.MSG_TCHAT) {

@@ -58,6 +58,10 @@ type Winsize struct {
 	Cols uint16
 }
 
+type TermWrite struct {
+	Data []byte
+}
+
 type Chat struct {
 	Name    string
 	Content string
@@ -116,13 +120,12 @@ func Unwrap(buff []byte) (Wrapper, error) {
 	return obj, err
 }
 
-func Wrap(msgType MType, data interface{}) (Wrapper, error) {
-
+func Wrap(msgType MType, data interface{}) Wrapper {
 	msg := Wrapper{
 		Type: msgType,
 		Data: data,
 	}
-	return msg, nil
+	return msg
 }
 
 // convert a map to struct

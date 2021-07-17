@@ -27,7 +27,6 @@ var httpUpgrader = websocket.Upgrader{
 }
 
 var decoder = schema.NewDecoder()
-var emptyByteArray []byte
 
 const (
 	// Time to wait before force close on connection.
@@ -195,13 +194,13 @@ func (s *Server) handleWSStreamer(w http.ResponseWriter, r *http.Request) {
 
 	if clientInfo.Secret != room.Secret() {
 		log.Printf("Unauthorized streamer connection")
-		payload, _ := message.Wrap(message.TStreamerUnauthorized, emptyByteArray)
+		payload := message.Wrapper{Type: message.TStreamerAuthorized, Data: ""}
 		conn.WriteJSON(payload)
 		time.Sleep(CLOSE_GRACE_PERIOD * time.Second)
 		return
 	} else {
 		// Connection is authorized
-		payload, _ := message.Wrap(message.TStreamerAuthorized, emptyByteArray)
+		payload := message.Wrapper{Type: message.TStreamerAuthorized, Data: ""}
 		conn.WriteJSON(payload)
 
 		switch clientInfo.Role {

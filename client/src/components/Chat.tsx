@@ -228,6 +228,7 @@ class Chat extends React.Component<Props, State> {
       }
 
     } else {
+      if (tempMsg == "") return;
       let data = {
         Name: this.state.userConfig.name,
         Content: tempMsg,

@@ -186,15 +186,12 @@ func (r *Room) Start() {
 	for {
 		msg := message.Wrapper{}
 		err := r.streamer.ReadJSON(&msg)
-		log.Printf("got message: %v", msg)
 
 		if err != nil {
 			log.Printf("Failed to receive message from streamer: %s. Closing. Error: %s", r.name, err)
 			r.streamer.Close()
 			return
 		}
-
-		log.Printf("Server got message: %s", msg.Type)
 
 		switch msgType := msg.Type; msgType {
 		case message.TWinsize:
@@ -275,36 +272,43 @@ func (r *Room) ReadAndHandleClientMessage(ID string) {
 
 		case message.TRequestCacheChat:
 
-			msg, err := message.Wrap(message.TChat, r.cacheChat)
-			if err == nil {
-				client.Out <- msg
-			} else {
-				log.Printf("Error wrapping room info message: %s", err)
-			}
+			payload := message.Wrapper{Type: message.TChat, Data: r.cacheChat}
+			client.Out <- payload
 
 		case message.TChat:
 			var chatList []message.Chat
+			var toAddChatList []message.Chat
 
 			err := message.ToStruct(msg.Data, &chatList)
+			for _, chat := range chatList {
+				if chat.Content != "" {
+					toAddChatList = append(toAddChatList, chat)
+				}
+			}
 
 			if err != nil {
 				log.Printf("Error: %s", err)
 			}
 
-			for _, chat := range chatList {
+			for _, chat := range toAddChatList {
 				r.addCacheChat(chat)
 			}
 
-			r.Broadcast(msg, []message.CRole{message.RViewer, message.RStreamerChat}, []string{ID})
+			if len(toAddChatList) > 0 {
+				payload := message.Wrapper{Type: message.TChat, Data: toAddChatList}
+				r.Broadcast(payload, []message.CRole{message.RViewer, message.RStreamerChat}, []string{ID})
+			}
 		case message.TRoomUpdate:
 			if client.Role() != message.RStreamerChat && client.Role() != message.RStreamer {
 				log.Printf("Unauthorized set room title")
 				continue
 			}
 
-			newRoomInfo, ok := msg.Data.(message.RoomInfo)
-			if !ok {
-				log.Printf("Failed to decode roominfo: %s")
+			newRoomInfo := message.RoomInfo{}
+			err := message.ToStruct(msg.Data, &newRoomInfo)
+
+			if err != nil {
+				log.Printf("Failed to decode roominfo: %s", err)
 				continue
 			} else {
 				r.title = newRoomInfo.Title

@@ -243,9 +243,13 @@ func (s *Streamer) Stop(msg string) {
 
 // Default behavior of Write is to send Write message
 func (s *Streamer) Write(data []byte) (int, error) {
+	// TODO: find out why if we don't encode this
+	// the xterm will show duplciated text
+	// Clue: marshal ensure data is encoded in UTF-8
+	dataByte, _ := json.Marshal(message.TermWrite{Data: data})
 	msg := &message.Wrapper{
 		Type: message.TWrite,
-		Data: data,
+		Data: dataByte,
 	}
 
 	s.Out <- msg
