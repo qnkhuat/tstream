@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+  </head>
+  <body>
+    <h3> Local Video </h3>
+    <video id="localVideo" width="160" height="120" autoplay muted></video> <br />
+
+    <h3> Remote Video </h3>
+    <div id="remoteVideos"></div> <br />
+
+    <h3> Logs </h3>
+    <div id="logs"></div>
+
+
+  </body>
+
+  <script>
+    // str to buffer array
+    function str2ab(input) {
+          let binary_string =  window.atob(input);
+          let len = binary_string.length;
+          let bytes = new Uint8Array( len );
+          for (let i = 0; i < len; i++)        {
+                bytes[i] = binary_string.charCodeAt(i);
+              }
+          return bytes;
+        }
+
+        // array buffer to string
+        function ab2str(buf) {
+              return String.fromCharCode.apply(null, buf);
+            }
+
+        function sendWhenConnected(ws , msg ) {
+              setTimeout(() => {
+                    if (ws.readyState === 1) {
+                          ws.send(msg);
+                        } else {
+                              sendWhenConnected(ws, msg);
+                            }
+                  }, 5); // wait 5 milisecond for the connection...
+            }
+
+        //navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+        //.then(stream => {
+        let pc = new RTCPeerConnection()
+        pc.ontrack = function (event) {
+              console.log("got a remote source")
+              //if (event.track.kind !== 'audio') {
+              //      return
+              //    }
+
+              let el = document.createElement(event.track.kind)
+              console.log(event.streams)
+              el.srcObject = event.streams[0]
+              el.autoplay = true
+              el.controls = true
+              document.getElementById('remoteVideos').appendChild(el)
+
+              event.track.onmute = function(event) {
+                    el.play()
+                  }
+
+              event.streams[0].onremovetrack = ({track}) => {
+                    if (el.parentNode) {
+                          el.parentNode.removeChild(el)
+                        }
+                  }
+            }
+
+        //document.getElementById('localVideo').srcObject = stream
+        //stream.getTracks().forEach(track => {  
+        //      console.log("Track: ", track);
+        //      pc.addTrack(track, stream);
+        //    })
+
+        let ws = new WebSocket("ws://localhost:3000/ws/ngockq");
+
+        let clientInfo = {
+              Type: "ClientInfo",
+              Data:  {
+                    Name: "ngockq",
+                    Role: "ConsumerRTC",
+                    Secret : "71ce02feb4142c3fd1881e8f4b5cf7e22609502",
+                  }
+            }
+        sendWhenConnected(ws,JSON.stringify(clientInfo));
+
+
+        pc.onicecandidate = e => {
+              if (!e.candidate) {
+                    return
+                  }
+              ws.send(JSON.stringify({
+                    Type: "RTC",
+                    Data: {Event: "Candidate", Data: JSON.stringify(e.candidate)},
+                  }))
+            }
+
+        ws.onclose = function(evt) {
+              console.error("Websocket has closed", evt)
+            }
+
+        ws.onmessage = function(evt) {
+              let msg = JSON.parse(evt.data)
+              if (!msg) {
+                    return console.log('failed to parse msg')
+                  }
+              console.log("Got message: ", msg)
+
+              switch (msg.Data.Event) {
+                    case 'Offer':
+                      console.log("Data: ", window.btoa(msg.Data.Data))
+                      let offer = JSON.parse(msg.Data.Data)
+                      if (!offer) {
+                            return console.log('failed to parse answer')
+                          }
+                      pc.setRemoteDescription(offer)
+                      pc.createAnswer().then(answer => {
+                            pc.setLocalDescription(answer)
+                            ws.send(JSON.stringify({
+                                  Type: "RTC",
+                                  Data: {Event: "Answer", data: JSON.stringify(answer)}
+                                }))
+
+                          })
+                      return
+
+                    case 'Candidate':
+                      let candidate = JSON.parse(msg.Data.Data)
+                      if (!candidate) {
+                            return console.log('failed to parse candidate')
+                          }
+
+                      console.log("candidate: ", candidate);
+                      pc.addIceCandidate(candidate)
+                  }
+            }
+
+        ws.onerror = function(evt) {
+              console.log("ERROR: " + evt.data)
+            }
+        //})
+  </script>
+</html>

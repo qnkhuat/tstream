@@ -41,7 +41,6 @@ class WSTerminal extends React.Component<Props, {}> {
     })
 
     this.props.msgManager.sub(constants.MSG_TWINSIZE, (winsize: Winsize) => {
-      console.log("Seetting winsize to :", winsize);
       this.termRef.current?.resize(winsize.Cols, winsize.Rows)
       this.rescale();
     })

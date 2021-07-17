@@ -134,6 +134,15 @@ class Room extends React.Component<Props, State> {
 
     // set up websocket connection
     const ws =  new WebSocket(wsUrl);
+
+    // Send client info for server to verify
+    let payload = JSON.stringify({
+      Type: "ClientInfo",
+      Data: {Role: "Viewer"}
+    })
+    util.sendWhenConnected(ws, payload);
+    console.log("Send clientinfo");
+
     ws.onclose = (ev: CloseEvent) => {
       let roomInfo = this.state.roomInfo;
       if (roomInfo && roomInfo.Status != RoomStatus.NotExisted) {

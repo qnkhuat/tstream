@@ -183,7 +183,7 @@ func (s *Streamer) ConnectWS() error {
 	}
 
 	host := strings.Replace(strings.Replace(s.serverAddr, "http://", "", 1), "https://", "", 1)
-	url := url.URL{Scheme: scheme, Host: host, Path: fmt.Sprintf("/ws/%s/streamer", s.username)}
+	url := url.URL{Scheme: scheme, Host: host, Path: fmt.Sprintf("/ws/%s", s.username)}
 	log.Printf("Openning socket at %s", url.String())
 
 	conn, _, err := websocket.DefaultDialer.Dial(url.String(), nil)
@@ -247,12 +247,12 @@ func (s *Streamer) Write(data []byte) (int, error) {
 	// the xterm will show duplciated text
 	// Clue: marshal ensure data is encoded in UTF-8
 	dataByte, _ := json.Marshal(message.TermWrite{Data: data})
-	msg := &message.Wrapper{
+	payload := &message.Wrapper{
 		Type: message.TWrite,
 		Data: dataByte,
 	}
 
-	s.Out <- msg
+	s.Out <- payload
 	return len(data), nil
 }
 

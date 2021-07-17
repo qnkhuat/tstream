@@ -5,6 +5,7 @@ package room
 
 import (
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/qnkhuat/tstream/internal/cfg"
 	"github.com/qnkhuat/tstream/pkg/message"
@@ -30,6 +31,7 @@ type Room struct {
 	cacheChat      []message.Chat
 	status         message.RoomStatus
 	secret         string // used to verify streamer
+	sfu            *SFU
 }
 
 func New(name, title, secret string) *Room {
@@ -47,6 +49,7 @@ func New(name, title, secret string) *Room {
 		title:          title,
 		secret:         secret,
 		cacheChat:      cacheChat,
+		sfu:            NewSFU(),
 	}
 }
 
@@ -150,21 +153,39 @@ func (r *Room) AddStreamer(conn *websocket.Conn) error {
 }
 
 func (r *Room) AddClient(ID string, role message.CRole, conn *websocket.Conn) error {
+	log.Printf("New client: %s", role)
 	_, ok := r.clients[ID]
 	if ok {
 		return fmt.Errorf("Client %s existed", conn)
 	}
 
-	if role == message.RViewer {
+	cl := NewClient(role, conn)
+	switch role {
+
+	case message.RViewer:
 		r.accViewers += 1
-	} else if role == message.RStreamerChat {
-	} else {
+		r.clients[ID] = cl
+		go cl.Start()
+		r.ReadAndHandleClientMessage(ID) // Blocking call
+		return nil
+
+	case message.RStreamerChat:
+		r.clients[ID] = cl
+		go cl.Start()
+		r.ReadAndHandleClientMessage(ID) // Blocking call
+		return nil
+
+	case message.RProducerRTC:
+		go cl.Start()
+		r.sfu.AddProducer(cl) // Blocking call
+
+	case message.RConsumerRTC:
+		go cl.Start()
+		r.sfu.AddConsumer(cl) // Blocking call
+
+	default:
 		return fmt.Errorf("Invalid client role: %s", role)
 	}
-
-	v := NewClient(role, conn)
-	r.clients[ID] = v
-	go v.Start()
 
 	return nil
 }
@@ -194,8 +215,8 @@ func (r *Room) Start() {
 		}
 
 		switch msgType := msg.Type; msgType {
-		case message.TWinsize:
 
+		case message.TWinsize:
 			winsize := message.Winsize{}
 			err = message.ToStruct(msg.Data, &winsize)
 
@@ -209,7 +230,6 @@ func (r *Room) Start() {
 			}
 
 		case message.TWrite:
-
 			r.addMsgBuffer(msg)
 			r.lastActiveTime = time.Now()
 			r.Broadcast(msg, []message.CRole{message.RViewer}, []string{})
@@ -358,7 +378,6 @@ func (r *Room) Broadcast(msg message.Wrapper, roles []message.CRole, IDExclude [
 		}
 
 		if client.Alive() {
-			log.Printf("Broadcasting to: %s", id)
 			client.Out <- msg
 		} else {
 			log.Printf("Failed to boardcast to %s. Closing connection", id)
@@ -389,5 +408,14 @@ func (r *Room) PrepareRoomInfo() message.RoomInfo {
 		StreamerID:     r.name,
 		Status:         r.status,
 		AccNViewers:    r.accViewers,
+	}
+}
+
+func (r *Room) NewClientID() string {
+	newID := uuid.New().String()
+	if _, ok := r.clients[newID]; ok {
+		return r.NewClientID()
+	} else {
+		return newID
 	}
 }

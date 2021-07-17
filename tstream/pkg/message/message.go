@@ -23,6 +23,7 @@ const (
 	TRoomInfo   MType = "RoomInfo"
 	TClientInfo MType = "ClientInfo"
 	TRoomUpdate MType = "RoomUpdate"
+	TRTC        MType = "RTC"
 
 	// When streamer resize their termianl
 	TWinsize MType = "Winsize"
@@ -104,12 +105,28 @@ const (
 	RStreamerChat CRole = "StreamerChat" // Chat for streamer
 	RStreamer     CRole = "Streamer"     // Send content to server
 	RViewer       CRole = "Viewer"       // View content + chat
+	RConsumerRTC  CRole = "ConsumerRTC"  // Consumer only RTC connection : viewer listen to room voice chat
+	RProducerRTC  CRole = "ProducerRTC"  // Publish of RTC conneciton: streamer publish voice in room
 )
 
 type ClientInfo struct {
 	Name   string
 	Role   CRole
 	Secret string
+}
+
+// ** RTC ***
+type RTCEvent string
+
+const (
+	RTCOffer     RTCEvent = "Offer"
+	RTCAnswer    RTCEvent = "Answer"
+	RTCCandidate RTCEvent = "Candidate"
+)
+
+type RTC struct {
+	Event RTCEvent
+	Data  string
 }
 
 // *** Helper functions ***

@@ -21,7 +21,6 @@ interface Props {
   height?: number; // in pixel
 }
 
-
 const StreamPreview: FC<Props> = ({ title, wsUrl, streamerID, nViewers, startedTime, lastActiveTime }): ReactElement => {
 
   const [ upTime, setUpTime ] = useState(util.formatDuration(dayjs(), dayjs(startedTime)));
@@ -29,6 +28,14 @@ const StreamPreview: FC<Props> = ({ title, wsUrl, streamerID, nViewers, startedT
 
   useEffect(() => {
     const ws = new WebSocket(wsUrl);
+
+    // Send client info for server to verify
+    let payload = JSON.stringify({
+      Type: "ClientInfo",
+      Data: {Role: "Viewer"}
+    });
+    util.sendWhenConnected(ws, payload);
+    console.log("Send clientinfo");
 
     const tempMsg = new PubSub();
     ws.onmessage = (ev: MessageEvent) => {

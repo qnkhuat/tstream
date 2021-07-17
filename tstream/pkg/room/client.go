@@ -49,6 +49,7 @@ func (v *Client) Start() {
 	go func() {
 		for {
 			msg, ok := <-v.Out
+			log.Printf("sent message from client: %s", msg.Type)
 			if ok {
 				err := v.conn.WriteJSON(msg)
 				if err != nil {
@@ -56,6 +57,7 @@ func (v *Client) Start() {
 					v.Close()
 				}
 			} else {
+				log.Printf("Failed to get message from channel")
 				v.Close()
 			}
 		}
@@ -65,10 +67,11 @@ func (v *Client) Start() {
 	for {
 		msg := message.Wrapper{}
 		err := v.conn.ReadJSON(&msg)
+		log.Printf("got message from client: %s", msg.Type)
 		if err == nil {
 			v.In <- msg // Will be handled in Room
 		} else {
-			log.Printf("Closing connection")
+			log.Printf("Failed to read message. Closing connection: %s", err)
 			v.Close()
 			break
 		}

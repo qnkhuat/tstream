@@ -11,6 +11,7 @@ require (
 	github.com/gorilla/schema v1.2.0
 	github.com/gorilla/websocket v1.4.2
 	github.com/manifoldco/promptui v0.8.0
+	github.com/pion/webrtc/v3 v3.0.31
 	github.com/rivo/tview v0.0.0-20210624165335-29d673af0ce2
 	github.com/rs/cors v1.8.0
 	golang.org/x/crypto v0.0.0-20210616213533-5ff15b29337e
