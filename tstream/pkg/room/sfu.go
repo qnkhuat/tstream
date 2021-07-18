@@ -52,6 +52,7 @@ func (s *SFU) Start() {
 // TODO : break down this func
 func (s *SFU) AddPeer(cl *Client) error {
 
+	log.Printf("")
 	peerConn, err := webrtc.NewPeerConnection(webrtc.Configuration{})
 	if err != nil {
 		log.Printf("Failed to init peer connection: %s", err)
@@ -59,6 +60,7 @@ func (s *SFU) AddPeer(cl *Client) error {
 	}
 	defer peerConn.Close()
 	defer cl.Close()
+	log.Printf("")
 
 	// Accept one audio and one video track incoming
 	for _, typ := range []webrtc.RTPCodecType{webrtc.RTPCodecTypeVideo, webrtc.RTPCodecTypeAudio} {
@@ -69,15 +71,18 @@ func (s *SFU) AddPeer(cl *Client) error {
 			return err
 		}
 	}
+	log.Printf("")
 
 	participant := &Participant{
 		peer:   peerConn,
 		client: cl,
 	}
+	log.Printf("")
 	participantID := s.newParticipantID()
-	s.lock.Lock()
+	//s.lock.Lock()
 	s.participants[participantID] = participant
-	s.lock.Unlock()
+	//s.lock.Unlock()
+	log.Printf("")
 
 	// Trickle ICE. Emit server candidate to client
 	peerConn.OnICECandidate(func(ice *webrtc.ICECandidate) {
@@ -100,6 +105,7 @@ func (s *SFU) AddPeer(cl *Client) error {
 
 		cl.Out <- payload
 	})
+	log.Printf("")
 
 	peerConn.OnConnectionStateChange(func(p webrtc.PeerConnectionState) {
 		switch p {
@@ -120,6 +126,7 @@ func (s *SFU) AddPeer(cl *Client) error {
 		}
 
 	})
+	log.Printf("")
 
 	// Add all current tracks to this peer
 	for _, track := range s.trackLocals {
@@ -128,6 +135,7 @@ func (s *SFU) AddPeer(cl *Client) error {
 		}
 	}
 
+	log.Printf("")
 	// only producer can broadcast
 	if cl.Role() == message.RProducerRTC {
 		peerConn.OnTrack(func(t *webrtc.TrackRemote, _ *webrtc.RTPReceiver) {
@@ -137,7 +145,7 @@ func (s *SFU) AddPeer(cl *Client) error {
 
 			buf := make([]byte, 1500)
 			for {
-				log.Printf("%s", trackLocal.Kind())
+				log.Printf("Getting :%s", trackLocal.Kind())
 				i, _, err := t.Read(buf)
 				if err != nil {
 					return
@@ -149,6 +157,7 @@ func (s *SFU) AddPeer(cl *Client) error {
 			}
 		})
 	}
+	log.Printf("")
 
 	err = s.sendOffer(participant)
 
@@ -201,11 +210,12 @@ func (s *SFU) AddPeer(cl *Client) error {
 }
 
 // TODO: add filter so that only sending offer for who need to update
+// Sync tracklocals with all peers so everyone get the right track at the right time
 func (s *SFU) syncPeers() {
-	s.lock.Lock()
-	defer s.lock.Unlock()
 
 	attemptSync := func() (tryAgain bool) {
+		s.lock.RLock()
+		defer s.lock.RUnlock()
 		for _, participant := range s.participants {
 
 			// map of sender we already are seanding, so we don't double send
@@ -237,6 +247,7 @@ func (s *SFU) syncPeers() {
 
 			// Add all track we aren't sending yet to the PeerConnection
 			for trackID := range s.trackLocals {
+				log.Printf("Adding track: %s")
 				if _, ok := existingSenders[trackID]; !ok {
 					if _, err := participant.peer.AddTrack(s.trackLocals[trackID]); err != nil {
 						return true
@@ -273,14 +284,15 @@ func (s *SFU) syncPeers() {
 }
 
 func (s *SFU) addLocalTrack(t *webrtc.TrackRemote) *webrtc.TrackLocalStaticRTP {
-	s.lock.Lock()
 
 	// Create a new TrackLocal with the same codec as our incoming
 	trackLocal, err := webrtc.NewTrackLocalStaticRTP(t.Codec().RTPCodecCapability, t.ID(), t.StreamID())
 	if err != nil {
-		panic(err)
+		log.Printf("Failed to add track local: %s", err)
+		return trackLocal
 	}
 
+	s.lock.Lock()
 	s.trackLocals[t.ID()] = trackLocal
 	s.lock.Unlock()
 
@@ -346,8 +358,8 @@ func (s *SFU) Stop() {
 }
 
 func (s *SFU) sendKeyFrame() {
-	s.lock.Lock()
-	defer s.lock.Unlock()
+	s.lock.RLock()
+	defer s.lock.RUnlock()
 
 	for _, participant := range s.participants {
 		for _, receiver := range participant.peer.GetReceivers() {

@@ -7,6 +7,13 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/gorilla/schema"
 	"github.com/gorilla/websocket"
+	"github.com/pion/mediadevices"
+	"github.com/pion/mediadevices/pkg/codec/vpx"
+	_ "github.com/pion/mediadevices/pkg/driver/camera"     // This is required to register camera adapter
+	_ "github.com/pion/mediadevices/pkg/driver/microphone" // This is required to register microphone adapter
+  "github.com/pion/mediadevices/pkg/codec/opus" // This is required to use opus audio encoder
+	"github.com/pion/mediadevices/pkg/frame"
+	"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/webrtc/v3"
 	"github.com/qnkhuat/tstream/pkg/message"
 	"github.com/rivo/tview"
@@ -138,10 +145,92 @@ func (c *Chat) StartVoiceService() error {
 		ICEServers: []webrtc.ICEServer{{
 			URLs: []string{"stun:stun.l.google.com:19302"}},
 		},
+		SDPSemantics: webrtc.SDPSemanticsUnifiedPlanWithFallback,
 	}
 
-	peerConn, err := webrtc.NewPeerConnection(config)
+  // Create a new RTCPeerConnection
+	mediaEngine := webrtc.MediaEngine{}
 
+	vpxParams, err := vpx.NewVP8Params()
+	if err != nil {
+		log.Printf("Failed to open vpx: %s", err)
+		return err
+	}
+	vpxParams.BitRate = 500_000 // 500kbps
+  opusParams, err := opus.NewParams()
+	if err != nil {
+		panic(err)
+	}
+
+	codecSelector := mediadevices.NewCodecSelector(
+		mediadevices.WithVideoEncoders(&vpxParams),
+    mediadevices.WithAudioEncoders(&opusParams),
+	)
+
+	codecSelector.Populate(&mediaEngine)
+	api := webrtc.NewAPI(webrtc.WithMediaEngine(&mediaEngine))
+	peerConn, err := api.NewPeerConnection(config)
+	if err != nil {
+		log.Printf("Failed to start webrtc conn %s", err)
+		return err
+	}
+
+	s, err := mediadevices.GetUserMedia(mediadevices.MediaStreamConstraints{
+		Video: func(c *mediadevices.MediaTrackConstraints) {
+			c.FrameFormat = prop.FrameFormat(frame.FormatYUY2)
+			c.Width = prop.Int(640)
+			c.Height = prop.Int(480)
+		},
+		Audio: func(c *mediadevices.MediaTrackConstraints) {}
+
+		Codec: codecSelector,
+	})
+
+	if err != nil {
+		log.Printf("This thing is too conventional %s", err)
+		return err
+	}
+
+	for _, track := range s.GetTracks() {
+		track.OnEnded(func(err error) {
+			fmt.Printf("Track (ID: %s) ended with error: %v\n",
+				track.ID(), err)
+		})
+		_, err = peerConn.AddTransceiverFromTrack(track,
+			webrtc.RtpTransceiverInit{
+				Direction: webrtc.RTPTransceiverDirectionSendonly,
+			},
+		)
+		if err != nil {
+			log.Printf("Failed to add track %s", err)
+			return err
+		}
+	}
+
+	//peerConn, err := webrtc.NewPeerConnection(config)
+
+	// Open a UDP Listener for RTP Packets on port 5004
+	//listener, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 5004})
+	//if err != nil {
+	//	panic(err)
+	//}
+	//defer func() {
+	//	if err = listener.Close(); err != nil {
+	//		panic(err)
+	//	}
+	//}()
+
+	//// Create a video track
+	//lcoalTrack, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus}, "audio", "tstream")
+	//if err != nil {
+	//	panic(err)
+	//}
+	//rtpSender, err := peerConn.AddTrack(localTrack)
+	//if err != nil {
+	//	panic(err)
+	//}
+
+	// wsconnection is for signaling and update track changes
 	wsConn, err := c.connectWS(message.RProducerRTC)
 	if err != nil {
 		log.Printf("Failed to start voice ws: %s", err)
@@ -234,7 +323,7 @@ func (c *Chat) StartVoiceService() error {
 				}
 
 				if err := peerConn.SetLocalDescription(answer); err != nil {
-					log.Printf("Failed to set local description: %s", err)
+					log.Printf("Failed to set local description: %v", err)
 					continue
 				}
 
@@ -524,8 +613,12 @@ func (c *Chat) addChatMsgs(chatList []message.Chat) {
 }
 
 func (c *Chat) Stop() {
-	c.wsConn.Close()
-	c.peerConn.Close()
+	if c.wsConn != nil {
+		c.wsConn.Close()
+	}
+	if c.peerConn != nil {
+		c.peerConn.Close()
+	}
 	c.app.Stop()
 }
 

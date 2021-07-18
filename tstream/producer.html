@@ -43,7 +43,7 @@
                   }, 5); // wait 5 milisecond for the connection...
             }
 
-        navigator.mediaDevices.getUserMedia({ video: true, audio: false})
+        navigator.mediaDevices.getUserMedia({ video: true, audio: true})
           .then(stream => {
                 let pc = new RTCPeerConnection()
                 pc.ontrack = function (event) {
@@ -91,6 +91,7 @@
                       if (!e.candidate) {
                             return
                           }
+                      console.log("on ice canddiate")
                       ws.send(JSON.stringify({
                             Type: "RTC",
                             Data: {Event: "Candidate", Data: JSON.stringify(e.candidate)},
@@ -110,11 +111,11 @@
 
                       switch (msg.Data.Event) {
                             case 'Offer':
-                              console.log("Data: ", window.btoa(msg.Data.Data))
                               let offer = JSON.parse(msg.Data.Data)
                               if (!offer) {
                                     return console.log('failed to parse answer')
                                   }
+                              console.log("offer");
                               pc.setRemoteDescription(offer)
                               pc.createAnswer().then(answer => {
                                     pc.setLocalDescription(answer)

@@ -20,15 +20,14 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"log"
-	"os"
-	"os/user"
-	"regexp"
-
 	"github.com/manifoldco/promptui"
 	"github.com/qnkhuat/tstream/internal/cfg"
 	"github.com/qnkhuat/tstream/internal/logging"
 	"github.com/qnkhuat/tstream/pkg/streamer"
+	"log"
+	"os"
+	"os/user"
+	"regexp"
 )
 
 func main() {
