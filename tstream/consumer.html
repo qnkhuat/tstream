@@ -9,6 +9,7 @@
 
     <h3> Remote Video </h3>
     <div id="remoteVideos"></div> <br />
+    <div id="remoteAudios"></div> <br />
 
     <h3> Logs </h3>
     <div id="logs"></div>
@@ -47,26 +48,43 @@
         //.then(stream => {
         let pc = new RTCPeerConnection()
         pc.ontrack = function (event) {
-              //if (event.track.kind !== 'audio') {
-              //      return
-              //    }
+              if (event.track.kind == 'audio') {
+                    let el = document.createElement(event.track.kind)
+                    console.log(event.streams)
+                    el.srcObject = event.streams[0]
+                    el.autoplay = true
+                    el.controls = true
+                    document.getElementById('remoteAudios').appendChild(el)
 
-              let el = document.createElement(event.track.kind)
-              console.log(event.streams)
-              el.srcObject = event.streams[0]
-              el.autoplay = true
-              el.controls = true
-              document.getElementById('remoteVideos').appendChild(el)
+                    event.track.onmute = function(event) {
+                          el.play()
+                        }
 
-              event.track.onmute = function(event) {
-                    el.play()
-                  }
-
-              event.streams[0].onremovetrack = ({track}) => {
-                    if (el.parentNode) {
-                          el.parentNode.removeChild(el)
+                    event.streams[0].onremovetrack = ({track}) => {
+                          if (el.parentNode) {
+                                el.parentNode.removeChild(el)
+                              }
                         }
                   }
+              else {
+                    let el = document.createElement(event.track.kind)
+                    console.log(event.streams)
+                    el.srcObject = event.streams[0]
+                    el.autoplay = true
+                    el.controls = true
+                    document.getElementById('remoteVideos').appendChild(el)
+
+                    event.track.onmute = function(event) {
+                          el.play()
+                        }
+
+                    event.streams[0].onremovetrack = ({track}) => {
+                          if (el.parentNode) {
+                                el.parentNode.removeChild(el)
+                              }
+                        }
+                  }
+
             }
 
         //document.getElementById('localVideo').srcObject = stream

@@ -21,8 +21,6 @@ import (
 	"github.com/qnkhuat/tstream/pkg/ptyMaster"
 )
 
-// TODO: if we supports windows this should be changed
-
 type Streamer struct {
 	pty        *ptyMaster.PtyMaster
 	serverAddr string

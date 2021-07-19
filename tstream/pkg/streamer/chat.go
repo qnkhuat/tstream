@@ -3,22 +3,25 @@ package streamer
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/gdamore/tcell/v2"
 	"github.com/gorilla/schema"
 	"github.com/gorilla/websocket"
-	"github.com/pion/mediadevices"
-	"github.com/pion/mediadevices/pkg/codec/vpx"
+	"io"
+	//"github.com/pion/mediadevices"
+	//"github.com/pion/mediadevices/pkg/codec/opus" // This is required to use opus audio encoder
+	//"github.com/pion/mediadevices/pkg/codec/vpx"
 	_ "github.com/pion/mediadevices/pkg/driver/camera"     // This is required to register camera adapter
 	_ "github.com/pion/mediadevices/pkg/driver/microphone" // This is required to register microphone adapter
-  "github.com/pion/mediadevices/pkg/codec/opus" // This is required to use opus audio encoder
-	"github.com/pion/mediadevices/pkg/frame"
-	"github.com/pion/mediadevices/pkg/prop"
+	//"github.com/pion/mediadevices/pkg/frame"
+	//"github.com/pion/mediadevices/pkg/prop"
 	"github.com/pion/webrtc/v3"
 	"github.com/qnkhuat/tstream/pkg/message"
 	"github.com/rivo/tview"
 	"log"
 	"math"
+	"net"
 	"net/url"
 	"strings"
 	"time"
@@ -145,89 +148,109 @@ func (c *Chat) StartVoiceService() error {
 		ICEServers: []webrtc.ICEServer{{
 			URLs: []string{"stun:stun.l.google.com:19302"}},
 		},
-		SDPSemantics: webrtc.SDPSemanticsUnifiedPlanWithFallback,
 	}
 
-  // Create a new RTCPeerConnection
-	mediaEngine := webrtc.MediaEngine{}
+	peerConn, err := webrtc.NewPeerConnection(config)
 
-	vpxParams, err := vpx.NewVP8Params()
-	if err != nil {
-		log.Printf("Failed to open vpx: %s", err)
-		return err
-	}
-	vpxParams.BitRate = 500_000 // 500kbps
-  opusParams, err := opus.NewParams()
+	// Create a new RTCPeerConnection
+	//mediaEngine := webrtc.MediaEngine{}
+
+	//vpxParams, err := vpx.NewVP8Params()
+	//if err != nil {
+	//	log.Printf("Failed to open vpx: %s", err)
+	//	return err
+	//}
+	//vpxParams.BitRate = 500_000 // 500kbps
+	////opusParams, err := opus.NewParams()
+	////if err != nil {
+	////	panic(err)
+	////}
+
+	//codecSelector := mediadevices.NewCodecSelector(
+	//	mediadevices.WithVideoEncoders(&vpxParams),
+	////mediadevices.WithAudioEncoders(&opusParams),
+	//)
+
+	//codecSelector.Populate(&mediaEngine)
+	//api := webrtc.NewAPI(webrtc.WithMediaEngine(&mediaEngine))
+	//peerConn, err := api.NewPeerConnection(config)
+	//if err != nil {
+	//	log.Printf("Failed to start webrtc conn %s", err)
+	//	return err
+	//}
+
+	//s, err := mediadevices.GetUserMedia(mediadevices.MediaStreamConstraints{
+	//	//Video: func(c *mediadevices.MediaTrackConstraints) {
+	//	//	c.FrameFormat = prop.FrameFormat(frame.FormatYUY2)
+	//	//	c.Width = prop.Int(640)
+	//	//	c.Height = prop.Int(480)
+	//	//},
+	//	Audio: func(c *mediadevices.MediaTrackConstraints) {
+	//		c.SampleSize = prop.IntExact(16) // <-- this will set the source to use 16 bit format.
+	//	},
+	//	Codec: codecSelector,
+	//})
+
+	// Open a UDP Listener for RTP Packets on port 5004
+	log.Printf("Openign an UDP host at localhost:5004")
+	listener, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("localhost"), Port: 5004})
 	if err != nil {
 		panic(err)
 	}
-
-	codecSelector := mediadevices.NewCodecSelector(
-		mediadevices.WithVideoEncoders(&vpxParams),
-    mediadevices.WithAudioEncoders(&opusParams),
-	)
-
-	codecSelector.Populate(&mediaEngine)
-	api := webrtc.NewAPI(webrtc.WithMediaEngine(&mediaEngine))
-	peerConn, err := api.NewPeerConnection(config)
-	if err != nil {
-		log.Printf("Failed to start webrtc conn %s", err)
-		return err
-	}
-
-	s, err := mediadevices.GetUserMedia(mediadevices.MediaStreamConstraints{
-		Video: func(c *mediadevices.MediaTrackConstraints) {
-			c.FrameFormat = prop.FrameFormat(frame.FormatYUY2)
-			c.Width = prop.Int(640)
-			c.Height = prop.Int(480)
-		},
-		Audio: func(c *mediadevices.MediaTrackConstraints) {}
-
-		Codec: codecSelector,
-	})
-
-	if err != nil {
-		log.Printf("This thing is too conventional %s", err)
-		return err
-	}
-
-	for _, track := range s.GetTracks() {
-		track.OnEnded(func(err error) {
-			fmt.Printf("Track (ID: %s) ended with error: %v\n",
-				track.ID(), err)
-		})
-		_, err = peerConn.AddTransceiverFromTrack(track,
-			webrtc.RtpTransceiverInit{
-				Direction: webrtc.RTPTransceiverDirectionSendonly,
-			},
-		)
-		if err != nil {
-			log.Printf("Failed to add track %s", err)
-			return err
-		}
-	}
-
-	//peerConn, err := webrtc.NewPeerConnection(config)
-
-	// Open a UDP Listener for RTP Packets on port 5004
-	//listener, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 5004})
-	//if err != nil {
-	//	panic(err)
-	//}
 	//defer func() {
 	//	if err = listener.Close(); err != nil {
 	//		panic(err)
 	//	}
 	//}()
 
-	//// Create a video track
-	//lcoalTrack, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus}, "audio", "tstream")
+	// Create a video track
+	//videoTrack, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeVP8}, "video", "pion")
 	//if err != nil {
 	//	panic(err)
 	//}
-	//rtpSender, err := peerConn.AddTrack(localTrack)
+	//videoTrack, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeVP8}, "video", "tstream")
 	//if err != nil {
 	//	panic(err)
+	//}
+
+	audioTrack, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus}, "audio", "tstream")
+	if err != nil {
+		panic(err)
+	}
+
+	rtpSender, err := peerConn.AddTrack(audioTrack)
+	if err != nil {
+		panic(err)
+	}
+
+	// Read incoming RTCP packets
+	// Before these packets are returned they are processed by interceptors. For things
+	// like NACK this needs to be called.
+	go func() {
+		rtcpBuf := make([]byte, 1500)
+		for {
+			//log.Printf("Reading from video")
+			if _, _, rtcpErr := rtpSender.Read(rtcpBuf); rtcpErr != nil {
+				return
+			}
+		}
+	}()
+
+	//for _, track := range s.GetTracks() {
+	//	track.OnEnded(func(err error) {
+	//		fmt.Printf("Track (ID: %s) ended with error: %v\n",
+	//			track.ID(), err)
+	//	})
+
+	//	_, err = peerConn.AddTransceiverFromTrack(track,
+	//		webrtc.RtpTransceiverInit{
+	//			Direction: webrtc.RTPTransceiverDirectionSendonly,
+	//		},
+	//	)
+	//	if err != nil {
+	//		log.Printf("Failed to add track %s", err)
+	//		return err
+	//	}
 	//}
 
 	// wsconnection is for signaling and update track changes
@@ -322,9 +345,9 @@ func (c *Chat) StartVoiceService() error {
 					continue
 				}
 
-				if err := peerConn.SetLocalDescription(answer); err != nil {
-					log.Printf("Failed to set local description: %v", err)
-					continue
+				err = peerConn.SetLocalDescription(answer)
+				if err != nil {
+					log.Printf("Failed to set local description: %s", err)
 				}
 
 				answerByte, _ := json.Marshal(answer)
@@ -353,6 +376,27 @@ func (c *Chat) StartVoiceService() error {
 			default:
 				log.Printf("Not implemented to handle message type: %s", msg.Type)
 
+			}
+		}
+	}()
+	go func() {
+
+		// Read RTP packets forever and send them to the WebRTC Client
+		inboundRTPPacket := make([]byte, 1500) // UDP MTU
+		for {
+			//log.Printf("read from video")
+			n, _, err := listener.ReadFrom(inboundRTPPacket)
+			if err != nil {
+				panic(fmt.Sprintf("error during read: %s", err))
+			}
+
+			if _, err = audioTrack.Write(inboundRTPPacket[:n]); err != nil {
+				if errors.Is(err, io.ErrClosedPipe) {
+					// The peerConnection has been closed.
+					return
+				}
+
+				panic(err)
 			}
 		}
 	}()
