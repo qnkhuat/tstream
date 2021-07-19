@@ -40,8 +40,8 @@ func NewSFU() *SFU {
 	}
 }
 
-// TODO: this should be requested by client, not server auto send it every 3 seconds
 func (s *SFU) Start() {
+	// TODO: this should be requested by client, not server auto send it every 3 seconds
 	// request a keyframe every 3 seconds
 	go func() {
 		for range time.NewTicker(time.Second * 3).C {
@@ -50,7 +50,7 @@ func (s *SFU) Start() {
 	}()
 }
 
-// TODO : break down this func
+// TODO : break down this method
 func (s *SFU) AddPeer(cl *Client) error {
 
 	peerConn, err := webrtc.NewPeerConnection(webrtc.Configuration{})
@@ -61,6 +61,16 @@ func (s *SFU) AddPeer(cl *Client) error {
 	defer peerConn.Close()
 	defer cl.Close()
 
+	participantID := s.newParticipantID()
+	participant := &Participant{
+		peer:   peerConn,
+		client: cl,
+	}
+
+	s.lock.Lock()
+	s.participants[participantID] = participant
+	s.lock.Unlock()
+
 	// Accept one audio and one video track incoming
 	for _, typ := range []webrtc.RTPCodecType{webrtc.RTPCodecTypeVideo, webrtc.RTPCodecTypeAudio} {
 		if _, err := peerConn.AddTransceiverFromKind(typ, webrtc.RTPTransceiverInit{
@@ -70,16 +80,6 @@ func (s *SFU) AddPeer(cl *Client) error {
 			return err
 		}
 	}
-
-	participant := &Participant{
-		peer:   peerConn,
-		client: cl,
-	}
-
-	participantID := s.newParticipantID()
-	s.lock.Lock()
-	s.participants[participantID] = participant
-	s.lock.Unlock()
 
 	// Trickle ICE. Emit server candidate to client
 	peerConn.OnICECandidate(func(ice *webrtc.ICECandidate) {
@@ -104,6 +104,7 @@ func (s *SFU) AddPeer(cl *Client) error {
 	})
 
 	peerConn.OnConnectionStateChange(func(p webrtc.PeerConnectionState) {
+		log.Printf("Pariticipant: %s changed stated to: %s", participantID, p)
 		switch p {
 
 		case webrtc.PeerConnectionStateFailed:
@@ -136,11 +137,9 @@ func (s *SFU) AddPeer(cl *Client) error {
 			// Create a track to fan out our incoming video to all peerse
 			trackLocal := s.addLocalTrack(t)
 			defer s.removeLocalTrack(t.ID())
-			log.Printf("Added a track: %s", trackLocal.Kind())
 
 			buf := make([]byte, 1500)
 			for {
-				log.Printf("Got :%s", trackLocal.Kind())
 				// remote from remote
 				i, _, err := t.Read(buf)
 				if err != nil {
@@ -160,6 +159,7 @@ func (s *SFU) AddPeer(cl *Client) error {
 	// 2. Server get answer
 	// 3. Server send ice candidate
 	// 4. Peer connection is established
+	log.Printf("Sent offer")
 	err = s.sendOffer(participant)
 
 	for {
@@ -208,6 +208,7 @@ func (s *SFU) AddPeer(cl *Client) error {
 
 	}
 
+	s.removeParticipant(participantID)
 	return nil
 }
 
@@ -249,7 +250,6 @@ func (s *SFU) syncPeers() {
 
 			// Add all track we aren't sending yet to the PeerConnection
 			for trackID := range s.trackLocals {
-				log.Printf("Adding track: %s")
 				if _, ok := existingSenders[trackID]; !ok {
 					if _, err := participant.peer.AddTrack(s.trackLocals[trackID]); err != nil {
 						return true

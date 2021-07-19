@@ -105,8 +105,8 @@ const (
 	RStreamerChat CRole = "StreamerChat" // Chat for streamer
 	RStreamer     CRole = "Streamer"     // Send content to server
 	RViewer       CRole = "Viewer"       // View content + chat
-	RConsumerRTC  CRole = "ConsumerRTC"  // Consumer only RTC connection : viewer listen to room voice chat
-	RProducerRTC  CRole = "ProducerRTC"  // Publish of RTC conneciton: streamer publish voice in room
+	RConsumerRTC  CRole = "RTCConsumer"  // Consumer only RTC connection : viewer listen to room voice chat
+	RProducerRTC  CRole = "RTCProducer"  // Publish of RTC conneciton: streamer publish voice in room
 )
 
 type ClientInfo struct {

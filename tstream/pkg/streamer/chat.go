@@ -417,7 +417,7 @@ func (c *Chat) initUI() error {
 	messageInput := tview.NewInputField()
 	messageInput.SetLabel("[red]>[red] ").
 		SetDoneFunc(func(key tcell.Key) {
-			text := messageInput.GetText()
+			text := strings.TrimSpace(messageInput.GetText())
 			if len(text) > 0 && text[0] == '/' {
 				command := strings.TrimSpace(text[1:])
 				c.HandleCommand(command)
@@ -438,7 +438,6 @@ func (c *Chat) initUI() error {
 				c.addChatMsgs(chatList)
 				messageInput.SetText("")
 			}
-
 		})
 
 		// Default is mute

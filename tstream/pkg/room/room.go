@@ -10,6 +10,7 @@ import (
 	"github.com/qnkhuat/tstream/internal/cfg"
 	"github.com/qnkhuat/tstream/pkg/message"
 	"log"
+	"strings"
 	"sync"
 	"time"
 )
@@ -183,6 +184,8 @@ func (r *Room) AddClient(ID string, role message.CRole, conn *websocket.Conn) er
 		return fmt.Errorf("Invalid client role: %s", role)
 	}
 
+	// clean when finished serving
+	r.RemoveClient(ID)
 	return nil
 }
 
@@ -298,7 +301,7 @@ func (r *Room) ReadAndHandleClientMessage(ID string) {
 
 			err := message.ToStruct(msg.Data, &chatList)
 			for _, chat := range chatList {
-				if chat.Content != "" {
+				if strings.TrimSpace(chat.Content) != "" {
 					toAddChatList = append(toAddChatList, chat)
 				}
 			}

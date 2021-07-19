@@ -11,13 +11,14 @@ import Navbar from "../../components/Navbar";
 import WSTerminal from "../../components/WSTerminal";
 import Uptime from "../../components/Uptime";
 import Loading from "../../components/Loading";
+import AudioRTC from "../../components/AudioRTC";
 
 import IconButton from '@material-ui/core/IconButton';
 import PersonIcon from '@material-ui/icons/Person';
 import DoubleArrowRoundedIcon from '@material-ui/icons/DoubleArrowRounded';
 
 interface Params {
-  username: string;
+  roomID: string;
 }
 
 interface RectSize {
@@ -41,7 +42,7 @@ interface RoomInfo {
 }
 
 interface Params {
-  username: string;
+  roomID: string;
 }
 
 interface Props extends RouteComponentProps<Params> {
@@ -129,7 +130,7 @@ class Room extends React.Component<Props, State> {
 
 
   componentDidMount() {
-    const wsUrl = util.getWsUrl(this.props.match.params.username);
+    const wsUrl = util.getWsUrl(this.props.match.params.roomID);
     const msgManager = new PubSub();
 
     // set up websocket connection
@@ -140,8 +141,8 @@ class Room extends React.Component<Props, State> {
       Type: "ClientInfo",
       Data: {Role: "Viewer"}
     })
+
     util.sendWhenConnected(ws, payload);
-    console.log("Send clientinfo");
 
     ws.onclose = (ev: CloseEvent) => {
       let roomInfo = this.state.roomInfo;
@@ -173,7 +174,7 @@ class Room extends React.Component<Props, State> {
 
         msgManager.pub(constants.MSG_TCHAT_IN, msg.Data);
 
-      } else if (msg.Type === constants.MSG_ROOM_INFO) {
+      } else if (msg.Type === constants.MSG_TROOM_INFO) {
 
         this.setState({roomInfo: msg.Data});
 
@@ -221,7 +222,7 @@ class Room extends React.Component<Props, State> {
   }
 
   render() {
-    document.title = getSiteTitle(this.props.match.params.username, this.state.roomInfo?.Title as string);
+    document.title = getSiteTitle(this.props.match.params.roomID, this.state.roomInfo?.Title as string);
     const isConnected = this.state.roomInfo != null;
     const isStreamStopped = this.state.roomInfo?.Status === RoomStatus.Stopped;
     const isRoomExisted = this.state.roomInfo?.Status !== RoomStatus.NotExisted;
@@ -231,7 +232,6 @@ class Room extends React.Component<Props, State> {
     }
     return (
       <>
-
         <div id="navbar" ref={this.navbarRef}>
           <Navbar />
         </div>
@@ -256,6 +256,8 @@ class Room extends React.Component<Props, State> {
                 <div id="info-nviewers" className="p-1 bg-gray-400 rounded absolute bottom-4 right-4 z-10">
                   <p className="text-md text-whtie font-semibold"><PersonIcon/> {this.state.roomInfo!.NViewers}</p>
                 </div>
+
+                <AudioRTC className="absolute bottom-2 left-2 z-10" roomID={this.props.match.params.roomID} />
               </div>}
 
               <div id="terminal-window">
