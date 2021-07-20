@@ -111,6 +111,7 @@ func main() {
 
 		s := streamer.New(*client, *server, username, title)
 
+		// Request server add room and check availability
 		statusCode := s.RequestAddRoom()
 		log.Printf("Got status code: %d", statusCode)
 		if statusCode == 400 {
@@ -126,15 +127,18 @@ func main() {
 			fmt.Printf("Please update Tstream to continue streaming\nFind the latest version at: https://github.com/qnkhuat/tstream/releases\n")
 			os.Exit(1)
 		}
+
 		// Update config before start
 		config.Username = username
 		streamer.UpdateCfg(streamer.CONFIG_PATH, "Username", username)
 
-		err = s.Start()
+		err = s.Start() // blocking call
 		if err != nil {
 			log.Printf("Failed to start tstream : %s", err)
 		}
+		return
 	} else {
+		// Open chat window
 		var username = "" // also is sessionID
 		config, err := streamer.ReadCfg(streamer.CONFIG_PATH)
 
@@ -153,6 +157,7 @@ func main() {
 		}
 
 		c := streamer.NewChat(username, *server, username)
-		c.Start()
+		c.Start() // blocking call
+		return
 	}
 }

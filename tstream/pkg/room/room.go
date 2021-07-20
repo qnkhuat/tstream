@@ -420,3 +420,16 @@ func (r *Room) NewClientID() string {
 		return newID
 	}
 }
+
+func (r *Room) Summary() map[string]interface{} {
+	summary := make(map[string]interface{})
+	summary["StreamerStatus"] = r.status
+	summary["NViewers"] = r.NViewers()
+	summary["NClients"] = len(r.clients)
+	summary["sfu.Nparticipants"] = len(r.sfu.participants)
+	//for i, participaint := range r.sfu.participants {
+	//	summary[fmt.Sprintf("sfu.participants%d", i)] = participaint.peer.GetStats()
+	//}
+	summary["sfu.Nlocaltracks"] = len(r.sfu.trackLocals)
+	return summary
+}

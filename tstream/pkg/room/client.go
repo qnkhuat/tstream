@@ -77,7 +77,9 @@ func (v *Client) Start() {
 }
 
 func (v *Client) Close() {
+	log.Printf("Closing client")
 	v.conn.WriteControl(websocket.CloseMessage, emptyByteArray, time.Time{})
+	time.Sleep(1 * time.Second) // wait for client to receive close message
 	v.alive = false
 	v.conn.Close()
 }

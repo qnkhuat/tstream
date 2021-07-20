@@ -242,10 +242,10 @@ class Room extends React.Component<Props, State> {
             <div id="terminal-view" className="relative"
               onMouseMove={() => this.flashTitle()}>
               {isConnected && !isStreamStopped && isRoomExisted &&
-              <div id="info">
+              <div id="info" >
+
                 <div
-                  className={`top-0 left-0 w-full absolute z-10 px-4 py-2 bg-opacity-80 bg-gray-800
-                ${this.state.mouseMove ? "visible" : "hidden"}`}>
+                  className={`top-0 left-0 w-full absolute z-10 px-4 py-2 bg-opacity-80 bg-gray-800 ${this.state.mouseMove ? "visible" : "hidden"}`}>
                   <p className="text-2xl">{this.state.roomInfo!.Title}</p>
                   <p className="text-md">@{this.state.roomInfo!.StreamerID}</p>
                 </div>
@@ -257,7 +257,7 @@ class Room extends React.Component<Props, State> {
                   <p className="text-md text-whtie font-semibold"><PersonIcon/> {this.state.roomInfo!.NViewers}</p>
                 </div>
 
-                <AudioRTC className="absolute bottom-2 left-2 z-10" roomID={this.props.match.params.roomID} />
+                <AudioRTC className="absolute bottom-4 left-4 z-10" roomID={this.props.match.params.roomID} />
               </div>}
 
               <div id="terminal-window">

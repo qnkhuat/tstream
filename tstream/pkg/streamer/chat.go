@@ -7,13 +7,10 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/gorilla/schema"
 	"github.com/gorilla/websocket"
+	"github.com/pion/webrtc/v3"
 	"github.com/qnkhuat/mediadevices"
 	"github.com/qnkhuat/mediadevices/pkg/codec/opus"          // This is required to use opus audio encoder
-	_ "github.com/qnkhuat/mediadevices/pkg/driver/camera"     // This is required to register camera adapter
 	_ "github.com/qnkhuat/mediadevices/pkg/driver/microphone" // This is required to register microphone adapter
-	//"github.com/qnkhuat/mediadevices/pkg/frame"
-	//"github.com/qnkhuat/mediadevices/pkg/prop"
-	"github.com/pion/webrtc/v3"
 	"github.com/qnkhuat/tstream/pkg/message"
 	"github.com/rivo/tview"
 	"log"
@@ -53,6 +50,28 @@ func NewChat(sessionId, serverAddr, username string) *Chat {
 	}
 }
 
+func (c *Chat) Start() error {
+	c.initUI()
+
+	if err := c.StartChatService(); err != nil {
+		log.Printf("Failed to start chat service : %s", err)
+		return err
+	}
+
+	if err := c.StartVoiceService(); err != nil {
+		log.Printf("Failed to start voice service : %s", err)
+		return err
+	}
+
+	// blocking call
+	if err := c.app.EnableMouse(true).Run(); err != nil {
+		log.Printf("Error in UI app: %s", err)
+		return err
+	}
+
+	return nil
+}
+
 func (c *Chat) StartChatService() error {
 	conn, err := c.connectWS(message.RStreamerChat)
 	if err != nil {
@@ -70,7 +89,7 @@ func (c *Chat) StartChatService() error {
 			err := c.wsConn.ReadJSON(&msg)
 			if err != nil {
 				log.Printf("Failed to read message: %s", err)
-				c.Stop()
+				c.Stop(fmt.Sprintf("Failed to read connect to server"))
 				return
 			}
 
@@ -80,7 +99,8 @@ func (c *Chat) StartChatService() error {
 				err := message.ToStruct(msg.Data, &chatList)
 				if err != nil {
 					log.Printf("Failed to decode chat message: %s", err)
-					continue
+					c.Stop("Failed to decode message from server")
+					return
 				}
 				c.addChatMsgs(chatList)
 			case message.TRoomInfo:
@@ -88,6 +108,8 @@ func (c *Chat) StartChatService() error {
 				err = message.ToStruct(msg.Data, &roomInfo)
 				if err != nil {
 					log.Printf("Failed to decode roominfo message: %s", err)
+					c.Stop("Failed to decode message from server")
+					return
 				} else {
 					c.startedTime = roomInfo.StartedTime
 					c.nviewersTextView.SetText(fmt.Sprintf("%d 👤", roomInfo.NViewers))
@@ -147,23 +169,21 @@ func (c *Chat) StartVoiceService() error {
 		SDPSemantics: webrtc.SDPSemanticsUnifiedPlanWithFallback,
 	}
 
-	// Create a new RTCPeerConnection
+	// Init microphone
 	mediaEngine := webrtc.MediaEngine{}
-
 	opusParams, err := opus.NewParams()
 	if err != nil {
-		panic(err)
+		return err
 	}
-
 	codecSelector := mediadevices.NewCodecSelector(
 		mediadevices.WithAudioEncoders(&opusParams),
 	)
-
 	codecSelector.Populate(&mediaEngine)
+
 	api := webrtc.NewAPI(webrtc.WithMediaEngine(&mediaEngine))
 	peerConn, err := api.NewPeerConnection(config)
 	if err != nil {
-		log.Printf("Failed to start webrtc conn %s", err)
+		log.Printf("Failed to start webrtc connection %s", err)
 		return err
 	}
 
@@ -173,48 +193,27 @@ func (c *Chat) StartVoiceService() error {
 	})
 
 	if err != nil {
-		log.Printf("This thing is too conventional %s", err)
+		log.Printf("Failed to get user media %s", err)
 		return err
 	}
 
+	// add tracks to peer connection
 	for _, track := range s.GetTracks() {
+		log.Printf("adding track")
+		// TODO: we probably want to stop the chat here
+		// reproduce steps: try open a producer page while having chat on
 		track.OnEnded(func(err error) {
-			fmt.Printf("Track (ID: %s) ended with error: %v\n",
+			log.Printf("Track (ID: %s) ended with error: %v\n",
 				track.ID(), err)
 		})
+
 		_, err = peerConn.AddTransceiverFromTrack(track,
-			webrtc.RtpTransceiverInit{
-				Direction: webrtc.RTPTransceiverDirectionSendonly,
-			},
-		)
+			webrtc.RtpTransceiverInit{Direction: webrtc.RTPTransceiverDirectionSendonly})
 		if err != nil {
 			log.Printf("Failed to add track %s", err)
 			return err
 		}
 	}
-
-	//peerConn, err := webrtc.NewPeerConnection(config)
-
-	// Open a UDP Listener for RTP Packets on port 5004
-	//listener, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 5004})
-	//if err != nil {
-	//	panic(err)
-	//}
-	//defer func() {
-	//	if err = listener.Close(); err != nil {
-	//		panic(err)
-	//	}
-	//}()
-
-	//// Create a video track
-	//lcoalTrack, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus}, "audio", "tstream")
-	//if err != nil {
-	//	panic(err)
-	//}
-	//rtpSender, err := peerConn.AddTrack(localTrack)
-	//if err != nil {
-	//	panic(err)
-	//}
 
 	// wsconnection is for signaling and update track changes
 	wsConn, err := c.connectWS(message.RProducerRTC)
@@ -224,18 +223,13 @@ func (c *Chat) StartVoiceService() error {
 	}
 
 	peerConn.OnConnectionStateChange(func(p webrtc.PeerConnectionState) {
+		log.Printf("Peer conenction state change to: %s", p)
 		switch p {
 
-		case webrtc.PeerConnectionStateFailed:
-			if err := peerConn.Close(); err != nil {
-				log.Print(err)
-			}
-
-		case webrtc.PeerConnectionStateClosed, webrtc.PeerConnectionStateDisconnected:
-			log.Printf("Close or disconnected")
+		case webrtc.PeerConnectionStateFailed, webrtc.PeerConnectionStateClosed, webrtc.PeerConnectionStateDisconnected:
+			c.Stop(fmt.Sprintf("Voice server status: %s", p))
 
 		case webrtc.PeerConnectionStateConnected:
-			log.Printf("Connected!!!!!!!!!!!")
 
 		default:
 			log.Printf("Not implemented: %s", p)
@@ -265,13 +259,15 @@ func (c *Chat) StartVoiceService() error {
 		wsConn.WriteJSON(payload)
 	})
 
+	// Negotiation
+	// Server are going to send the offer first
 	go func() {
 		for {
 			msg := message.Wrapper{}
 			err := wsConn.ReadJSON(&msg)
 			if err != nil {
 				log.Printf("Failed to read message: %s", err)
-				c.Stop()
+				c.Stop("Failed to read message form server")
 				return
 			}
 
@@ -293,28 +289,27 @@ func (c *Chat) StartVoiceService() error {
 				offer := webrtc.SessionDescription{}
 				if err := json.Unmarshal([]byte(event.Data), &offer); err != nil {
 					log.Println(err)
-					continue
+					return
 				}
 
 				if err := peerConn.SetRemoteDescription(offer); err != nil {
 					log.Printf("Failed to set remote description: %s", err)
-					continue
+					return
 				}
 
 				// send back SDP answer and set it as local description
 				answer, err := peerConn.CreateAnswer(nil)
 				if err != nil {
 					log.Printf("Failed to create Offer")
-					continue
+					return
 				}
 
 				if err := peerConn.SetLocalDescription(answer); err != nil {
 					log.Printf("Failed to set local description: %v", err)
-					continue
+					return
 				}
 
 				answerByte, _ := json.Marshal(answer)
-
 				payload := message.Wrapper{
 					Type: message.TRTC,
 					Data: message.RTC{
@@ -322,18 +317,20 @@ func (c *Chat) StartVoiceService() error {
 						Data:  string(answerByte),
 					},
 				}
-				wsConn.WriteJSON(payload)
+				if err = wsConn.WriteJSON(payload); err != nil {
+					log.Printf("Failed to send answer: %s", err)
+				}
 
 			case message.RTCCandidate:
 				candidate := webrtc.ICECandidateInit{}
 				if err := json.Unmarshal([]byte(event.Data), &candidate); err != nil {
 					log.Println(err)
-					continue
+					return
 				}
 
 				if err := peerConn.AddICECandidate(candidate); err != nil {
 					log.Println(err)
-					continue
+					return
 				}
 
 			default:
@@ -344,24 +341,6 @@ func (c *Chat) StartVoiceService() error {
 	}()
 	return nil
 
-}
-
-func (c *Chat) Start() error {
-	c.initUI()
-
-	if err := c.StartChatService(); err != nil {
-		log.Printf("Failed to start chat service : %s", err)
-	}
-
-	if err := c.StartVoiceService(); err != nil {
-		log.Printf("Failed to start voice service : %s", err)
-	}
-
-	if err := c.app.EnableMouse(true).Run(); err != nil {
-		panic(err)
-	}
-
-	return nil
 }
 
 func (c *Chat) requestServer(msgType message.MType) error {
@@ -500,7 +479,7 @@ TStream - Streaming from terimnal
 		}
 
 	case "exit":
-		c.Stop()
+		c.Stop("Bye!")
 
 	default:
 		c.addNoti(`Unknown command. Type /help to get list of available commands.`)
@@ -596,7 +575,8 @@ func (c *Chat) addChatMsgs(chatList []message.Chat) {
 	c.chatTextView.SetText(currentChat + newChat)
 }
 
-func (c *Chat) Stop() {
+func (c *Chat) Stop(msg string) {
+	fmt.Printf(msg)
 	if c.wsConn != nil {
 		c.wsConn.Close()
 	}
