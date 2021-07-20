@@ -34,8 +34,8 @@ class AudioRTC extends React.Component<Props, State> {
     super(props);
 
     this.state =  {
-      lastVolume: props.volume || 1,
-      volume: props.volume || 1,
+      lastVolume: props.volume || 0,
+      volume: props.volume || 0,
       isPlayed: false,
       trackIDs: [],
       openModal: false,
@@ -49,7 +49,7 @@ class AudioRTC extends React.Component<Props, State> {
         if (el.paused) { 
           el.play().
             catch((e) => {
-              this.setState({isPlayed: false, volume: 0});
+              this.setState({isPlayed: false, volume: 0, openModal: true});
             });
         }
         el.volume = volume as number;
@@ -208,7 +208,7 @@ class AudioRTC extends React.Component<Props, State> {
               {this.state.isPlayed && this.state.volume > 0.4 && <VolumeUp fontSize="small" />}
             </IconButton>
             <Slider className="py-0 mx-4 hidden group-hover:block w-28" aria-label="Volume" step={0.1} min={0} max={1} 
-              value={this.state.volume} onChange={this.handleChangeVolume} />
+              value={this.state.volume} onChange={this.handleChangeVolume.bind(this)} />
           </div>
           <Modal
             open={this.state.openModal}
