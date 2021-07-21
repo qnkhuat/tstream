@@ -55,7 +55,7 @@ func main() {
 
 	validateUsername := func(input string) error {
 		var validUsername = regexp.MustCompile(`^[a-z][a-z0-9]*[._-]?[a-z0-9]+$`)
-		if validUsername.MatchString(input) && len(input) > 3 && len(input) < 20 {
+		if validUsername.MatchString(input) && len(input) > 2 && len(input) < 20 {
 			return nil
 		} else {
 			return fmt.Errorf("Invalid username")

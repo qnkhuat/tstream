@@ -125,14 +125,15 @@ func (c *Chat) StartChatService() error {
 
 	c.requestServer(message.TRequestRoomInfo)
 	c.requestServer(message.TRequestCacheChat)
+	// send this help text after get cache chat
+	go func() {
+		time.Sleep(1 * time.Second)
+		c.addNoti("[yellow]Type /help to get list of available commands[white]")
+	}()
 
 	go func() {
-		tick := time.NewTicker(5 * time.Second)
-		for {
-			select {
-			case <-tick.C:
-				c.requestServer(message.TRequestRoomInfo)
-			}
+		for _ = range time.Tick(5 * time.Second) {
+			c.requestServer(message.TRequestRoomInfo)
 		}
 	}()
 
@@ -509,6 +510,7 @@ func (c *Chat) connectWS(role message.CRole) (*websocket.Conn, error) {
 		Role:   role,
 		Secret: GetSecret(CONFIG_PATH),
 	}
+	log.Printf("clientinfo %s", clientInfo)
 
 	payload := message.Wrapper{Type: message.TClientInfo, Data: clientInfo}
 	err = conn.WriteJSON(payload)

@@ -39,6 +39,7 @@ func New(clientAddr, serverAddr, username, title string) *Streamer {
 	in := make(chan interface{}, 256)  // buffer 256 send requests
 
 	secret := GetSecret(CONFIG_PATH)
+	log.Printf("Got seceret: %s", secret)
 
 	return &Streamer{
 		secret:     secret,
@@ -166,9 +167,14 @@ func (s *Streamer) RequestAddRoom() int {
 		"title":      {strings.TrimSpace(s.title)},
 		"version":    {cfg.STREAMER_VERSION},
 	}
+	log.Printf("Secret :%s", body)
 
-	resp, _ := http.Post(fmt.Sprintf("%s/api/room?%s", s.serverAddr, queries.Encode()), "application/json", payload)
-	return resp.StatusCode
+	resp, err := http.Post(fmt.Sprintf("%s/api/room?%s", s.serverAddr, queries.Encode()), "application/json", payload)
+	if err != nil {
+		return 404
+	} else {
+		return resp.StatusCode
+	}
 }
 
 // When connect is initlialized, streamer send a client info to server
@@ -229,12 +235,16 @@ func (s *Streamer) ConnectWS() error {
 }
 
 func (s *Streamer) Stop(msg string) {
-	s.conn.WriteControl(websocket.CloseMessage, emptyByteArray, time.Time{})
-	s.conn.Close()
+	if s.conn != nil {
+		s.conn.WriteControl(websocket.CloseMessage, emptyByteArray, time.Time{})
+		s.conn.Close()
+	}
+
 	if s.pty != nil {
 		s.pty.Stop()
 		s.pty.Restore()
 	}
+
 	fmt.Println()
 	fmt.Println(msg)
 }

@@ -108,6 +108,10 @@ func (s *Server) handleAddRoom(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if _, ok := s.rooms[q.StreamerID]; !ok {
+		if len(b.Secret) == 0 {
+			http.Error(w, "Secret must be non-empty", 400)
+			return
+		}
 		s.NewRoom(q.StreamerID, q.Title, b.Secret)
 		log.Printf("Added a room %s, %s", q.StreamerID, q.Title)
 		w.WriteHeader(http.StatusOK)

@@ -423,6 +423,7 @@ func (r *Room) Summary() map[string]interface{} {
 	summary["NViewers"] = r.NViewers()
 	summary["NClients"] = len(r.clients)
 	summary["sfu.Nparticipants"] = len(r.sfu.participants)
+	summary["secret"] = r.secret
 	//for i, participaint := range r.sfu.participants {
 	//	summary[fmt.Sprintf("sfu.participants%d", i)] = participaint.peer.GetStats()
 	//}
