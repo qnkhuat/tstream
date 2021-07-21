@@ -60,7 +60,7 @@ func (c *Chat) Start() error {
 
 	if err := c.StartVoiceService(); err != nil {
 		log.Printf("Failed to start voice service : %s", err)
-		return err
+		c.addNoti(fmt.Sprintf("Failed to start voice service : %s", err))
 	}
 
 	// blocking call

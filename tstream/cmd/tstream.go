@@ -137,6 +137,7 @@ func main() {
 		err = s.Start() // blocking call
 		if err != nil {
 			log.Printf("Failed to start tstream : %s", err)
+			fmt.Printf("Failed to start tstream : %s\n", err)
 		}
 		return
 	} else {
