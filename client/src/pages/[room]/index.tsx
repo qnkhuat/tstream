@@ -266,7 +266,6 @@ class Room extends React.Component<Props, State> {
   }
 
   render() {
-    console.log(this.state.roomInfo);
     document.title = getSiteTitle(this.props.match.params.roomID, this.state.roomInfo?.Title as string);
     const isConnected = this.state.roomInfo != null;
     const isStreamStopped = this.state.roomInfo?.Status === RoomStatus.Stopped;

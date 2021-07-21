@@ -133,20 +133,16 @@ func (r *Room) AddStreamer(conn *websocket.Conn) error {
 	// Periodically ping streamer
 	// If streamer response with a pong message => still alive
 	go func() {
-		ticker := time.NewTicker(cfg.SERVER_PING_INTERVAL * time.Second)
-		for {
-			select {
-			case <-ticker.C:
-				if r.status == message.RStopped {
-					return
-				}
-				if time.Now().Sub(r.lastActiveTime) > time.Second*cfg.SERVER_DISCONNECTED_THRESHHOLD {
-					r.status = message.RStopped
-				} else {
-					r.status = message.RStreaming
-				}
-				r.streamer.WriteControl(websocket.PingMessage, emptyByteArray, time.Time{})
+		for _ = range time.Tick(cfg.SERVER_PING_INTERVAL * time.Second) {
+			if r.status == message.RStopped {
+				return
 			}
+			if time.Now().Sub(r.lastActiveTime) > time.Second*cfg.SERVER_DISCONNECTED_THRESHHOLD {
+				r.status = message.RStopped
+			} else {
+				r.status = message.RStreaming
+			}
+			r.streamer.WriteControl(websocket.PingMessage, emptyByteArray, time.Time{})
 		}
 	}()
 

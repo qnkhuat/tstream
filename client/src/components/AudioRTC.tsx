@@ -229,7 +229,10 @@ class AudioRTC extends React.Component<Props, State> {
                 <Button
                   variant="outlined"
                   className="font-bold bg"
-                  onClick={(e) => this.setState({openModal: false})}>No</Button>
+                  onClick={(e) => {
+                    this.setState({openModal: false, volume: 0})
+                  }
+                }>No</Button>
               </div>
             </div>
 

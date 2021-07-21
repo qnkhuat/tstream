@@ -129,6 +129,7 @@ func (s *Server) handleAddRoom(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleRoomStatus(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	roomName := vars["roomName"]
+	log.Printf("%v", s.rooms)
 	if room, ok := s.rooms[roomName]; ok {
 		json.NewEncoder(w).Encode(room.Summary())
 		return
