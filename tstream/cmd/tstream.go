@@ -36,6 +36,7 @@ func main() {
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "To Stream: just type in `tstream`.\n\nAdvanced config:\n")
 		flag.PrintDefaults()
+		fmt.Printf("\nFind a bug? Create an issue at: https://github.com/qnkhuat/tstream\n")
 	}
 
 	var server = flag.String("server", "https://server.tstream.club", "Server endpoint")
@@ -44,6 +45,7 @@ func main() {
 	var chat = flag.Bool("chat", false, "Open chat client: %s")
 
 	flag.Parse()
+	fmt.Printf("TStream v%s\n", cfg.STREAMER_VERSION)
 
 	if *version {
 		fmt.Printf("Tstream %s\nGithub: https://github.com/qnkhuat/tstream\n", cfg.STREAMER_VERSION)

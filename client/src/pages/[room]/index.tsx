@@ -16,6 +16,15 @@ import AudioRTC from "../../components/AudioRTC";
 import IconButton from '@material-ui/core/IconButton';
 import PersonIcon from '@material-ui/icons/Person';
 import DoubleArrowRoundedIcon from '@material-ui/icons/DoubleArrowRounded';
+import FullscreenIcon from '@material-ui/icons/Fullscreen';
+import FullscreenExitIcon from '@material-ui/icons/FullscreenExit';
+
+// In horizontal mode chat window will have minimum width
+const ChatWindowMinWidth: number = 400; // px
+
+// In verticle mode term will have in height
+const TermWindowMinHeightRatio: number = 0.6 // %
+
 
 interface Params {
   roomID: string;
@@ -31,6 +40,11 @@ enum RoomStatus {
     Disconnected = "Disconnected",
     Stopped = "Stopped",
     Streaming = "Streaming",
+}
+
+enum Orientation {
+  Vertical = "Verticlal",
+    Horizontal = "Horizontal",
 }
 
 interface RoomInfo {
@@ -49,11 +63,13 @@ interface Props extends RouteComponentProps<Params> {
 }
 
 interface State {
-  termSize: RectSize | null;
+  termSize: RectSize;
+  chatSize: RectSize;
   roomInfo: RoomInfo | null;
   mouseMove: boolean;
   connectStatus: RoomStatus;
-  hideChat: boolean | null;
+  fullScreen: boolean | null;
+  orientation: Orientation | null;
 }
 
 function getSiteTitle(streamerId: string, title: string) {
@@ -67,7 +83,6 @@ function getSiteTitle(streamerId: string, title: string) {
 class Room extends React.Component<Props, State> {
 
   navbarRef: React.RefObject<HTMLDivElement>;
-  ChatWindowWidth: number = 400; // TODO: implement dynamic chat win size
   mouseMovetimeout: ReturnType<typeof setTimeout> | null = null;
   ws: WebSocket | null = null;
   msgManager: PubSub | null = null;
@@ -78,11 +93,13 @@ class Room extends React.Component<Props, State> {
     this.navbarRef = React.createRef<HTMLDivElement>();
 
     this.state = {
-      termSize: null,
+      termSize: {width: 0, height: 0},
+      chatSize: {width: 0, height: 0},
       roomInfo: null,
       mouseMove:false,
       connectStatus: RoomStatus.Streaming,
-      hideChat: null,
+      fullScreen: null,
+      orientation: null,
     };
 
   }
@@ -99,27 +116,52 @@ class Room extends React.Component<Props, State> {
   }
 
   toggleChatWindow() {
-    let hideChatState = this.state.hideChat == null ? true : !this.state.hideChat;
-    this.setState({hideChat: hideChatState});
-    this.resizeTerminal(hideChatState);
+    let fullScreenState = this.state.fullScreen == null ? true : !this.state.fullScreen;
+    this.setState({fullScreen: fullScreenState});
+    this.arrangeTermChat(fullScreenState);
   }
 
-  resizeTerminal(hideChat: boolean | null) {
+  arrangeTermChat(fullScreen: boolean | null) {
     if (this.navbarRef.current) {
-      let termWidth = window.innerWidth;
 
-      // at start, if the window is too small then we don't show chat
-      if (window.innerWidth < this.ChatWindowWidth * 2 && hideChat == null) hideChat=true;
+      // Decide fullscreen if hasn't been set
+      if (fullScreen == null && window.innerWidth < ChatWindowMinWidth * 2) fullScreen = true;
+      else if (fullScreen == null) fullScreen = false;
 
-      if (!hideChat) {
-        termWidth -= this.ChatWindowWidth;
+      // Decide orientation if hasn't been set
+      let orientation = this.state.orientation;
+      const windowRatio = window.innerWidth / window.innerHeight;
+      if (windowRatio < .8) orientation = Orientation.Vertical;
+      if (windowRatio >= .8) orientation = Orientation.Horizontal;
+
+      const availableHeight = window.innerHeight - this.navbarRef.current.offsetHeight;
+
+      // first assume we are not in full screen mode
+      let termSize: RectSize = {
+        width: orientation == Orientation.Horizontal ? window.innerWidth - ChatWindowMinWidth : window.innerWidth,
+        height: orientation == Orientation.Horizontal ? availableHeight : availableHeight * TermWindowMinHeightRatio,
+      }
+      let chatSize: RectSize = {
+        width: orientation == Orientation.Horizontal ? window.innerWidth - termSize.width : window.innerWidth,
+        height: orientation == Orientation.Horizontal ? availableHeight : availableHeight - termSize.height,
+      }
+
+      if (fullScreen) {
+        // in case full screen termsize will fill in the space of chat size
+        if (orientation == Orientation.Vertical ) termSize.height += chatSize.height;
+        if (orientation == Orientation.Horizontal ) termSize.width += chatSize.width;
+
+        chatSize = {
+          width:0,
+          height:0,
+        }
       }
 
       this.setState({
-        termSize: {
-          width: termWidth,
-          height: window.innerHeight - this.navbarRef.current.offsetHeight},
-        hideChat: hideChat,
+        termSize: termSize,
+        chatSize: chatSize,
+        orientation : orientation,
+        fullScreen: fullScreen,
       });
     }
   }
@@ -152,7 +194,9 @@ class Room extends React.Component<Props, State> {
       }
     }
 
-    ws.onerror = () => {
+    // TODO : reconnect on error
+    // https://github.com/joewalnes/reconnecting-websocket
+    ws.onerror = (ev: Event) => {
       let roomInfo = {} as RoomInfo;
       roomInfo.Status = RoomStatus.NotExisted;
       this.setState({roomInfo: roomInfo});
@@ -214,91 +258,90 @@ class Room extends React.Component<Props, State> {
     this.msgManager = msgManager;
     this.ws = ws;
 
-    this.resizeTerminal(this.state.hideChat);
+    this.arrangeTermChat(this.state.fullScreen);
     window.addEventListener('resize', () => {
-      this.resizeTerminal(this.state.hideChat);
+      this.arrangeTermChat(this.state.fullScreen);
     })
 
   }
 
   render() {
+    console.log(this.state.roomInfo);
     document.title = getSiteTitle(this.props.match.params.roomID, this.state.roomInfo?.Title as string);
     const isConnected = this.state.roomInfo != null;
     const isStreamStopped = this.state.roomInfo?.Status === RoomStatus.Stopped;
     const isRoomExisted = this.state.roomInfo?.Status !== RoomStatus.NotExisted;
-    const terminalSize: RectSize =  {
-      width: this.state.termSize?.width ? this.state.termSize.width : -1,
-      height: this.state.termSize?.height ? this.state.termSize.height : -1,
-    }
+    const terminalSize: RectSize = this.state.termSize;
     return (
       <>
         <div id="navbar" ref={this.navbarRef}>
           <Navbar />
         </div>
 
-        <div id="room" className="flex relative">
-          {this.msgManager &&
-          <>
+        {!isConnected && <Loading />}
+
+        {isConnected && this.msgManager &&
+          <div id="room" className={`flex relative ${this.state.orientation == Orientation.Horizontal ? "flex-row" : "flex-col"}`}>
             <div id="terminal-view" className="relative"
               onMouseMove={() => this.flashTitle()}>
               {isConnected && !isStreamStopped && isRoomExisted &&
-              <div id="info" >
+              <div id="info" className={`relative w-full ${this.state.mouseMove ? "visible" : "hidden"}`}>
 
-                <div
-                  className={`top-0 left-0 w-full absolute z-10 px-4 py-2 bg-opacity-80 bg-gray-800 ${this.state.mouseMove ? "visible" : "hidden"}`}>
+                <div className={`top-0 left-0 w-full absolute z-10 px-4 py-2 bg-opacity-80 bg-gray-800 `}>
                   <p className="text-2xl">{this.state.roomInfo!.Title}</p>
                   <p className="text-md">@{this.state.roomInfo!.StreamerID}</p>
                 </div>
-                <div id="info-uptime" className={`p-1 bg-red-400 rounded absolute top-4 ${this.state.hideChat ? "right-14" : "right-4"} z-10`}>
+
+                <div id="info-uptime" className={`p-1 bg-red-400 rounded absolute top-4 right-4 z-10`}>
                   <Uptime className="text-md text-white font-semibold" startTime={new Date(this.state.roomInfo!.StartedTime)} />
                 </div>
 
-                <div id="info-nviewers" className="p-1 bg-gray-400 rounded absolute bottom-4 right-4 z-10">
+                <div id="info-nviewers" className="p-1 bg-gray-400 rounded absolute top-4 right-24 z-10">
                   <p className="text-md text-whtie font-semibold"><PersonIcon/> {this.state.roomInfo!.NViewers}</p>
                 </div>
 
-                <AudioRTC className="absolute bottom-4 left-4 z-10" roomID={this.props.match.params.roomID} />
               </div>}
 
               <div id="terminal-window">
-                {!isConnected && <Loading />}
 
-                {isConnected && !isStreamStopped && isRoomExisted &&
-                  <WSTerminal
-                    className="bg-black"
-                    msgManager={this.msgManager}
-                    width={terminalSize.width}
-                    height={terminalSize.height}
-                  />
-                }
+                {!isStreamStopped && isRoomExisted &&
+                <WSTerminal
+                  className="bg-black"
+                  msgManager={this.msgManager}
+                  width={terminalSize.width}
+                  height={terminalSize.height}
+                />}
 
-                {isConnected && isStreamStopped && isRoomExisted &&
+                {isStreamStopped && isRoomExisted &&
                   <div
                     style={terminalSize}
                     className="bg-black flex justify-center items-center">
                     <p className="text-2xl font-bold">The stream has stopped</p>
                   </div>}
 
-                {isConnected && !isRoomExisted &&
+                {!isRoomExisted &&
                   <div
                     style={terminalSize}
                     className="bg-black flex justify-center items-center">
                     <p className="text-2xl font-bold">Stream not existed</p>
                   </div>}
 
+                <IconButton className={`absolute bottom-3 right-4 z-10 rounded-full bg-gray-700 p-1`} onClick={this.toggleChatWindow.bind(this)}>
+                  {this.state.fullScreen && <FullscreenExitIcon/>}
+                  {!this.state.fullScreen && <FullscreenIcon/>}
+                </IconButton>
 
+                <AudioRTC className="absolute bottom-4 left-4 z-10" roomID={this.props.match.params.roomID} />
               </div>
+
+
             </div>
 
-            <div className={`relative ${this.state.hideChat ? "w-0" : "w-full"}`}>
-              <IconButton className={`absolute ${this.state.hideChat ? "right-2 transform rotate-180" : "left-2"} top-3 z-10 `} onClick={this.toggleChatWindow.bind(this)}>
-                <DoubleArrowRoundedIcon />
-              </IconButton>
-              <Chat msgManager={this.msgManager} className={`${this.state.hideChat ? "hidden" : ""}`}/>
-            </div>
-          </>}
-
-        </div>
+            <Chat msgManager={this.msgManager} height={this.state.chatSize.height} width={this.state.chatSize.width} 
+              className={`${this.state.fullScreen ? "hidden" : "visible"} 
+            ${this.state.orientation == Orientation.Horizontal ? "border-l" : "border-t"} border-gray-500 rounded-lg`}/>
+          </div>
+        }
       </>
     )
   }

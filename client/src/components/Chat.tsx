@@ -9,11 +9,13 @@ const USER_CONFIG_KEY = "tstreamUser";
 
 interface TstreamUser {
   name: string,
-    color: string,
+  color: string,
 }
 
 interface Props {
   msgManager: PubSub;
+  height: number;
+  width: number;
   className?: string;
 }
 
@@ -29,7 +31,7 @@ interface State {
   inputContent: string;
   userConfig: TstreamUser | null;
   isWaitingUsername: boolean,
-    tempMsg: string,
+  tempMsg: string,
 }
 
 const ChatSection: React.FC<ChatMsg> = ({ Name, Content, Color, Time}) => {
@@ -243,40 +245,30 @@ class Chat extends React.Component<Props, State> {
 
   render() {
     return (
-      <div 
-        id="chat-wrapper"
-        className={`flex flex-col w-full h-full flex flex-col border-l border-gray-500 relative pt-12 ${this.props.className}`} 
-        style={{width: '400px', fontFamily: "'Ubuntu Mono', monospace"}}
+      <div className={`flex flex-col relative scroll-bar-inline ${this.props.className}`} 
+        style={{height: this.props.height, width: this.props.width, fontFamily: "'Ubuntu Mono', monospace"}}
       >
-        <div style={{height: '0px'}} className="bg-black overflow-y-auto overflow-x-none p-2 flex flex-col-reverse flex-grow" id="chatbox">
-          {
-            this.state.msgList.slice(0).reverse().map(
-            (item, index) => <ChatSection Name={item.Name} Content={item.Content} Color={item.Color} Time={item.Time} key={index}/>
-          )
-          }
+        <div id ="chatbox" className="bg-black overflow-y-scroll overflow-x-none p-2 flex flex-col-reverse flex-grow scroll-bar-inline">
+          {this.state.msgList.slice(0).reverse().map(
+            (item, index) => <ChatSection Name={item.Name} Content={item.Content} Color={item.Color} Time={item.Time} key={index}/>)}
         </div>
-        <div className="bottom-0 transform w-full" id="chat-input">
-          <div className="border-b border-gray-500 flex-shrink-0 flex items-center justify-between">
-            <TextField
-              InputProps={{
-                style: {
-                  flexGrow: 1, 
-                    borderRadius: ".5rem",
-                    backgroundColor: "rgba(75,85,99,1)",
-                    fontFamily: "'Ubuntu Mono', monospace",
-                }
-              }}
-              placeholder={(this.state.isWaitingUsername) ? "Please enter your name..." : "Chat with everyone..."}
-              fullWidth
-              multiline
-              value={this.state.inputContent}
-              onChange={(e) => {
-                this.setState({
-                  inputContent: e.target.value,
-                });
-              }}
-            />
-          </div>
+        <div id="chat-input" className="w-full flex-shrink-0">
+          <TextField
+            InputProps={{
+              style: {
+                  backgroundColor: "rgba(75,85,99,1)",
+                  fontFamily: "'Ubuntu Mono', monospace",}
+            }}
+            placeholder={(this.state.isWaitingUsername) ? "Please enter your name..." : "Chat with everyone..."}
+            fullWidth
+            multiline
+            value={this.state.inputContent}
+            onChange={(e) => {
+              this.setState({
+                inputContent: e.target.value,
+            });
+            }}
+          />
         </div>
       </div>
     )

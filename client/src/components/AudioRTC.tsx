@@ -34,8 +34,8 @@ class AudioRTC extends React.Component<Props, State> {
     super(props);
 
     this.state =  {
-      lastVolume: props.volume || 0,
       volume: props.volume || 0,
+      lastVolume: 1,
       isPlayed: false,
       trackIDs: [],
       openModal: false,
@@ -202,7 +202,7 @@ class AudioRTC extends React.Component<Props, State> {
         {hasTracks &&
         <>
           <div className="w-auto bg-gray-700 rounded-full group hover:block hover:mr-2 flex flex-row items-center p-1">
-            <IconButton onClick={this.toggleMute} className="p-1">
+            <IconButton onClick={this.toggleMute.bind(this)} className="p-1">
               {(!this.state.isPlayed || this.state.volume === 0) && <VolumeMuteIcon fontSize="small" />}
               {this.state.isPlayed && this.state.volume <= 0.4 && this.state.volume > 0 && <VolumeDown fontSize="small" />}
               {this.state.isPlayed && this.state.volume > 0.4 && <VolumeUp fontSize="small" />}
@@ -215,18 +215,20 @@ class AudioRTC extends React.Component<Props, State> {
             onClose={() => this.setState({openModal: false})}
             aria-labelledby="modal-modal-title"
             aria-describedby="modal-modal-description">
-            <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 p-4 bg-black">
-              <p className="font-bold text-center">This stream has voice chat<br></br>Do you want to turn on audio?</p>
+            <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 p-4 bg-gray-900 border border-gray-800 rounded">
+              <p className="font-bold text-center">Streamer has enabled voice chat<br></br>Do you want to turn on audio?</p>
               <br></br>
               <div className="flex justify-center">
                 <Button
-                  className="font-bold"
+                  className="font-bold mr-4"
+                  variant="outlined"
                   onClick={(e) => {
-                    this.playTracks(this.state.volume);
-                    this.setState({openModal: false});
+                    this.playTracks(1);
+                    this.setState({openModal: false, volume:1});
                   }}>Yes</Button>
                 <Button
-                  className="font-bold"
+                  variant="outlined"
+                  className="font-bold bg"
                   onClick={(e) => this.setState({openModal: false})}>No</Button>
               </div>
             </div>

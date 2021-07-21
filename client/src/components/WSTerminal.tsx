@@ -95,6 +95,7 @@ class WSTerminal extends React.Component<Props, {}> {
           <Xterm
             options={{
               rightClickSelectsWord: false,
+              disableStdin: true,
             }}
             ref={this.termRef}/>
         </div>

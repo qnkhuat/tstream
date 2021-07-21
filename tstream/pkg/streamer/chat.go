@@ -199,6 +199,7 @@ func (c *Chat) StartVoiceService() error {
 
 	// add tracks to peer connection
 	for _, track := range s.GetTracks() {
+		log.Printf("%s, %s, %s", track.ID(), track.Kind(), track.Kind)
 		log.Printf("adding track")
 		// TODO: we probably want to stop the chat here
 		// reproduce steps: try open a producer page while having chat on
