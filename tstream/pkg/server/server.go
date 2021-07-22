@@ -81,6 +81,7 @@ func (s *Server) Start() {
 
 	router.HandleFunc("/api/health", handleHealth).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/rooms", s.handleListRooms).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/room/{roomName}/status", s.handleRoomStatus).Methods("GET", "OPTIONS")
 	// Add room
 	router.HandleFunc("/api/room", s.handleAddRoom).Queries("streamerID", "{streamerID}", "title", "{title}").Methods("POST", "OPTIONS")
 	router.HandleFunc("/ws/{roomName}", s.handleWS) // for streamers
@@ -124,6 +125,7 @@ func (s *Server) scanAndCleanRooms(idleThreshold int) int {
 	count := 0
 	for roomName, room := range s.rooms {
 		if time.Since(room.LastActiveTime()) > threshold || room.Status() == message.RStopped {
+			log.Printf("Clean room: %s", roomName)
 			room.Stop(message.RStopped)
 			s.deleteRoom(roomName)
 			msg := room.PrepareRoomInfo()

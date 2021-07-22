@@ -108,6 +108,10 @@ func (s *Server) handleAddRoom(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if _, ok := s.rooms[q.StreamerID]; !ok {
+		if len(b.Secret) == 0 {
+			http.Error(w, "Secret must be non-empty", 400)
+			return
+		}
 		s.NewRoom(q.StreamerID, q.Title, b.Secret)
 		log.Printf("Added a room %s, %s", q.StreamerID, q.Title)
 		w.WriteHeader(http.StatusOK)
@@ -122,6 +126,20 @@ func (s *Server) handleAddRoom(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Room existed", 400)
 			return
 		}
+	}
+}
+
+/*** Show Room Status ***/
+func (s *Server) handleRoomStatus(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	roomName := vars["roomName"]
+	log.Printf("%v", s.rooms)
+	if room, ok := s.rooms[roomName]; ok {
+		json.NewEncoder(w).Encode(room.Summary())
+		return
+	} else {
+		http.Error(w, "Room not existed", 400)
+		return
 	}
 }
 

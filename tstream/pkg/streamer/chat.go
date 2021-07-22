@@ -681,23 +681,15 @@ func (c *Chat) applyDeviceCallback() error {
 	listSender := c.peerConn.GetSenders()
 	for _, sender := range listSender {
 		if sender.Track().ID() == c.audioTrack.ID() {
-			log.Println("---------- Yooooooo In deleting Track ")
-			err := c.peerConn.RemoveTrack(sender)
+			log.Println("---------- Yooooooo In deleting Track :%s")
+			err := sender.ReplaceTrack(c.audioTrack)
 			if err != nil {
-				log.Printf("Failed to delete old track %s", err)
+				log.Printf("Failed to replace old track %s", err)
 				return err
 			}
 			break
 		}
 	}
-
-	_, err := c.peerConn.AddTrack(c.audioTrack)
-	if err != nil {
-		log.Printf("Failed to add track %s", err)
-		return err
-	}
-
-	c.sendOffer(c.peerConn, c.wsConn)
 
 	return nil
 }

@@ -43,11 +43,11 @@ func NewSFU() *SFU {
 func (s *SFU) Start() {
 	// TODO: this should be requested by client, not server auto send it every 3 seconds
 	// request a keyframe every 3 seconds
-	go func() {
-		for range time.NewTicker(time.Second * 3).C {
-			s.sendKeyFrame()
-		}
-	}()
+	//go func() {
+	//	for range time.NewTicker(time.Second * 3).C {
+	//		s.sendKeyFrame()
+	//	}
+	//}()
 }
 
 // TODO : break down this method
@@ -107,12 +107,7 @@ func (s *SFU) AddPeer(cl *Client) error {
 		log.Printf("Pariticipant: %s changed stated to: %s", participantID, p)
 		switch p {
 
-		case webrtc.PeerConnectionStateFailed:
-			if err := peerConn.Close(); err != nil {
-				log.Print(err)
-			}
-
-		case webrtc.PeerConnectionStateClosed, webrtc.PeerConnectionStateDisconnected:
+		case webrtc.PeerConnectionStateFailed, webrtc.PeerConnectionStateClosed, webrtc.PeerConnectionStateDisconnected:
 			s.removeParticipant(participantID)
 
 		case webrtc.PeerConnectionStateConnected:
@@ -135,6 +130,7 @@ func (s *SFU) AddPeer(cl *Client) error {
 	if cl.Role() == message.RProducerRTC {
 		peerConn.OnTrack(func(t *webrtc.TrackRemote, _ *webrtc.RTPReceiver) {
 			// Create a track to fan out our incoming video to all peerse
+			log.Printf("added track :%s, %s", t.Kind(), t.ID())
 			trackLocal := s.addLocalTrack(t)
 			defer s.removeLocalTrack(t.ID())
 
@@ -143,15 +139,19 @@ func (s *SFU) AddPeer(cl *Client) error {
 				// remote from remote
 				i, _, err := t.Read(buf)
 				if err != nil {
+					log.Printf("Failed to read from track: %s", err)
 					return
 				}
 
 				// send to all peers
 				if _, err = trackLocal.Write(buf[:i]); err != nil {
+					log.Printf("Failed to write to track local: %s", err)
 					return
 				}
 			}
+			log.Printf("The enddddddddddd")
 		})
+
 	}
 
 	// Signaling starts
@@ -159,7 +159,6 @@ func (s *SFU) AddPeer(cl *Client) error {
 	// 2. Server get answer
 	// 3. Server send ice candidate
 	// 4. Peer connection is established
-	log.Printf("Sent offer")
 	err = s.sendOffer(participant)
 
 	for {
@@ -176,6 +175,7 @@ func (s *SFU) AddPeer(cl *Client) error {
 			continue
 		}
 
+		log.Printf("Got %s", rtcMsg.Event)
 		switch rtcMsg.Event {
 
 		case message.RTCCandidate:
@@ -217,8 +217,13 @@ func (s *SFU) AddPeer(cl *Client) error {
 func (s *SFU) syncPeers() {
 
 	attemptSync := func() (tryAgain bool) {
-		s.lock.RLock()
-		defer s.lock.RUnlock()
+		s.lock.Lock()
+		defer s.lock.Unlock()
+		// if there is only one person in the room, no need to sync
+		if len(s.participants) < 2 {
+			return false
+		}
+
 		for _, participant := range s.participants {
 
 			// map of sender we already are seanding, so we don't double send
@@ -259,6 +264,7 @@ func (s *SFU) syncPeers() {
 
 			err := s.sendOffer(participant)
 			if err != nil {
+				log.Printf("Failed to send offer :%s", err)
 				return true
 			}
 
@@ -286,7 +292,6 @@ func (s *SFU) syncPeers() {
 }
 
 func (s *SFU) addLocalTrack(t *webrtc.TrackRemote) *webrtc.TrackLocalStaticRTP {
-
 	// Create a new TrackLocal with the same codec as our incoming
 	trackLocal, err := webrtc.NewTrackLocalStaticRTP(t.Codec().RTPCodecCapability, t.ID(), t.StreamID())
 	if err != nil {
@@ -304,6 +309,7 @@ func (s *SFU) addLocalTrack(t *webrtc.TrackRemote) *webrtc.TrackLocalStaticRTP {
 }
 
 func (s *SFU) removeLocalTrack(id string) {
+	log.Printf("Removing local track: %s", id)
 	s.lock.Lock()
 	delete(s.trackLocals, id)
 	s.lock.Unlock()
@@ -320,20 +326,38 @@ func (s *SFU) newParticipantID() string {
 }
 
 func (s *SFU) removeParticipant(id string) {
+	if _, ok := s.participants[id]; !ok {
+		return
+	}
+
+	// receiver in this context is the track producer send to server
+	// if pariticipant is a producer => remove their track
+	for _, receiver := range s.participants[id].peer.GetReceivers() {
+		if receiver.Track() == nil {
+			continue
+		}
+		s.removeLocalTrack(receiver.Track().ID())
+		log.Printf("Receiver track %s", receiver.Track().ID())
+	}
+
 	s.lock.Lock()
+	log.Printf("removeing paritipant: %s", id)
 	delete(s.participants, id)
 	s.lock.Unlock()
 	s.syncPeers()
+	log.Printf("%v", s.participants)
 	return
 }
 
 func (s *SFU) sendOffer(participant *Participant) error {
 	offer, err := participant.peer.CreateOffer(nil)
 	if err != nil {
+		log.Printf("failed to create offer: %s", err)
 		return err
 	}
 
 	if err = participant.peer.SetLocalDescription(offer); err != nil {
+		log.Printf("Failed to set local description: %s", err)
 		return err
 	}
 
@@ -359,6 +383,8 @@ func (s *SFU) Stop() {
 	}
 }
 
+// used for video broadcasting
+// without sending keyframe user will receive a crappy video until the next keyframe is sent
 func (s *SFU) sendKeyFrame() {
 	s.lock.RLock()
 	defer s.lock.RUnlock()

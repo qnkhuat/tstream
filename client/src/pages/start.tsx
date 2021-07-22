@@ -15,7 +15,7 @@ function Start() {
             <li>Unpack it <ul>
               <li><Code className="text-white" text="tar -xzf tstream_{version}_{os}_{arch}.tar.gz"></Code></li></ul>
             </li>
-            <li>(Optional) Setup TStream so you can run it anywhere 
+            <li>(Optional) Setup TStream to run it anywhere
               <ul>
                 <li><Code className="text-white" text="cp tstream /usr/local/bin"></Code></li>
               </ul>
