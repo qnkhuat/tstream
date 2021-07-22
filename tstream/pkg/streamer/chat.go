@@ -421,7 +421,7 @@ func (c *Chat) initUI() error {
 			}
 		})
 
-		// Default is mute
+	// Default is mute
 	c.muteBtn = tview.NewButton("🔇").
 		SetSelectedFunc(func() {
 			c.toggleMute()
@@ -438,6 +438,14 @@ func (c *Chat) initUI() error {
 		AddItem(c.chatTextView, 1, 0, 1, 1, 0, 0, false).
 		AddItem(footer, 2, 0, 1, 1, 0, 0, true)
 
+	// auto focus on the message input if user starts typing
+	c.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyRune {
+			c.app.SetFocus(footer)
+		}
+		return event
+
+	})
 	c.app.SetRoot(layout, true)
 	return nil
 }
@@ -447,11 +455,11 @@ func (c *Chat) HandleCommand(command string) error {
 	switch args[0] {
 	case "help":
 		c.addNoti(`
-TStream - Streaming from terimnal
-[green]/title[yellow] title[white] - to change stream title 
-[green]/mute[white] - to turn on microphone
-[green]/unmute[white] - to turn off microphone
-[green]/exit[white] - to exit chat room`)
+      TStream - Streaming from terimnal
+      [green]/title[yellow] title[white] - to change stream title 
+      [green]/mute[white] - to turn on microphone
+      [green]/unmute[white] - to turn off microphone
+      [green]/exit[white] - to exit chat room`)
 
 	case "title":
 		if len(args) > 1 {
