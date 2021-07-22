@@ -4,6 +4,7 @@ package streamer
 import (
 	"encoding/json"
 	"fmt"
+
 	"github.com/gdamore/tcell/v2"
 	"github.com/gorilla/schema"
 	"github.com/gorilla/websocket"
@@ -11,17 +12,23 @@ import (
 	"github.com/qnkhuat/mediadevices/pkg/codec/opus"          // This is required to use opus audio encoder
 	_ "github.com/qnkhuat/mediadevices/pkg/driver/camera"     // This is required to register camera adapter
 	_ "github.com/qnkhuat/mediadevices/pkg/driver/microphone" // This is required to register microphone adapter
+
 	//"github.com/qnkhuat/mediadevices/pkg/frame"
 	//"github.com/qnkhuat/mediadevices/pkg/prop"
-	"github.com/pion/webrtc/v3"
-	"github.com/qnkhuat/tstream/pkg/message"
-	"github.com/rivo/tview"
 	"log"
 	"math"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/pion/webrtc/v3"
+	"github.com/qnkhuat/tstream/pkg/message"
+	"github.com/rivo/tview"
 )
+
+// constants
+const MAIN_PAGE = "MainPage"
+const DEVICE_PAGE = "DevicePage"
 
 var decoder = schema.NewDecoder()
 
@@ -40,16 +47,25 @@ type Chat struct {
 	titleTextView    *tview.TextView
 	muteBtn          *tview.Button
 	mute             bool
+	rootPage         *tview.Pages
+	deviceBtn        *tview.Button
+	audioDropDown    *tview.DropDown
+	audioTrack       mediadevices.Track
+	mediaStream      mediadevices.MediaStream
+	audioListId      []string
+	mediaConstraints mediadevices.MediaStreamConstraints
 }
 
 func NewChat(sessionId, serverAddr, username string) *Chat {
+	var audioListId []string
 	return &Chat{
-		username:   username,
-		sessionId:  sessionId,
-		serverAddr: serverAddr,
-		color:      "red",
-		app:        tview.NewApplication(),
-		mute:       true,
+		username:    username,
+		sessionId:   sessionId,
+		serverAddr:  serverAddr,
+		color:       "red",
+		app:         tview.NewApplication(),
+		mute:        true,
+		audioListId: audioListId,
 	}
 }
 
@@ -162,27 +178,30 @@ func (c *Chat) StartVoiceService() error {
 	codecSelector.Populate(&mediaEngine)
 	api := webrtc.NewAPI(webrtc.WithMediaEngine(&mediaEngine))
 	peerConn, err := api.NewPeerConnection(config)
+	c.peerConn = peerConn
 	if err != nil {
 		log.Printf("Failed to start webrtc conn %s", err)
 		return err
 	}
 
-	s, err := mediadevices.GetUserMedia(mediadevices.MediaStreamConstraints{
+	c.mediaConstraints = mediadevices.MediaStreamConstraints{
 		Audio: func(c *mediadevices.MediaTrackConstraints) {},
 		Codec: codecSelector,
-	})
+	}
+
+	c.mediaStream, err = mediadevices.GetUserMedia(c.mediaConstraints)
 
 	if err != nil {
 		log.Printf("This thing is too conventional %s", err)
 		return err
 	}
 
-	for _, track := range s.GetTracks() {
+	for _, track := range c.mediaStream.GetTracks() {
 		track.OnEnded(func(err error) {
 			fmt.Printf("Track (ID: %s) ended with error: %v\n",
 				track.ID(), err)
 		})
-		_, err = peerConn.AddTransceiverFromTrack(track,
+		_, err := peerConn.AddTransceiverFromTrack(track,
 			webrtc.RtpTransceiverInit{
 				Direction: webrtc.RTPTransceiverDirectionSendonly,
 			},
@@ -191,30 +210,10 @@ func (c *Chat) StartVoiceService() error {
 			log.Printf("Failed to add track %s", err)
 			return err
 		}
+		if track.Kind().String() == "audio" {
+			c.audioTrack = track
+		}
 	}
-
-	//peerConn, err := webrtc.NewPeerConnection(config)
-
-	// Open a UDP Listener for RTP Packets on port 5004
-	//listener, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.ParseIP("127.0.0.1"), Port: 5004})
-	//if err != nil {
-	//	panic(err)
-	//}
-	//defer func() {
-	//	if err = listener.Close(); err != nil {
-	//		panic(err)
-	//	}
-	//}()
-
-	//// Create a video track
-	//lcoalTrack, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus}, "audio", "tstream")
-	//if err != nil {
-	//	panic(err)
-	//}
-	//rtpSender, err := peerConn.AddTrack(localTrack)
-	//if err != nil {
-	//	panic(err)
-	//}
 
 	// wsconnection is for signaling and update track changes
 	wsConn, err := c.connectWS(message.RProducerRTC)
@@ -293,36 +292,15 @@ func (c *Chat) StartVoiceService() error {
 				offer := webrtc.SessionDescription{}
 				if err := json.Unmarshal([]byte(event.Data), &offer); err != nil {
 					log.Println(err)
-					continue
+					return
 				}
 
 				if err := peerConn.SetRemoteDescription(offer); err != nil {
 					log.Printf("Failed to set remote description: %s", err)
-					continue
+					return
 				}
 
-				// send back SDP answer and set it as local description
-				answer, err := peerConn.CreateAnswer(nil)
-				if err != nil {
-					log.Printf("Failed to create Offer")
-					continue
-				}
-
-				if err := peerConn.SetLocalDescription(answer); err != nil {
-					log.Printf("Failed to set local description: %v", err)
-					continue
-				}
-
-				answerByte, _ := json.Marshal(answer)
-
-				payload := message.Wrapper{
-					Type: message.TRTC,
-					Data: message.RTC{
-						Event: message.RTCAnswer,
-						Data:  string(answerByte),
-					},
-				}
-				wsConn.WriteJSON(payload)
+				c.sendOffer(peerConn, wsConn)
 
 			case message.RTCCandidate:
 				candidate := webrtc.ICECandidateInit{}
@@ -347,7 +325,9 @@ func (c *Chat) StartVoiceService() error {
 }
 
 func (c *Chat) Start() error {
-	c.initUI()
+	if err := c.initUI(); err != nil {
+		log.Printf("Failed to init UI : %s", err)
+	}
 
 	if err := c.StartChatService(); err != nil {
 		log.Printf("Failed to start chat service : %s", err)
@@ -372,7 +352,7 @@ func (c *Chat) requestServer(msgType message.MType) error {
 	return c.wsConn.WriteJSON(payload)
 }
 
-func (c *Chat) initUI() error {
+func (c *Chat) initMainLayout() (*tview.Grid, error) {
 	layout := tview.NewGrid().
 		SetRows(4, 0, 1).
 		SetColumns(0).
@@ -440,24 +420,91 @@ func (c *Chat) initUI() error {
 			}
 		})
 
-		// Default is mute
+	// Default is mute
 	c.muteBtn = tview.NewButton("🔇").
 		SetSelectedFunc(func() {
 			c.toggleMute()
 		})
 	c.muteBtn.SetBackgroundColor(tcell.ColorBlack)
 
+	c.deviceBtn = tview.NewButton("🔇").
+		SetSelectedFunc(func() {
+			c.rootPage.SwitchToPage(DEVICE_PAGE)
+			c.updateDevices()
+		})
+	c.deviceBtn.SetBackgroundColor(tcell.ColorBlack)
+
 	footer := tview.NewGrid().
 		SetRows(1).
-		SetColumns(3, 0).
+		SetColumns(3, 0, 3).
 		AddItem(c.muteBtn, 0, 0, 1, 1, 0, 0, false).
-		AddItem(messageInput, 0, 1, 1, 1, 0, 0, true)
+		AddItem(messageInput, 0, 1, 1, 1, 0, 0, true).
+		AddItem(c.deviceBtn, 0, 2, 1, 1, 0, 0, false)
 
 	layout.AddItem(header, 0, 0, 1, 1, 0, 0, false).
 		AddItem(c.chatTextView, 1, 0, 1, 1, 0, 0, false).
 		AddItem(footer, 2, 0, 1, 1, 0, 0, true)
 
-	c.app.SetRoot(layout, true)
+	return layout, nil
+}
+
+func (c *Chat) initDeviceLayout() (*tview.Grid, error) {
+	c.audioDropDown = tview.NewDropDown().
+		SetLabel("Audio Device: ")
+
+	dropdownField := tview.NewGrid().
+		SetRows(0, 5, 0).
+		SetColumns(0, 30, 0).
+		AddItem(c.audioDropDown, 1, 1, 1, 1, 0, 0, false)
+
+	applyBtn := tview.NewButton("Apply").
+		SetSelectedFunc(func() {
+			err := c.applyDeviceCallback()
+			if err != nil {
+				log.Printf("Error when apply new device: %s", err)
+			}
+		})
+
+	backBtn := tview.NewButton("Back").
+		SetSelectedFunc(func() {
+			c.rootPage.SwitchToPage(MAIN_PAGE)
+		})
+
+	buttonField := tview.NewGrid().
+		SetRows(0).
+		SetColumns(0, 10, 5, 10, 0).
+		AddItem(applyBtn, 0, 1, 1, 1, 0, 0, false).
+		AddItem(backBtn, 0, 3, 1, 1, 0, 0, false)
+
+	layout := tview.NewGrid().
+		SetRows(0, 3, 3, 3, 0).
+		SetColumns(0)
+
+	layout.AddItem(dropdownField, 1, 0, 1, 1, 0, 0, false).
+		AddItem(buttonField, 3, 0, 1, 1, 0, 0, false)
+
+	return layout, nil
+}
+
+func (c *Chat) initUI() error {
+	mainLayout, err := c.initMainLayout()
+	if err != nil {
+		log.Printf("Error occured when init main layout: %s\n", err)
+		return err
+	}
+
+	deviceLayout, err := c.initDeviceLayout()
+	if err != nil {
+		log.Printf("Error occured when init device layout: %s\n", err)
+		return err
+	}
+
+	c.rootPage = tview.NewPages()
+	c.rootPage.AddPage(MAIN_PAGE, mainLayout, true, false)
+	c.rootPage.AddPage(DEVICE_PAGE, deviceLayout, true, false)
+	c.rootPage.SwitchToPage(MAIN_PAGE)
+
+	c.app.SetRoot(c.rootPage, true)
 	return nil
 }
 
@@ -604,6 +651,80 @@ func (c *Chat) Stop() {
 		c.peerConn.Close()
 	}
 	c.app.Stop()
+}
+
+func (c *Chat) updateDevices() {
+	listDevices := mediadevices.EnumerateDevices()
+	var listAudioLabel []string
+	var currentAudio int = -1
+
+	c.audioListId = c.audioListId[:0]
+
+	for _, device := range listDevices {
+		if device.DeviceType == "microphone" {
+			listAudioLabel = append(listAudioLabel, fmt.Sprintf("Headphones %v", len(listAudioLabel)))
+			c.audioListId = append(c.audioListId, device.DeviceID)
+			if device.DeviceID == c.audioTrack.ID() {
+				currentAudio = len(listAudioLabel) - 1
+			}
+		}
+	}
+
+	c.audioDropDown.SetOptions(listAudioLabel, func(text string, index int) {})
+	if currentAudio != -1 {
+		c.audioDropDown.SetCurrentOption(currentAudio)
+	}
+}
+
+func (c *Chat) applyDeviceCallback() error {
+
+	listSender := c.peerConn.GetSenders()
+	for _, sender := range listSender {
+		if sender.Track().ID() == c.audioTrack.ID() {
+			log.Println("---------- Yooooooo In deleting Track ")
+			err := c.peerConn.RemoveTrack(sender)
+			if err != nil {
+				log.Printf("Failed to delete old track %s", err)
+				return err
+			}
+			break
+		}
+	}
+
+	_, err := c.peerConn.AddTrack(c.audioTrack)
+	if err != nil {
+		log.Printf("Failed to add track %s", err)
+		return err
+	}
+
+	c.sendOffer(c.peerConn, c.wsConn)
+
+	return nil
+}
+
+func (c *Chat) sendOffer(peerConn *webrtc.PeerConnection, wsConn *websocket.Conn) {
+	// send back SDP answer and set it as local description
+	answer, err := peerConn.CreateAnswer(nil)
+	if err != nil {
+		log.Printf("Failed to create Offer: %s", err)
+		return
+	}
+
+	if err := peerConn.SetLocalDescription(answer); err != nil {
+		log.Printf("Failed to set local description: %v", err)
+		return
+	}
+
+	answerByte, _ := json.Marshal(answer)
+
+	payload := message.Wrapper{
+		Type: message.TRTC,
+		Data: message.RTC{
+			Event: message.RTCAnswer,
+			Data:  string(answerByte),
+		},
+	}
+	wsConn.WriteJSON(payload)
 }
 
 func FormatChat(name, content, color string) string {
