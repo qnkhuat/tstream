@@ -56,10 +56,11 @@ func (cl *Client) Start() {
 	// periodically ping client
 	go func() {
 		for _ = range time.Tick(cfg.SERVER_PING_INTERVAL * time.Second) {
+			cl.conn.WriteControl(websocket.PingMessage, emptyByteArray, time.Time{})
 			if time.Now().Sub(cl.lastActiveTime) > time.Second*cfg.SERVER_DISCONNECTED_THRESHHOLD {
 				cl.alive = false
 				cl.conn.Close()
-				log.Printf("Closing client role due to inactive")
+				log.Printf("Closing client role %s due to inactive", cl.Role())
 				return
 			}
 		}
