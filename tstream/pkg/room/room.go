@@ -385,14 +385,12 @@ func (r *Room) Broadcast(msg message.Wrapper, roles []message.CRole, IDExclude [
 func (r *Room) Stop(status message.RoomStatus) {
 	log.Printf("Stopping room: %s, with Status: %s", r.name, status)
 	r.status = status
-	r.lock.Lock()
 	for id, client := range r.clients {
 		client.Close()
 		r.RemoveClient(id)
 	}
 	r.sfu.Stop()
 	r.streamer.Close()
-	r.lock.Unlock()
 }
 
 func (r *Room) PrepareRoomInfo() message.RoomInfo {

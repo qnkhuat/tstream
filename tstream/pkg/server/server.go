@@ -109,13 +109,9 @@ func (s *Server) Stop() {
 // interval : scan for every interval time
 // ildeThreshold : room with idle time above this threshold will be killed
 func (s *Server) repeatedlyCleanRooms(interval, idleThreshold int) {
-	tick := time.NewTicker(time.Duration(interval) * time.Second)
-	for {
-		select {
-		case <-tick.C:
-			c := s.scanAndCleanRooms(idleThreshold)
-			log.Printf("Cleaned %d rooms", c)
-		}
+	for _ = range time.Tick(time.Duration(interval) * time.Second) {
+		c := s.scanAndCleanRooms(idleThreshold)
+		log.Printf("Cleaned %d rooms", c)
 	}
 }
 

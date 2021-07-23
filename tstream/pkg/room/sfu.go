@@ -149,7 +149,6 @@ func (s *SFU) AddPeer(cl *Client) error {
 					return
 				}
 			}
-			log.Printf("The enddddddddddd")
 		})
 
 	}
