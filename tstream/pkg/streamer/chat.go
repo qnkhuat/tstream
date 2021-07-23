@@ -12,9 +12,9 @@ import (
 	"github.com/qnkhuat/mediadevices/pkg/codec/opus"          // This is required to use opus audio encoder
 	_ "github.com/qnkhuat/mediadevices/pkg/driver/camera"     // This is required to register camera adapter
 	_ "github.com/qnkhuat/mediadevices/pkg/driver/microphone" // This is required to register microphone adapter
+	"github.com/qnkhuat/mediadevices/pkg/prop"
 
 	//"github.com/qnkhuat/mediadevices/pkg/frame"
-	//"github.com/qnkhuat/mediadevices/pkg/prop"
 	"log"
 	"math"
 	"net/url"
@@ -51,9 +51,7 @@ type Chat struct {
 	deviceBtn        *tview.Button
 	audioDropDown    *tview.DropDown
 	audioTrack       mediadevices.Track
-	mediaStream      mediadevices.MediaStream
 	audioListId      []string
-	mediaConstraints mediadevices.MediaStreamConstraints
 }
 
 func NewChat(sessionId, serverAddr, username string) *Chat {
@@ -184,19 +182,17 @@ func (c *Chat) StartVoiceService() error {
 		return err
 	}
 
-	c.mediaConstraints = mediadevices.MediaStreamConstraints{
+	s, err := mediadevices.GetUserMedia(mediadevices.MediaStreamConstraints{
 		Audio: func(c *mediadevices.MediaTrackConstraints) {},
 		Codec: codecSelector,
-	}
-
-	c.mediaStream, err = mediadevices.GetUserMedia(c.mediaConstraints)
+	})
 
 	if err != nil {
 		log.Printf("This thing is too conventional %s", err)
 		return err
 	}
 
-	for _, track := range c.mediaStream.GetTracks() {
+	for _, track := range s.GetTracks() {
 		track.OnEnded(func(err error) {
 			fmt.Printf("Track (ID: %s) ended with error: %v\n",
 				track.ID(), err)
@@ -664,6 +660,7 @@ func (c *Chat) updateDevices() {
 		if device.DeviceType == "microphone" {
 			listAudioLabel = append(listAudioLabel, fmt.Sprintf("Headphones %v", len(listAudioLabel)))
 			c.audioListId = append(c.audioListId, device.DeviceID)
+			log.Printf("Device ID is %s", device.DeviceID)
 			if device.DeviceID == c.audioTrack.ID() {
 				currentAudio = len(listAudioLabel) - 1
 			}
@@ -677,15 +674,44 @@ func (c *Chat) updateDevices() {
 }
 
 func (c *Chat) applyDeviceCallback() error {
+	opusParams, err := opus.NewParams()
+	if err != nil {
+		panic(err)
+	}
+
+	mediaEngine := webrtc.MediaEngine{}
+
+	codecSelector := mediadevices.NewCodecSelector(
+		mediadevices.WithAudioEncoders(&opusParams),
+	)
+	codecSelector.Populate(&mediaEngine)
+
+	index, _ := c.audioDropDown.GetCurrentOption()
+	chooseAudioID := c.audioListId[index]
+
+	log.Printf("chooseAudioID is %s", chooseAudioID)
+
+	s, err := mediadevices.GetUserMedia(mediadevices.MediaStreamConstraints{
+		Audio: func(c *mediadevices.MediaTrackConstraints) {
+			c.DeviceID = prop.String(chooseAudioID)
+		},
+		Codec: codecSelector,
+	})
+
+	if err != nil {
+		log.Printf("Error occured when get new usermedia: %s", err)
+		return err
+	}
 
 	listSender := c.peerConn.GetSenders()
 	for _, sender := range listSender {
 		if sender.Track().ID() == c.audioTrack.ID() {
-			log.Println("---------- Yooooooo In deleting Track :%s")
-			err := sender.ReplaceTrack(c.audioTrack)
-			if err != nil {
-				log.Printf("Failed to replace old track %s", err)
-				return err
+			for _, track := range s.GetTracks() {
+				err := sender.ReplaceTrack(track)
+				if err != nil {
+					log.Printf("Failed to replace old track %s", err)
+					return err
+				}
 			}
 			break
 		}
