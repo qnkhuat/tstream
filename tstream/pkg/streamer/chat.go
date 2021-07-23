@@ -593,6 +593,11 @@ func (c *Chat) connectWS(role message.CRole) (*websocket.Conn, error) {
 		return conn, fmt.Errorf("Expect connect confirmation from server")
 	}
 
+	//Handle server ping
+	conn.SetPingHandler(func(appData string) error {
+		return conn.WriteControl(websocket.PongMessage, []byte{}, time.Time{})
+	})
+
 	return conn, nil
 }
 
