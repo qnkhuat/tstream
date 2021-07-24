@@ -37,7 +37,7 @@
     "xterm-addon-fit": "^0.5.0"
   },
   "scripts": {
-    "start": "HOST=0.0.0.0 PORT=3001 craco start",
+    "start": "PORT=3001 craco start",
     "build": "craco build",
     "test": "craco test",
     "eject": "react-scripts eject"
