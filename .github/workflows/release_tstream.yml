@@ -3,32 +3,26 @@ name: goreleaser
 on:
   push:
     tags:
-      - '*'
+      - 'v*'
 
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
     steps:
-      -
-        name: Checkout
+      - name: Checkout
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-      -
-        name: Set up Go
+        run: cd tstream
+
+      - name: Set up Go
         uses: actions/setup-go@v2
         with:
           go-version: 1.16
-      -
-        name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v2
-        with:
-          # either 'goreleaser' (default) or 'goreleaser-pro'
-          distribution: goreleaser
-          version: latest
-          args: release --rm-dist
-          workdir: ./tstream
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Your GoReleaser Pro key, if you are using the 'goreleaser-pro' distribution
-          # GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
+
+      - name: setup release env
+        run: echo 'GITHUB_TOKEN=${{secrets.GITHUB_TOKEN}}' > .release-env
+
+      - name: release publish
+        run: make release
+        
