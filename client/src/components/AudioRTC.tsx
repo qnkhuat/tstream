@@ -127,7 +127,7 @@ class AudioRTC extends React.Component<Props, State> {
           this.setState({trackIDs: []});
           break;
       }
-      console.log("State change: ", this.peerConn?.connectionState);
+      console.log("Peer connection state: ", this.peerConn?.connectionState);
     }
 
     // listen to onicecandidate event and send it back to server
@@ -159,7 +159,7 @@ class AudioRTC extends React.Component<Props, State> {
         case constants.MSG_FRTC_EVENT_OFFER:
           let offer = JSON.parse(event.Data)
           if (!offer) {
-            return console.log('failed to parse answer')
+            return 
           }
 
           this.peerConn?.setRemoteDescription(offer);
@@ -175,14 +175,14 @@ class AudioRTC extends React.Component<Props, State> {
         case constants.MSG_FRTC_EVENT_CANDIDATE:
             let candidate = JSON.parse(msg.Data.Data)
           if (!candidate) {
-            return console.log('failed to parse candidate')
+            return 
           }
 
           this.peerConn?.addIceCandidate(candidate)
           return
 
         default:
-            console.error("Invalid event: ", event.Event);
+          console.error("Invalid event: ", event.Event);
           return
       } 
     }

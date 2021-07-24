@@ -381,10 +381,8 @@ func (c *Chat) StopVoiceServer() error {
 	if c.peerConn == nil {
 		return nil
 	}
-	log.Printf("Stoppign")
 
 	for _, sender := range c.peerConn.GetSenders() {
-		log.Printf("removed: %v", sender)
 		if err := sender.Stop(); err != nil {
 			log.Printf("Failed to stop voice: %s", err)
 		}
@@ -394,7 +392,6 @@ func (c *Chat) StopVoiceServer() error {
 		log.Printf("Failed to stop peerconenction: %s", err)
 		return err
 	}
-	log.Printf("stopped")
 	c.peerConn = nil
 	return nil
 }

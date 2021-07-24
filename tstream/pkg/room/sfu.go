@@ -174,7 +174,6 @@ func (s *SFU) AddPeer(cl *Client) error {
 			continue
 		}
 
-		log.Printf("Got %s", rtcMsg.Event)
 		switch rtcMsg.Event {
 
 		case message.RTCCandidate:
@@ -308,7 +307,6 @@ func (s *SFU) addLocalTrack(t *webrtc.TrackRemote) *webrtc.TrackLocalStaticRTP {
 }
 
 func (s *SFU) removeLocalTrack(id string) {
-	log.Printf("Removing local track: %s", id)
 	s.lock.Lock()
 	delete(s.trackLocals, id)
 	s.lock.Unlock()
@@ -336,15 +334,12 @@ func (s *SFU) removeParticipant(id string) {
 			continue
 		}
 		s.removeLocalTrack(receiver.Track().ID())
-		log.Printf("Receiver track %s", receiver.Track().ID())
 	}
 
 	s.lock.Lock()
-	log.Printf("removeing paritipant: %s", id)
 	delete(s.participants, id)
 	s.lock.Unlock()
 	s.syncPeers()
-	log.Printf("%v", s.participants)
 	return
 }
 

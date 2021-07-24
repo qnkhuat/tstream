@@ -39,7 +39,6 @@ func New(clientAddr, serverAddr, username, title string) *Streamer {
 	in := make(chan interface{}, 256)  // buffer 256 send requests
 
 	secret := GetSecret(CONFIG_PATH)
-	log.Printf("Got seceret: %s", secret)
 
 	return &Streamer{
 		secret:     secret,
@@ -167,7 +166,6 @@ func (s *Streamer) RequestAddRoom() int {
 		"title":      {strings.TrimSpace(s.title)},
 		"version":    {cfg.STREAMER_VERSION},
 	}
-	log.Printf("Secret :%s", body)
 
 	resp, err := http.Post(fmt.Sprintf("%s/api/room?%s", s.serverAddr, queries.Encode()), "application/json", payload)
 	if err != nil {

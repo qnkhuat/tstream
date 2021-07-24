@@ -111,7 +111,6 @@ func (s *Server) Stop() {
 func (s *Server) repeatedlyCleanRooms(interval, idleThreshold int) {
 	for _ = range time.Tick(time.Duration(interval) * time.Second) {
 		c := s.scanAndCleanRooms(idleThreshold)
-		log.Printf("Cleaned %d rooms", c)
 	}
 }
 
@@ -121,7 +120,6 @@ func (s *Server) scanAndCleanRooms(idleThreshold int) int {
 	count := 0
 	for roomName, room := range s.rooms {
 		if time.Since(room.LastActiveTime()) > threshold || room.Status() == message.RStopped {
-			log.Printf("Clean room: %s", roomName)
 			room.Stop(message.RStopped)
 			s.deleteRoom(roomName)
 			msg := room.PrepareRoomInfo()
