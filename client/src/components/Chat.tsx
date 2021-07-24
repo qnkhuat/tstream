@@ -100,7 +100,7 @@ class Chat extends React.Component<Props, State> {
         e.preventDefault();
 
         let content = this.state.inputContent;
-        if (content.length > 0 && content[0] == "/") {
+        if (content.length > 0 && content[0] === "/") {
           this.handleCommand(content.slice(1));
         } else {
           this.handleSendMsg(content);
@@ -124,7 +124,7 @@ class Chat extends React.Component<Props, State> {
         break;
 
       case "name":
-        if (args.length == 2) {
+        if (args.length === 2) {
           let userConfig = this.getUserConfig()
           if (userConfig == null) {
             let color = constants.COLOR_LIST[Math.floor(Math.random() * (constants.COLOR_LIST.length))];
@@ -230,7 +230,7 @@ class Chat extends React.Component<Props, State> {
       }
 
     } else {
-      if (tempMsg == "") return;
+      if (tempMsg === "") return;
       let data = {
         Name: this.state.userConfig.name,
         Content: tempMsg,

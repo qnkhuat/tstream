@@ -111,6 +111,7 @@ func (s *Server) Stop() {
 func (s *Server) repeatedlyCleanRooms(interval, idleThreshold int) {
 	for _ = range time.Tick(time.Duration(interval) * time.Second) {
 		c := s.scanAndCleanRooms(idleThreshold)
+		log.Printf("Auto cleaned %d rooms", c)
 	}
 }
 

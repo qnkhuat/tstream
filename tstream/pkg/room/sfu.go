@@ -120,11 +120,11 @@ func (s *SFU) AddPeer(cl *Client) error {
 	})
 
 	// Add all current tracks to this peer
-	for _, track := range s.trackLocals {
-		if _, err := peerConn.AddTrack(track); err != nil {
-			log.Printf("Failed to add track: %s", err)
-		}
-	}
+	//for _, track := range s.trackLocals {
+	//	if _, err := peerConn.AddTrack(track); err != nil {
+	//		log.Printf("Failed to add track: %s", err)
+	//	}
+	//}
 
 	// only producer can broadcast
 	if cl.Role() == message.RProducerRTC {
@@ -150,8 +150,9 @@ func (s *SFU) AddPeer(cl *Client) error {
 				}
 			}
 		})
-
 	}
+	log.Printf("new client")
+	s.syncPeers()
 
 	// Signaling starts
 	// 1. Server send offer to the other peer connection
@@ -217,12 +218,29 @@ func (s *SFU) syncPeers() {
 	attemptSync := func() (tryAgain bool) {
 		s.lock.Lock()
 		defer s.lock.Unlock()
+
 		// if there is only one person in the room, no need to sync
 		if len(s.participants) < 2 {
 			return false
 		}
 
-		for _, participant := range s.participants {
+		for participantID, participant := range s.participants {
+			// BUG
+			// Remove this condition and you will find there is a recursive of attempt when new client join
+			// This occurs because when client join, this attempt send offer to the producer as well which it shouldn't
+			// TODO:
+			// Right now we only support one producer
+			// but if we want multiple producer => this have to attemp to others producer, but not the current one
+			if participant.client.Role() == message.RProducerRTC {
+				continue
+			}
+
+			if participant.peer.ConnectionState() == webrtc.PeerConnectionStateClosed {
+				s.lock.Unlock()
+				s.removeParticipant(participantID)
+				s.lock.Lock()
+				return true
+			}
 
 			// map of sender we already are seanding, so we don't double send
 			existingSenders := map[string]bool{}
@@ -262,13 +280,12 @@ func (s *SFU) syncPeers() {
 
 			err := s.sendOffer(participant)
 			if err != nil {
-				log.Printf("Failed to send offer :%s", err)
+				log.Printf("Failed to send offer %s :%s", participant.client.Role(), err)
 				return true
 			}
 
-			return false
 		}
-		return
+		return false
 	}
 
 	for syncAttempt := 0; ; syncAttempt++ {
@@ -326,6 +343,8 @@ func (s *SFU) removeParticipant(id string) {
 	if _, ok := s.participants[id]; !ok {
 		return
 	}
+	participant := s.participants[id]
+	role := participant.client.Role()
 
 	// receiver in this context is the track producer send to server
 	// if pariticipant is a producer => remove their track
@@ -335,11 +354,16 @@ func (s *SFU) removeParticipant(id string) {
 		}
 		s.removeLocalTrack(receiver.Track().ID())
 	}
+	participant.peer.Close()
+	participant.client.Close()
 
 	s.lock.Lock()
 	delete(s.participants, id)
 	s.lock.Unlock()
-	s.syncPeers()
+
+	if role == message.RProducerRTC {
+		s.syncPeers()
+	}
 	return
 }
 
@@ -371,9 +395,9 @@ func (s *SFU) sendOffer(participant *Participant) error {
 }
 
 func (s *SFU) Stop() {
-	for _, participant := range s.participants {
-		participant.peer.Close()
-		participant.client.Close()
+	log.Printf("Stopping SFU")
+	for id, _ := range s.participants {
+		s.removeParticipant(id)
 	}
 }
 

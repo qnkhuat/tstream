@@ -1,4 +1,4 @@
-import { FC, ReactElement, useState, useEffect, useRef } from "react";
+import { FC, ReactElement, useState, useEffect } from "react";
 import WSTerminal from "./WSTerminal";
 import PubSub from "./../lib/pubsub";
 import * as base64 from "../lib/base64";

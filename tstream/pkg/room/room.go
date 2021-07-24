@@ -108,6 +108,52 @@ func (r *Room) Streamer() *websocket.Conn {
 	return r.streamer
 }
 
+// Wait for request from streamer and broadcast those message to clients
+func (r *Room) Start() {
+	r.sfu.Start()
+
+	go func() {
+		for _ = range time.Tick(cfg.SERVER_CLEAN_INTERVAL * time.Second) {
+			r.scanAndCleanClients()
+		}
+	}()
+
+	for {
+		msg := message.Wrapper{}
+		err := r.streamer.ReadJSON(&msg)
+
+		if err != nil {
+			log.Printf("Failed to receive message from streamer: %s. Closing. Error: %s", r.name, err)
+			r.streamer.Close()
+			return
+		}
+
+		switch msgType := msg.Type; msgType {
+
+		case message.TWinsize:
+			winsize := message.Winsize{}
+			err = message.ToStruct(msg.Data, &winsize)
+
+			if err == nil {
+				r.lastWinsize = winsize
+				r.addMsgBuffer(msg)
+				r.lastActiveTime = time.Now()
+				r.Broadcast(msg, []message.CRole{message.RViewer}, []string{})
+			} else {
+				log.Printf("Failed to decode winsize message: %s", err)
+			}
+
+		case message.TWrite:
+			r.addMsgBuffer(msg)
+			r.lastActiveTime = time.Now()
+			r.Broadcast(msg, []message.CRole{message.RViewer}, []string{})
+
+		default:
+			log.Printf("Unknown message type: %s", msgType)
+		}
+	}
+}
+
 func (r *Room) AddStreamer(conn *websocket.Conn) error {
 	if r.streamer != nil {
 		r.streamer.Close()
@@ -150,10 +196,9 @@ func (r *Room) AddStreamer(conn *websocket.Conn) error {
 }
 
 func (r *Room) AddClient(ID string, role message.CRole, conn *websocket.Conn) error {
-	log.Printf("New client: %s", role)
 	_, ok := r.clients[ID]
 	if ok {
-		return fmt.Errorf("Client %s existed", conn)
+		return fmt.Errorf("Room :%s, Client %s existed", r.Id, ID)
 	}
 
 	cl := NewClient(role, conn)
@@ -195,45 +240,6 @@ func (r *Room) RemoveClient(ID string) error {
 	delete(r.clients, ID)
 	r.lock.Unlock()
 	return nil
-}
-
-// Wait for request from streamer and broadcast those message to clients
-func (r *Room) Start() {
-	r.sfu.Start()
-	for {
-		msg := message.Wrapper{}
-		err := r.streamer.ReadJSON(&msg)
-
-		if err != nil {
-			log.Printf("Failed to receive message from streamer: %s. Closing. Error: %s", r.name, err)
-			r.streamer.Close()
-			return
-		}
-
-		switch msgType := msg.Type; msgType {
-
-		case message.TWinsize:
-			winsize := message.Winsize{}
-			err = message.ToStruct(msg.Data, &winsize)
-
-			if err == nil {
-				r.lastWinsize = winsize
-				r.addMsgBuffer(msg)
-				r.lastActiveTime = time.Now()
-				r.Broadcast(msg, []message.CRole{message.RViewer}, []string{})
-			} else {
-				log.Printf("Failed to decode winsize message: %s", err)
-			}
-
-		case message.TWrite:
-			r.addMsgBuffer(msg)
-			r.lastActiveTime = time.Now()
-			r.Broadcast(msg, []message.CRole{message.RViewer}, []string{})
-
-		default:
-			log.Printf("Unknown message type: %s", msgType)
-		}
-	}
 }
 
 func (r *Room) addMsgBuffer(msg message.Wrapper) {
@@ -427,4 +433,14 @@ func (r *Room) Summary() map[string]interface{} {
 	//}
 	summary["sfu.Nlocaltracks"] = len(r.sfu.trackLocals)
 	return summary
+}
+
+// Clean in active rooms or stopped one
+func (r *Room) scanAndCleanClients() {
+	for id, cl := range r.clients {
+		if !cl.Alive() {
+			r.RemoveClient(id)
+		}
+	}
+	return
 }

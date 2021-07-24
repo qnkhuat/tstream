@@ -15,7 +15,6 @@ import AudioRTC from "../../components/AudioRTC";
 
 import IconButton from '@material-ui/core/IconButton';
 import PersonIcon from '@material-ui/icons/Person';
-import DoubleArrowRoundedIcon from '@material-ui/icons/DoubleArrowRounded';
 import FullscreenIcon from '@material-ui/icons/Fullscreen';
 import FullscreenExitIcon from '@material-ui/icons/FullscreenExit';
 
@@ -116,7 +115,7 @@ class Room extends React.Component<Props, State> {
   }
 
   toggleChatWindow() {
-    let fullScreenState = this.state.fullScreen == null ? true : !this.state.fullScreen;
+    let fullScreenState = this.state.fullScreen === null ? true : !this.state.fullScreen;
     this.setState({fullScreen: fullScreenState});
     this.arrangeTermChat(fullScreenState);
   }
@@ -125,8 +124,8 @@ class Room extends React.Component<Props, State> {
     if (this.navbarRef.current) {
 
       // Decide fullscreen if hasn't been set
-      if (fullScreen == null && window.innerWidth < ChatWindowMinWidth * 2) fullScreen = true;
-      else if (fullScreen == null) fullScreen = false;
+      if (fullScreen === null && window.innerWidth < ChatWindowMinWidth * 2) fullScreen = true;
+      else if (fullScreen === null) fullScreen = false;
 
       // Decide orientation if hasn't been set
       let orientation = this.state.orientation;
@@ -138,18 +137,18 @@ class Room extends React.Component<Props, State> {
 
       // first assume we are not in full screen mode
       let termSize: RectSize = {
-        width: orientation == Orientation.Horizontal ? window.innerWidth - ChatWindowMinWidth : window.innerWidth,
-        height: orientation == Orientation.Horizontal ? availableHeight : availableHeight * TermWindowMinHeightRatio,
+        width: orientation === Orientation.Horizontal ? window.innerWidth - ChatWindowMinWidth : window.innerWidth,
+        height: orientation === Orientation.Horizontal ? availableHeight : availableHeight * TermWindowMinHeightRatio,
       }
       let chatSize: RectSize = {
-        width: orientation == Orientation.Horizontal ? window.innerWidth - termSize.width : window.innerWidth,
-        height: orientation == Orientation.Horizontal ? availableHeight : availableHeight - termSize.height,
+        width: orientation === Orientation.Horizontal ? window.innerWidth - termSize.width : window.innerWidth,
+        height: orientation === Orientation.Horizontal ? availableHeight : availableHeight - termSize.height,
       }
 
       if (fullScreen) {
         // in case full screen termsize will fill in the space of chat size
-        if (orientation == Orientation.Vertical ) termSize.height += chatSize.height;
-        if (orientation == Orientation.Horizontal ) termSize.width += chatSize.width;
+        if (orientation === Orientation.Vertical ) termSize.height += chatSize.height;
+        if (orientation === Orientation.Horizontal ) termSize.width += chatSize.width;
 
         chatSize = {
           width:0,
@@ -188,7 +187,7 @@ class Room extends React.Component<Props, State> {
 
     ws.onclose = (ev: CloseEvent) => {
       let roomInfo = this.state.roomInfo;
-      if (roomInfo && roomInfo.Status != RoomStatus.NotExisted) {
+      if (roomInfo && roomInfo.Status !== RoomStatus.NotExisted) {
         roomInfo.Status = RoomStatus.Stopped;
         this.setState({roomInfo: roomInfo});
       }
@@ -280,7 +279,7 @@ class Room extends React.Component<Props, State> {
         {!isConnected && <Loading />}
 
         {isConnected && this.msgManager &&
-          <div id="room" className={`flex relative ${this.state.orientation == Orientation.Horizontal ? "flex-row" : "flex-col"}`}>
+          <div id="room" className={`flex relative ${this.state.orientation === Orientation.Horizontal ? "flex-row" : "flex-col"}`}>
             <div id="terminal-view" className="relative"
               onMouseMove={() => this.flashTitle()}>
               {isConnected && !isStreamStopped && isRoomExisted &&
@@ -338,7 +337,7 @@ class Room extends React.Component<Props, State> {
 
             <Chat msgManager={this.msgManager} height={this.state.chatSize.height} width={this.state.chatSize.width} 
               className={`${this.state.fullScreen ? "hidden" : "visible"} 
-            ${this.state.orientation == Orientation.Horizontal ? "border-l" : "border-t"} border-gray-500 rounded-lg`}/>
+            ${this.state.orientation === Orientation.Horizontal ? "border-l" : "border-t"} border-gray-500 rounded-lg`}/>
           </div>
         }
       </>

@@ -9,6 +9,7 @@ import { findBestMatch } from "string-similarity";
 import StreamPreview from "../components/StreamPreview";
 import Loading from "../components/Loading";
 import Navbar from "../components/Navbar";
+import Footer from "../components/Footer";
 import * as util from "../lib/util";
 
 import PersonIcon from '@material-ui/icons/Person';
@@ -86,7 +87,7 @@ function Home() {
 
       let fieldType = type as keyof Room;
       const result = liveStreams.filter((stream) => {
-        return !matchedLiveStreams.includes(stream) && stream[fieldType] == value;
+        return !matchedLiveStreams.includes(stream) && stream[fieldType] === value;
       });
       return result;
     }
@@ -125,7 +126,7 @@ function Home() {
         <div id="body" className="mt-8">
           <div id="intro">
             <p className="text-2xl mb-8 text-center font-bold">TStream - Live Stream from your terminal</p>
-            <img className="border-2 border-gray-200 rounded-xl m-auto mt-4 w-4/5 xl:w-3/5" src="./demo.gif" />
+            <img alt="demo" className="border-2 border-gray-200 rounded-xl m-auto mt-4 w-4/5 xl:w-3/5" src="./demo.gif" />
           </div>
 
           <div id="previews">
@@ -170,6 +171,7 @@ function Home() {
           </div>
         </div>
       </div>
+      <Footer/>
     </>
   )
 }

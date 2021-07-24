@@ -1,11 +1,10 @@
-import React, { useState, useEffect, useRef } from "react";
+import React from "react";
 import * as util from "../lib/util";
 import * as constants from "../lib/constants";
 
 import Button from '@material-ui/core/Button';
 import Modal from '@material-ui/core/Modal';
 import IconButton from '@material-ui/core/IconButton';
-import Stack from '@material-ui/core/Stack';
 import Slider from '@material-ui/core/Slider';
 import VolumeMuteIcon from '@material-ui/icons/VolumeMute';
 import VolumeDown from '@material-ui/icons/VolumeDown';
@@ -47,8 +46,7 @@ class AudioRTC extends React.Component<Props, State> {
       Array.from(this.mediaDivRef.current?.getElementsByTagName("audio")).forEach((el) => {
         this.setState({isPlayed: true});
         if (el.paused) { 
-          el.play().
-            catch((e) => {
+          el.play().catch((e) => {
               this.setState({isPlayed: false, volume: 0, openModal: true});
             });
         }
@@ -150,8 +148,9 @@ class AudioRTC extends React.Component<Props, State> {
 
     this.wsConn.onmessage = (ev: MessageEvent) => {
       const msg = JSON.parse(ev.data)
+      console.log("Got new message", msg);
 
-      if (msg.Type != constants.MSG_TRTC) console.error("Expected RTC message");
+      if (msg.Type !== constants.MSG_TRTC) console.error("Expected RTC message");
 
       const event = msg.Data;
 
@@ -182,7 +181,7 @@ class AudioRTC extends React.Component<Props, State> {
           return
 
         default:
-          console.error("Invalid event: ", event.Event);
+            console.error("Invalid event: ", event.Event);
           return
       } 
     }
@@ -229,10 +228,8 @@ class AudioRTC extends React.Component<Props, State> {
                 <Button
                   variant="outlined"
                   className="font-bold bg"
-                  onClick={(e) => {
-                    this.setState({openModal: false, volume: 0})
-                  }
-                }>No</Button>
+                  onClick={(e) => {this.setState({openModal: false, volume: 0})}
+                  }>No</Button>
               </div>
             </div>
 
