@@ -5,7 +5,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/gdamore/tcell/v2"
+	"github.com/gorilla/schema"
 	"github.com/gorilla/websocket"
+	"github.com/pion/webrtc/v3"
+	"github.com/qnkhuat/mediadevices"
+	"github.com/qnkhuat/mediadevices/pkg/codec/opus"
+	_ "github.com/qnkhuat/mediadevices/pkg/driver/microphone" // This is required to register microphone adapter
+	"github.com/qnkhuat/mediadevices/pkg/prop"
 	"github.com/qnkhuat/tstream/pkg/message"
 	"github.com/rivo/tview"
 	"log"
@@ -15,18 +21,33 @@ import (
 	"time"
 )
 
+var decoder = schema.NewDecoder()
+
+const mtu int = 1600
+
+type MediaSession struct {
+	stream mediadevices.MediaStream
+	engine *webrtc.MediaEngine
+}
+
 type Chat struct {
 	username         string
 	sessionId        string
 	serverAddr       string
 	color            string
-	conn             *websocket.Conn
+	wsConn           *websocket.Conn        // for chat and roominfo
+	peerConn         *webrtc.PeerConnection // for voice
+	mediaSession     *MediaSession
 	app              *tview.Application
 	startedTime      time.Time
 	chatTextView     *tview.TextView
 	nviewersTextView *tview.TextView
 	uptimeTextView   *tview.TextView
 	titleTextView    *tview.TextView
+	muteBtn          *tview.Button
+	mute             bool
+
+	lastToggleMute time.Time
 }
 
 func NewChat(sessionId, serverAddr, username string) *Chat {
@@ -36,13 +57,29 @@ func NewChat(sessionId, serverAddr, username string) *Chat {
 		serverAddr: serverAddr,
 		color:      "red",
 		app:        tview.NewApplication(),
+		mute:       true,
 	}
 }
 
 func (c *Chat) Start() error {
 	c.initUI()
 
-	err := c.connectWS()
+	if err := c.StartChatService(); err != nil {
+		log.Printf("Failed to start chat service : %s", err)
+		return err
+	}
+
+	// blocking call
+	if err := c.app.EnableMouse(true).Run(); err != nil {
+		log.Printf("Error in UI app: %s", err)
+		return err
+	}
+
+	return nil
+}
+
+func (c *Chat) StartChatService() error {
+	conn, err := c.connectWS(message.RStreamerChat)
 	if err != nil {
 		log.Printf("Error: %s", err)
 		fmt.Printf("Failed to connect to server\n")
@@ -50,35 +87,43 @@ func (c *Chat) Start() error {
 		return err
 	}
 
-	// Receive
+	c.wsConn = conn
+
 	go func() {
 		for {
-			_, msg, err := c.conn.ReadMessage()
+			msg := message.Wrapper{}
+			err := c.wsConn.ReadJSON(&msg)
 			if err != nil {
 				log.Printf("Failed to read message: %s", err)
-				c.Stop()
+				c.Stop(fmt.Sprintf("Failed to read connect to server"))
 				return
 			}
-			msgObj, err := message.Unwrap(msg)
-			switch msgObj.Type {
+
+			switch msg.Type {
 			case message.TChat:
 				var chatList []message.Chat
-				err = json.Unmarshal(msgObj.Data, &chatList)
+				err := message.ToStruct(msg.Data, &chatList)
 				if err != nil {
 					log.Printf("Failed to decode chat message: %s", err)
-					continue
+					c.Stop("Failed to decode message from server")
+					return
 				}
 				c.addChatMsgs(chatList)
 			case message.TRoomInfo:
-				var roomInfo message.RoomInfo
-				err = json.Unmarshal(msgObj.Data, &roomInfo)
-
-				c.startedTime = roomInfo.StartedTime
-				c.nviewersTextView.SetText(fmt.Sprintf("%d 👤", roomInfo.NViewers))
-				c.titleTextView.SetText(fmt.Sprintf("%s", roomInfo.Title))
+				roomInfo := message.RoomInfo{}
+				err = message.ToStruct(msg.Data, &roomInfo)
+				if err != nil {
+					log.Printf("Failed to decode roominfo message: %s", err)
+					c.Stop("Failed to decode message from server")
+					return
+				} else {
+					c.startedTime = roomInfo.StartedTime
+					c.nviewersTextView.SetText(fmt.Sprintf("%d 👤", roomInfo.NViewers))
+					c.titleTextView.SetText(fmt.Sprintf("%s", roomInfo.Title))
+				}
 
 			default:
-				log.Printf("Not implemented to handle message type: %s", msgObj.Type)
+				log.Printf("Not implemented to handle message type: %s", msg.Type)
 
 			}
 		}
@@ -86,14 +131,16 @@ func (c *Chat) Start() error {
 
 	c.requestServer(message.TRequestRoomInfo)
 	c.requestServer(message.TRequestCacheChat)
+	// send this help text after get cache chat
+	go func() {
+		time.Sleep(1 * time.Second)
+		c.addNoti("[yellow]Type /help to get list of available commands[white]")
+		c.addNoti("[yellow]Voice chat is off. Type /unmute to turn on voice chat[white]")
+	}()
 
 	go func() {
-		tick := time.NewTicker(5 * time.Second)
-		for {
-			select {
-			case <-tick.C:
-				c.requestServer(message.TRequestRoomInfo)
-			}
+		for _ = range time.Tick(5 * time.Second) {
+			c.requestServer(message.TRequestRoomInfo)
 		}
 	}()
 
@@ -119,21 +166,242 @@ func (c *Chat) Start() error {
 			}
 		}
 	}()
+	return nil
+}
 
-	if err := c.app.EnableMouse(true).Run(); err != nil {
-		panic(err)
+func GetMediaSession() (*MediaSession, error) {
+	// Init microphone
+	var mediaSession *MediaSession
+	engine := &webrtc.MediaEngine{}
+	opusParams, err := opus.NewParams()
+	if err != nil {
+		return mediaSession, err
+	}
+	codecSelector := mediadevices.NewCodecSelector(
+		mediadevices.WithAudioEncoders(&opusParams),
+	)
+	codecSelector.Populate(engine)
+
+	stream, err := mediadevices.GetUserMedia(mediadevices.MediaStreamConstraints{
+		Audio: func(c *mediadevices.MediaTrackConstraints) {
+			c.SampleRate = prop.Int(44100)
+			c.Latency = prop.Duration(0)
+		},
+		Codec: codecSelector,
+	})
+
+	if err != nil {
+		log.Printf("Failed to get user media %s", err)
+		return mediaSession, err
 	}
 
+	mediaSession = &MediaSession{
+		engine: engine,
+		stream: stream,
+	}
+	return mediaSession, nil
+}
+
+func (c *Chat) StartVoiceService() error {
+	// media engine can only created once during the process
+	// in order to turn on/off audio track we init it once and use many times
+	if c.mediaSession == nil {
+		mediaSession, err := GetMediaSession()
+		if err != nil {
+			log.Printf("Failed to open media engine: %s", err)
+			return err
+		}
+		c.mediaSession = mediaSession
+	}
+
+	config := webrtc.Configuration{
+		ICEServers: []webrtc.ICEServer{{
+			URLs: []string{"stun:stun.l.google.com:19302"}},
+		},
+		SDPSemantics: webrtc.SDPSemanticsUnifiedPlanWithFallback,
+	}
+
+	api := webrtc.NewAPI(webrtc.WithMediaEngine(c.mediaSession.engine))
+
+	peerConn, err := api.NewPeerConnection(config)
+	if err != nil {
+		log.Printf("Failed to start webrtc connection %s", err)
+		return err
+	}
+
+	c.peerConn = peerConn
+
+	// add tracks to peer connection
+	for _, track := range c.mediaSession.stream.GetTracks() {
+
+		// TODO: we probably want to stop the chat here
+		// reproduce steps: try open a producer page while having chat on
+		track.OnEnded(func(err error) {
+			log.Printf("Track (ID: %s) ended with error: %v\n",
+				track.ID(), err)
+		})
+
+		_, err = peerConn.AddTransceiverFromTrack(track,
+			webrtc.RtpTransceiverInit{Direction: webrtc.RTPTransceiverDirectionSendonly})
+		if err != nil {
+			log.Printf("Failed to add track %s", err)
+			return err
+		}
+	}
+
+	// wsconnection is for signaling and update track changes
+	wsConn, err := c.connectWS(message.RProducerRTC)
+	if err != nil {
+		log.Printf("Failed to start voice ws: %s", err)
+		return err
+	}
+
+	peerConn.OnConnectionStateChange(func(p webrtc.PeerConnectionState) {
+		log.Printf("Peer conenction state change to: %s", p)
+		switch p {
+
+		case webrtc.PeerConnectionStateFailed, webrtc.PeerConnectionStateClosed, webrtc.PeerConnectionStateDisconnected:
+			wsConn.Close()
+
+		case webrtc.PeerConnectionStateConnected:
+			c.addNoti("[yellow]Voice server connected[white]")
+
+		default:
+			log.Printf("Not implemented: %s", p)
+		}
+
+	})
+
+	// Trickle ICE. Emit server candidate to client
+	peerConn.OnICECandidate(func(ice *webrtc.ICECandidate) {
+		if ice == nil {
+			return
+		}
+
+		candidate, err := json.Marshal(ice.ToJSON())
+		if err != nil {
+			log.Printf("Failed to decode ice candidate: %s", err)
+			return
+		}
+
+		payload := message.Wrapper{
+			Type: message.TRTC,
+			Data: message.RTC{
+				Event: message.RTCCandidate,
+				Data:  string(candidate),
+			}}
+
+		wsConn.WriteJSON(payload)
+	})
+
+	// Negotiation
+	// Server are going to send the offer first
+	go func() {
+		for {
+			msg := message.Wrapper{}
+			err := wsConn.ReadJSON(&msg)
+			if err != nil {
+				log.Printf("Failed to read message: %s", err)
+				return
+			}
+
+			if msg.Type != message.TRTC {
+				log.Printf("Expected RTC Event message, Got :%s", msg.Type)
+				continue
+			}
+
+			event := message.RTC{}
+			if err = message.ToStruct(msg.Data, &event); err != nil {
+				log.Printf("Failed to decode RTCevent message")
+				continue
+			}
+
+			switch eventType := event.Event; eventType {
+
+			case message.RTCOffer:
+				// set offer SDP as remote description
+				offer := webrtc.SessionDescription{}
+				if err := json.Unmarshal([]byte(event.Data), &offer); err != nil {
+					log.Println(err)
+					return
+				}
+
+				if err := peerConn.SetRemoteDescription(offer); err != nil {
+					log.Printf("Failed to set remote description: %s", err)
+					return
+				}
+
+				// send back SDP answer and set it as local description
+				answer, err := peerConn.CreateAnswer(nil)
+				if err != nil {
+					log.Printf("Failed to create Offer")
+					return
+				}
+
+				if err := peerConn.SetLocalDescription(answer); err != nil {
+					log.Printf("Failed to set local description: %v", err)
+					return
+				}
+
+				answerByte, _ := json.Marshal(answer)
+				payload := message.Wrapper{
+					Type: message.TRTC,
+					Data: message.RTC{
+						Event: message.RTCAnswer,
+						Data:  string(answerByte),
+					},
+				}
+				if err = wsConn.WriteJSON(payload); err != nil {
+					log.Printf("Failed to send answer: %s", err)
+				}
+
+			case message.RTCCandidate:
+				candidate := webrtc.ICECandidateInit{}
+				if err := json.Unmarshal([]byte(event.Data), &candidate); err != nil {
+					log.Println(err)
+					return
+				}
+
+				if err := peerConn.AddICECandidate(candidate); err != nil {
+					log.Println(err)
+					return
+				}
+
+			default:
+				log.Printf("Not implemented to handle message type: %s", msg.Type)
+
+			}
+		}
+	}()
+	return nil
+
+}
+
+func (c *Chat) StopVoiceServer() error {
+	if c.peerConn == nil {
+		return nil
+	}
+
+	for _, sender := range c.peerConn.GetSenders() {
+		if err := sender.Stop(); err != nil {
+			log.Printf("Failed to stop voice: %s", err)
+		}
+		c.peerConn.RemoveTrack(sender)
+	}
+	if err := c.peerConn.Close(); err != nil {
+		log.Printf("Failed to stop peerconenction: %s", err)
+		return err
+	}
+	c.peerConn = nil
 	return nil
 }
 
 func (c *Chat) requestServer(msgType message.MType) error {
-	reqMsg := message.Wrapper{
+	payload := message.Wrapper{
 		Type: msgType,
-		Data: []byte{},
+		Data: "",
 	}
-	payload, _ := json.Marshal(reqMsg)
-	return c.conn.WriteMessage(websocket.TextMessage, payload)
+	return c.wsConn.WriteJSON(payload)
 }
 
 func (c *Chat) initUI() error {
@@ -181,9 +449,9 @@ func (c *Chat) initUI() error {
 	messageInput := tview.NewInputField()
 	messageInput.SetLabel("[red]>[red] ").
 		SetDoneFunc(func(key tcell.Key) {
-			text := messageInput.GetText()
+			text := strings.TrimSpace(messageInput.GetText())
 			if len(text) > 0 && text[0] == '/' {
-				command := strings.TrimSpace(strings.ToLower(text[1:]))
+				command := strings.TrimSpace(text[1:])
 				c.HandleCommand(command)
 				messageInput.SetText("")
 				return
@@ -197,24 +465,38 @@ func (c *Chat) initUI() error {
 				}
 
 				chatList := []message.Chat{chat}
-				msg, err := message.Wrap(message.TChat, chatList)
-
-				if err == nil {
-					payload, _ := json.Marshal(msg)
-					c.conn.WriteMessage(websocket.TextMessage, payload)
-				} else {
-					log.Printf("Failed to wrap message")
-				}
+				payload := message.Wrapper{Type: message.TChat, Data: chatList}
+				c.wsConn.WriteJSON(payload)
 				c.addChatMsgs(chatList)
 				messageInput.SetText("")
 			}
-
 		})
+
+	// Default is mute
+	c.muteBtn = tview.NewButton("🔇").
+		SetSelectedFunc(func() {
+			c.toggleMute(!c.mute)
+		})
+	c.muteBtn.SetBackgroundColor(tcell.ColorBlack)
+
+	footer := tview.NewGrid().
+		SetRows(1).
+		SetColumns(3, 0).
+		AddItem(c.muteBtn, 0, 0, 1, 1, 0, 0, false).
+		AddItem(messageInput, 0, 1, 1, 1, 0, 0, true)
 
 	layout.AddItem(header, 0, 0, 1, 1, 0, 0, false).
 		AddItem(c.chatTextView, 1, 0, 1, 1, 0, 0, false).
-		AddItem(messageInput, 2, 0, 1, 1, 0, 0, true)
+		AddItem(footer, 2, 0, 1, 1, 0, 0, true)
 
+	// auto focus on the message input if user starts typing
+	c.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyRune {
+			c.app.SetFocus(footer)
+		}
+		return event
+
+	})
 	c.app.SetRoot(layout, true)
 	return nil
 }
@@ -223,24 +505,24 @@ func (c *Chat) HandleCommand(command string) error {
 	args := strings.Split(command, " ")
 	switch args[0] {
 	case "help":
-		c.addNoti(`
-TStream - Streaming from terimnal
-
-[green]/title[yellow] title[white] - to change stream title 
-[green]/exit[white] - to exit chat room`)
+		c.addNoti(`TStream - Streaming from terimnal
+      [green]/title[yellow] title[white] - to change stream title 
+      [green]/mute[white] - to turn on microphone
+      [green]/unmute[white] - to turn off microphone
+      [green]/exit[white] - to exit chat room
+      `)
 
 	case "title":
 		if len(args) > 1 {
 			newTitle := strings.Trim(strings.Join(args[1:], " "), "\"")
-			msg := message.RoomUpdate{
+			roomUpdate := message.RoomUpdate{
 				Title: newTitle,
 			}
-			wrappedMsg, _ := message.Wrap(message.TRoomUpdate, msg)
-			payload, _ := json.Marshal(wrappedMsg)
-			err := c.conn.WriteMessage(websocket.TextMessage, payload)
+			payload := message.Wrapper{Type: message.TRoomUpdate, Data: roomUpdate}
+			err := c.wsConn.WriteJSON(payload)
 			if err != nil {
 				log.Printf("Failed to set new title : %s", err)
-				c.addNoti(`[red]Faield to change title. Please try again[white]`)
+				c.addNoti(`[red]Failed to change title. Please try again[white]`)
 			} else {
 				c.addNoti(fmt.Sprintf(`[yellow]Changed room title to: %s[white]`, newTitle))
 			}
@@ -248,8 +530,14 @@ TStream - Streaming from terimnal
 			c.addNoti(`[yellow]/title : no title found[white]`)
 		}
 
+	case "mute":
+		c.toggleMute(true)
+
+	case "unmute":
+		c.toggleMute(false)
+
 	case "exit":
-		c.Stop()
+		c.Stop("Bye!")
 
 	default:
 		c.addNoti(`Unknown command. Type /help to get list of available commands.`)
@@ -258,47 +546,78 @@ TStream - Streaming from terimnal
 	return nil
 }
 
-func (c *Chat) connectWS() error {
-	scheme := "wss"
-	if strings.HasPrefix(c.serverAddr, "http://") {
-		scheme = "ws"
-	}
+func (c *Chat) ConnctWSVoice() error {
+	return nil
+}
 
-	host := strings.Replace(strings.Replace(c.serverAddr, "http://", "", 1), "https://", "", 1)
-	url := url.URL{Scheme: scheme, Host: host, Path: fmt.Sprintf("/ws/%s/streamer", c.username)}
-	log.Printf("Openning socket at %s", url.String())
+func (c *Chat) connectWS(role message.CRole) (*websocket.Conn, error) {
+	url := getWSUrl(c.serverAddr, c.username)
 
-	conn, _, err := websocket.DefaultDialer.Dial(url.String(), nil)
+	log.Printf("Openning socket at %s", url)
+
+	conn, _, err := websocket.DefaultDialer.Dial(url, nil)
 	if err != nil {
-		return fmt.Errorf("Failed to connected to websocket: %s", err)
+		return conn, fmt.Errorf("Failed to connected to websocket: %s", err)
 	}
-	c.conn = conn
 
 	// send client info so server can verify
 	clientInfo := message.ClientInfo{
 		Name:   c.username,
-		Role:   message.RStreamerChat,
+		Role:   role,
 		Secret: GetSecret(CONFIG_PATH),
 	}
 
-	msg, _ := message.Wrap(message.TClientInfo, clientInfo)
-	payload, _ := json.Marshal(msg)
-	err = conn.WriteMessage(websocket.TextMessage, payload)
+	payload := message.Wrapper{Type: message.TClientInfo, Data: clientInfo}
+	err = conn.WriteJSON(payload)
 	if err != nil {
-		return fmt.Errorf("Failed to connect to server")
+		return conn, fmt.Errorf("Failed to connect to server")
 	}
 
 	// Verify server's response
-	_, resp, err := conn.ReadMessage()
-	wrappedMsg, err := message.Unwrap(resp)
-	log.Printf("Got a message: %s", wrappedMsg)
-	if wrappedMsg.Type == message.TStreamerUnauthorized {
-		return fmt.Errorf("Unauthorized connection")
-	} else if wrappedMsg.Type != message.TStreamerAuthorized {
-		return fmt.Errorf("Expect connect confirmation from server")
+	msg := message.Wrapper{}
+	err = conn.ReadJSON(&msg)
+	if err != nil {
+		log.Printf("Failed to read websocket message: %s", err)
+		return conn, fmt.Errorf("Failed to read websocket message: %s", err)
 	}
 
-	return nil
+	if msg.Type == message.TStreamerUnauthorized {
+		return conn, fmt.Errorf("Unauthorized connection")
+	} else if msg.Type != message.TStreamerAuthorized {
+		return conn, fmt.Errorf("Expect connect confirmation from server")
+	}
+
+	conn.SetPingHandler(func(appData string) error {
+		return conn.WriteControl(websocket.PongMessage, []byte{}, time.Time{})
+	})
+
+	return conn, nil
+}
+
+func (c *Chat) toggleMute(mute bool) {
+	if mute {
+		c.StopVoiceServer()
+		c.muteBtn.SetLabel("🔇")
+		c.addNoti(`[yellow]Microphone: Off[white]`)
+	} else {
+		c.addNoti(`[yellow]Connecting to voice server...[white]`)
+		// BUG
+		// there is a bug if user toggle audio too fast, it won't able to connect to audio
+		// A quick fix for this is too make sure user wait enought time before turn it back on
+
+		threshold := 8 * time.Second
+		time.Sleep(threshold - time.Now().Sub(c.lastToggleMute))
+		if err := c.StartVoiceService(); err != nil {
+			log.Printf("Failed to start voice service : %s", err)
+			c.addNoti(fmt.Sprintf("Failed to start voice service : %s", err))
+			return
+		}
+
+		c.muteBtn.SetLabel("🔈")
+		c.addNoti(`[yellow]Microphone: On[white]`)
+	}
+	c.mute = mute
+	c.lastToggleMute = time.Now()
 }
 
 func (c *Chat) addNoti(msg string) {
@@ -332,9 +651,15 @@ func (c *Chat) addChatMsgs(chatList []message.Chat) {
 	c.chatTextView.SetText(currentChat + newChat)
 }
 
-func (c *Chat) Stop() {
-	c.conn.Close()
+func (c *Chat) Stop(msg string) {
+	if c.wsConn != nil {
+		c.wsConn.Close()
+	}
+	if c.peerConn != nil {
+		c.peerConn.Close()
+	}
 	c.app.Stop()
+	fmt.Println(msg)
 }
 
 func FormatChat(name, content, color string) string {
@@ -342,9 +667,19 @@ func FormatChat(name, content, color string) string {
 		return ""
 	}
 	content = strings.TrimPrefix(content, "\n")
-	log.Printf("content: %s|", content)
 	if content[len(content)-1] != '\n' {
 		content += "\n"
 	}
 	return fmt.Sprintf("[%s]%s[white]: %s", color, name, content)
+}
+
+func getWSUrl(serverAddr, username string) string {
+	scheme := "wss"
+	if strings.HasPrefix(serverAddr, "http://") {
+		scheme = "ws"
+	}
+
+	host := strings.Replace(strings.Replace(serverAddr, "http://", "", 1), "https://", "", 1)
+	url := url.URL{Scheme: scheme, Host: host, Path: fmt.Sprintf("/ws/%s", username)}
+	return url.String()
 }
