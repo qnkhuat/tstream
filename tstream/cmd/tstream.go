@@ -20,14 +20,15 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"github.com/manifoldco/promptui"
-	"github.com/qnkhuat/tstream/internal/cfg"
-	"github.com/qnkhuat/tstream/internal/logging"
-	"github.com/qnkhuat/tstream/pkg/streamer"
 	"log"
 	"os"
 	"os/user"
 	"regexp"
+
+	"github.com/manifoldco/promptui"
+	"github.com/qnkhuat/tstream/internal/cfg"
+	"github.com/qnkhuat/tstream/internal/logging"
+	"github.com/qnkhuat/tstream/pkg/streamer"
 )
 
 func main() {
@@ -36,7 +37,6 @@ func main() {
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "To Stream: just type in `tstream`.\n\nAdvanced config:\n")
 		flag.PrintDefaults()
-		fmt.Printf("\nFind a bug? Create an issue at: https://github.com/qnkhuat/tstream\n")
 	}
 
 	var server = flag.String("server", "https://server.tstream.club", "Server endpoint")
@@ -45,7 +45,6 @@ func main() {
 	var chat = flag.Bool("chat", false, "Open chat client: %s")
 
 	flag.Parse()
-	fmt.Printf("TStream v%s\n", cfg.STREAMER_VERSION)
 
 	if *version {
 		fmt.Printf("Tstream %s\nGithub: https://github.com/qnkhuat/tstream\n", cfg.STREAMER_VERSION)
@@ -55,7 +54,7 @@ func main() {
 
 	validateUsername := func(input string) error {
 		var validUsername = regexp.MustCompile(`^[a-z][a-z0-9]*[._-]?[a-z0-9]+$`)
-		if validUsername.MatchString(input) && len(input) > 2 && len(input) < 20 {
+		if validUsername.MatchString(input) && len(input) > 3 && len(input) < 20 {
 			return nil
 		} else {
 			return fmt.Errorf("Invalid username")
@@ -113,7 +112,6 @@ func main() {
 
 		s := streamer.New(*client, *server, username, title)
 
-		// Request server add room and check availability
 		statusCode := s.RequestAddRoom()
 		log.Printf("Got status code: %d", statusCode)
 		if statusCode == 400 {
@@ -129,19 +127,15 @@ func main() {
 			fmt.Printf("Please update Tstream to continue streaming\nFind the latest version at: https://github.com/qnkhuat/tstream/releases\n")
 			os.Exit(1)
 		}
-
 		// Update config before start
 		config.Username = username
 		streamer.UpdateCfg(streamer.CONFIG_PATH, "Username", username)
 
-		err = s.Start() // blocking call
+		err = s.Start()
 		if err != nil {
 			log.Printf("Failed to start tstream : %s", err)
-			fmt.Printf("Failed to start tstream : %s\n", err)
 		}
-		return
 	} else {
-		// Open chat window
 		var username = "" // also is sessionID
 		config, err := streamer.ReadCfg(streamer.CONFIG_PATH)
 
@@ -160,7 +154,6 @@ func main() {
 		}
 
 		c := streamer.NewChat(username, *server, username)
-		c.Start() // blocking call
-		return
+		c.Start()
 	}
 }

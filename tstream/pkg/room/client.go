@@ -6,7 +6,6 @@ package room
 
 import (
 	"github.com/gorilla/websocket"
-	"github.com/qnkhuat/tstream/internal/cfg"
 	"github.com/qnkhuat/tstream/pkg/message"
 	"log"
 	"time"
@@ -17,19 +16,17 @@ type Client struct {
 	role message.CRole
 
 	// data go in Out channel will be send to user via websocket
-	Out chan message.Wrapper
+	Out chan []byte
 
 	// Data sent from user will be stored in In channel
-	In chan message.Wrapper
-
-	lastActiveTime time.Time
+	In chan []byte
 
 	alive bool
 }
 
 func NewClient(role message.CRole, conn *websocket.Conn) *Client {
-	out := make(chan message.Wrapper, 256) // buffer 256 send requests
-	in := make(chan message.Wrapper, 256)  // buffer 256 send requests
+	out := make(chan []byte, 256) // buffer 256 send requests
+	in := make(chan []byte, 256)  // buffer 256 send requests
 	return &Client{
 		conn:  conn,
 		Out:   out,
@@ -39,71 +36,46 @@ func NewClient(role message.CRole, conn *websocket.Conn) *Client {
 	}
 }
 
-func (cl *Client) Role() message.CRole {
-	return cl.role
+func (v *Client) Role() message.CRole {
+	return v.role
 }
 
-func (cl *Client) Alive() bool {
-	return cl.alive
+func (v *Client) Alive() bool {
+	return v.alive
 }
 
-func (cl *Client) Start() {
-	cl.conn.SetPongHandler(func(appData string) error {
-		cl.lastActiveTime = time.Now()
-		return nil
-	})
-
-	// periodically ping client
-	go func() {
-		for _ = range time.Tick(cfg.SERVER_PING_INTERVAL * time.Second) {
-			cl.conn.WriteControl(websocket.PingMessage, emptyByteArray, time.Time{})
-			if time.Now().Sub(cl.lastActiveTime) > time.Second*cfg.SERVER_DISCONNECTED_THRESHHOLD {
-				cl.alive = false
-				cl.conn.Close()
-				log.Printf("Closing client role: %s due to inactive", cl.Role())
-				return
-			}
-		}
-	}()
-
+func (v *Client) Start() {
 	// Receive message coroutine
 	go func() {
 		for {
-			msg, ok := <-cl.Out
-			cl.lastActiveTime = time.Now()
+			msg, ok := <-v.Out
 			if ok {
-				err := cl.conn.WriteJSON(msg)
+				err := v.conn.WriteMessage(websocket.TextMessage, msg)
 				if err != nil {
 					log.Printf("Failed to boardcast to. Closing connection")
-					cl.Close()
-					return
+					v.Close()
 				}
 			} else {
-				log.Printf("Failed to get message from channel")
-				cl.Close()
-				return
+				v.Close()
 			}
 		}
 	}()
 
 	// Send message coroutine
 	for {
-		msg := message.Wrapper{}
-		err := cl.conn.ReadJSON(&msg)
+		_, msg, err := v.conn.ReadMessage()
 		if err == nil {
-			cl.In <- msg // Will be handled in Room
+			v.In <- msg // Will be handled in Room
 		} else {
-			log.Printf("Failed to read message. Closing connection: %s", err)
-			cl.Close()
-			return
+			log.Printf("Closing connection")
+			v.Close()
+			break
 		}
 	}
 }
 
-func (cl *Client) Close() {
-	log.Printf("Closing client")
-	cl.conn.WriteControl(websocket.CloseMessage, emptyByteArray, time.Time{})
-	time.Sleep(1 * time.Second) // wait for client to receive close message
-	cl.alive = false
-	cl.conn.Close()
+func (v *Client) Close() {
+	v.conn.WriteControl(websocket.CloseMessage, emptyByteArray, time.Time{})
+	v.alive = false
+	v.conn.Close()
 }

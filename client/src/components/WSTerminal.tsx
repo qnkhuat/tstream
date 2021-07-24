@@ -54,7 +54,7 @@ class WSTerminal extends React.Component<Props, {}> {
   }
 
   componentDidUpdate(prevProps: Props) {
-    if (this.props.width !== prevProps.width || this.props.height !== prevProps.height) {
+    if (this.props.width != prevProps.width || this.props.height != prevProps.height) {
       this.rescale();
     }
   }
@@ -95,7 +95,6 @@ class WSTerminal extends React.Component<Props, {}> {
           <Xterm
             options={{
               rightClickSelectsWord: false,
-              disableStdin: true,
             }}
             ref={this.termRef}/>
         </div>
