@@ -81,10 +81,10 @@ func (s *Server) Start() {
 
 	router.HandleFunc("/api/health", handleHealth).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/rooms", s.handleListRooms).Methods("GET", "OPTIONS")
-	router.HandleFunc("/api/room/{roomName}/status", s.handleRoomStatus).Methods("GET", "OPTIONS")
 	// Add room
 	router.HandleFunc("/api/room", s.handleAddRoom).Queries("streamerID", "{streamerID}", "title", "{title}").Methods("POST", "OPTIONS")
-	router.HandleFunc("/ws/{roomName}", s.handleWS) // for streamers
+	router.HandleFunc("/ws/{roomName}/streamer", s.handleWSStreamer) // for streamers
+	router.HandleFunc("/ws/{roomName}/viewer", s.handleWSViewer)     // for viewers
 	handler := cors.Default().Handler(router)
 
 	s.server = &http.Server{Addr: s.addr, Handler: handler}
@@ -109,9 +109,13 @@ func (s *Server) Stop() {
 // interval : scan for every interval time
 // ildeThreshold : room with idle time above this threshold will be killed
 func (s *Server) repeatedlyCleanRooms(interval, idleThreshold int) {
-	for _ = range time.Tick(time.Duration(interval) * time.Second) {
-		c := s.scanAndCleanRooms(idleThreshold)
-		log.Printf("Auto cleaned %d rooms", c)
+	tick := time.NewTicker(time.Duration(interval) * time.Second)
+	for {
+		select {
+		case <-tick.C:
+			c := s.scanAndCleanRooms(idleThreshold)
+			log.Printf("Cleaned %d rooms", c)
+		}
 	}
 }
 
