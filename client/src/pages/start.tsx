@@ -1,5 +1,6 @@
 import Navbar from "../components/Navbar";
 import Code from "../components/Code";
+import Footer from "../components/Footer";
 
 function Start() {
   document.title = "TStream - How to start streaming";
@@ -15,7 +16,7 @@ function Start() {
             <li>Unpack it <ul>
               <li><Code className="text-white" text="tar -xzf tstream_{version}_{os}_{arch}.tar.gz"></Code></li></ul>
             </li>
-            <li>(Optional) Setup TStream so you can run it anywhere 
+            <li>(Optional) Setup TStream to run it anywhere
               <ul>
                 <li><Code className="text-white" text="cp tstream /usr/local/bin"></Code></li>
               </ul>
@@ -35,7 +36,8 @@ function Start() {
           
           <img alt="chat-demo" className="w-4/5 m-auto"src="./chat.gif"/>
 
-          <h3 className="text-gray-400">Voice chat - Coming soon</h3>
+          <h3 className="text-white">Voice chat</h3>
+          <p>Inside TStream chat client, you can turn on voice chat with command <Code className="text-white" text="/unmute"/> and turn off it with <Code className="text-white" text="/mute"/></p>
 
           <h2 className="text-white">Tips</h2>
           <p>The current version of <span className="font-bold">tstream</span> can only work on one terminal tap</p>
@@ -44,12 +46,11 @@ function Start() {
           <p>If you're a new tmux user, <a className="text-green-term" href ="https://thoughtbot.com/blog/a-tmux-crash-course">this</a> is a simple tutorial that provides all you need to know to get started with tmux.</p>
 
           <h3 className="text-red-400">Happy streaming!</h3>
-          <br></br>
-          <br></br>
 
         </article>
 
       </div>
+      <Footer/>
     </>
   )
 }

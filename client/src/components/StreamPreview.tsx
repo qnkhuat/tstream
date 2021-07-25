@@ -1,4 +1,4 @@
-import { FC, ReactElement, useState, useEffect, useRef } from "react";
+import { FC, ReactElement, useState, useEffect } from "react";
 import WSTerminal from "./WSTerminal";
 import PubSub from "./../lib/pubsub";
 import * as base64 from "../lib/base64";
@@ -8,6 +8,7 @@ import * as constants from "../lib/constants";
 import dayjs from "dayjs";
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 
+import PersonIcon from '@material-ui/icons/Person';
 dayjs.extend(customParseFormat);
 
 interface Props {
@@ -21,7 +22,6 @@ interface Props {
   height?: number; // in pixel
 }
 
-
 const StreamPreview: FC<Props> = ({ title, wsUrl, streamerID, nViewers, startedTime, lastActiveTime }): ReactElement => {
 
   const [ upTime, setUpTime ] = useState(util.formatDuration(dayjs(), dayjs(startedTime)));
@@ -30,18 +30,25 @@ const StreamPreview: FC<Props> = ({ title, wsUrl, streamerID, nViewers, startedT
   useEffect(() => {
     const ws = new WebSocket(wsUrl);
 
+    // Send client info for server to verify
+    let payload = JSON.stringify({
+      Type: "ClientInfo",
+      Data: {Role: "Viewer"}
+    });
+    util.sendWhenConnected(ws, payload);
+
     const tempMsg = new PubSub();
     ws.onmessage = (ev: MessageEvent) => {
       let msg = JSON.parse(ev.data);
 
       if (msg.Type === constants.MSG_TWRITE) {
 
-        var buffer = base64.str2ab(msg.Data)
+        let buffer = base64.str2ab(JSON.parse(window.atob(msg.Data)).Data);
         tempMsg.pub(msg.Type, buffer);
 
       } else if (msg.Type === constants.MSG_TWINSIZE) {
 
-        let winSizeMsg = JSON.parse(window.atob(msg.Data));
+        let winSizeMsg = msg.Data;
         tempMsg.pub(msg.Type, winSizeMsg);
 
       }
@@ -49,12 +56,10 @@ const StreamPreview: FC<Props> = ({ title, wsUrl, streamerID, nViewers, startedT
 
     tempMsg.sub("request", (msgType: string) => {
 
-      var payload_byte = base64.str2ab(window.btoa(""));
-      var wrapper = JSON.stringify({
+      var payload = JSON.stringify({
         Type: msgType,
-        Data: Array.from(payload_byte),
+        Data: "",
       });
-      const payload = base64.str2ab(window.btoa(wrapper))
       util.sendWhenConnected(ws, payload);
     })
 
@@ -86,7 +91,7 @@ const StreamPreview: FC<Props> = ({ title, wsUrl, streamerID, nViewers, startedT
         <p className="font-semibold">{title}</p>
         <div className="flex justify-between">
           <p className="text-md">@{streamerID}</p>
-          <p className="text-md hidden">{nViewers} Viewers</p>
+          <p className="text-md font-bold"> <PersonIcon/> {nViewers}</p>
         </div>
       </div>
     </div>

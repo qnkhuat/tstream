@@ -11,3 +11,21 @@
   left: 50%;
   transform: translate(-50%, -50%);
 }
+
+.scroll-bar-inline{
+  scrollbar-color: gray black;
+}
+
+.scroll-bar-inline::-webkit-scrollbar {
+  width: 7px;
+}
+
+.scroll-bar-inline::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+.scroll-bar-inline::-webkit-scrollbar-thumb {
+  background-color: #5d5d67;
+  border-radius: 100px;
+  box-shadow: darkgray;
+}

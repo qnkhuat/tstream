@@ -92,7 +92,7 @@ func (pty *PtyMaster) Restore() {
 }
 
 func (pty *PtyMaster) Refresh() {
-  // TODO: Find a better way to refresh instead of resizing
+	// TODO: Find a better way to refresh instead of resizing
 	// We wanna force the app to re-draw itself, but there doesn't seem to be a way to do that
 	// so we fake it by resizing the window quickly, making it smaller and then back big
 	winSize, err := GetWinsize(0)

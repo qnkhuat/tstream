@@ -13,7 +13,7 @@ const Router = () => {
     <BrowserRouter>
       <Switch>
         <Route path="/start-streaming" ><Start/></Route>
-        <Route path="/:username" ><Room/></Route>
+        <Route path="/:roomID" ><Room/></Route>
         <Route path="/" ><Home/></Route>
       </Switch>
     </BrowserRouter>

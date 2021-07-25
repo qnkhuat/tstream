@@ -1,18 +1,19 @@
 import urljoin from "url-join";
 import dayjs from "dayjs";
+
 export function getWsUrl(sessionID: string): string{
   const wsHost: string = (process.env.REACT_APP_API_URL as string).replace("http", "ws");
-  return urljoin(wsHost, "ws", sessionID, "viewer");
+  return urljoin(wsHost, "ws", sessionID);
 }
 
-export function sendWhenConnected(ws: WebSocket, msg: any) {
+export function sendWhenConnected(ws: WebSocket, msg: string) {
   setTimeout(() => {
     if (ws.readyState === 1) {
       ws.send(msg);
     } else {
       sendWhenConnected(ws, msg);
     }
-  }, 5); // wait 5 milisecond for the connection...
+  }, 10); // wait 5 milisecond for the connection...
 }
 
 export function formatDuration(from:dayjs.Dayjs, to: dayjs.Dayjs): string {
