@@ -72,7 +72,7 @@ const StreamPreview: FC<Props> = ({ title, wsUrl, streamerID, nViewers, startedT
     // preview doesn't need to be live
     setTimeout(() => {
       ws.close();
-    }, 1000);
+    }, 2000);
 
   }, [])
 
