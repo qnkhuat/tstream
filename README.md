@@ -21,6 +21,7 @@
 
 ### (Optional) Tstream chat inside terminal
 5. We also have a chat client on terminal, you can start it with `tstream -chat` after you've started your streaming session
+![TStream chat](./client/public/chat.gif)
 
 ### (Optional) Voice chat 🔈
 6. Inside TStream chat client, you can turn on voice chat with command `/unmute` and turn off it with `/mute`
