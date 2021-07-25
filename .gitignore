@@ -1,3 +1,6 @@
+# Build
+.release-env
+
 # Devs
 repos
 *.swo

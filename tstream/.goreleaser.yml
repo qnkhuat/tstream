@@ -1,56 +1,113 @@
 # This is an example .goreleaser.yml file with some sane defaults.
 # Make sure to check the documentation at http://goreleaser.com
+# Template get from : https://github.com/troian/golang-cross-example
+project_name: tstream
 before:
   hooks:
-    # You may remove this if you don't use go modules.
     - go mod tidy
-    # you may remove this if you don't need go generate
     - go generate ./...
 builds:
-  - main: ./cmd/tstream.go
-    id: tstream
+  - id: darwin-amd64
+    main: ./cmd/tstream.go
     binary: tstream
+    goos:
+      - darwin
+    goarch:
+      - amd64
     env:
-      - CGO_ENABLED=0
+      - PKG_CONFIG_SYSROOT_DIR=/sysroot/macos/amd64
+      - PKG_CONFIG_PATH=/sysroot/macos/amd64/usr/local/lib/pkgconfig
+      - CC=o64-clang
+      - CXX=o64-clang++
+    flags:
+      - -mod=readonly
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
+  - id: darwin-arm64
+    main: ./cmd/tstream.go
+    binary: tstream
+    goos:
+      - darwin
+    goarch:
+      - arm64
+    env:
+      - CC=oa64-clang
+      - CXX=oa64-clang++
+    flags:
+      - -mod=readonly
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
+  - id: linux-amd64
+    main: ./cmd/tstream.go
+    binary: tstream
     goos:
       - linux
-      - darwin
-      - freebsd
-  - main: ./cmd/server.go
-    id: server
-    binary: server
+    goarch:
+      - amd64
     env:
-      - CGO_ENABLED=0
+      - CC=gcc
+      - CXX=g++
+    flags:
+      - -mod=readonly
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+
+  - id: linux-arm64
+    main: ./cmd/tstream.go
+    binary: tstream
     goos:
       - linux
-      - darwin
-      - freebsd
+    goarch:
+      - arm64
+    env:
+      - CC=aarch64-linux-gnu-gcc
+      - CXX=aarch64-linux-gnu-g++
+    flags:
+      - -mod=readonly
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+    skip: true
+
+  - id: tserver
+    main: ./cmd/server.go
+    binary: tserver
+    goos:
+      - linux
+    goarch:
+      - amd64
+    flags:
+      - -mod=readonly
 
 archives:
   - id: tstream
     builds:
-      - tstream
+      - darwin-amd64
+      - darwin-arm64
+      - linux-amd64
+      - linux-arm64
     replacements:
       darwin: MacOS
       linux: Linux
-      386: i386
       amd64: x86_64
-      freebsd: Freebsd
     name_template: "tstream_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
-  - id: server
+
+  - id: tserver
     builds:
-      - server
+      - tserver
     replacements:
       darwin: MacOS
       linux: Linux
-      386: i386
       amd64: x86_64
-      freebsd: Freebsd
-    name_template: "server_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    name_template: "tserver_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
 checksum:
   name_template: 'checksums.txt'
+
 snapshot:
   name_template: "{{ .Tag }}"
+
 changelog:
   sort: asc
   filters:
