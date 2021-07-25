@@ -18,11 +18,19 @@ import (
 
 func main() {
 	logging.Config("/tmp/tstream.log", "SERVER: ")
+	flag.Usage = func() {
+		fmt.Fprintf(os.Stderr, "Just type `server` to turn on server.\n\nAdvanced config:\n")
+		flag.PrintDefaults()
+		fmt.Printf("\nFind a bug? Create an issue at: https://github.com/qnkhuat/tstream\n")
+	}
+
 	var db_path = flag.String("db", ".db", "Path to database")
 	var host = flag.String("host", "localhost:3000", "Host address to serve server")
 	var version = flag.Bool("version", false, fmt.Sprintf("TStream server version: %s", cfg.SERVER_VERSION))
 
 	flag.Parse()
+
+	fmt.Printf("TStream server v%s\n", cfg.SERVER_VERSION)
 
 	if *version {
 		fmt.Printf("TStream server %s\nGithub: https://github.com/qnkhuat/tstream\n", cfg.SERVER_VERSION)
