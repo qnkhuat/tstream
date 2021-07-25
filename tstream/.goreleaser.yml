@@ -4,9 +4,7 @@
 project_name: tstream
 before:
   hooks:
-    # You may remove this if you don't use go modules.
     - go mod tidy
-    # you may remove this if you don't need go generate
     - go generate ./...
 builds:
   - id: darwin-amd64
@@ -17,6 +15,8 @@ builds:
     goarch:
       - amd64
     env:
+      - PKG_CONFIG_SYSROOT_DIR=/sysroot/macos/amd64
+      - PKG_CONFIG_PATH=/sysroot/macos/amd64/usr/local/lib/pkgconfig
       - CC=o64-clang
       - CXX=o64-clang++
     flags:
@@ -54,20 +54,31 @@ builds:
     ldflags:
       - -s -w -X main.version={{.Version}}
 
-  - main: ./cmd/server.go
-    id: tserver
-    binary: tserver
+  - id: linux-arm64
+    main: ./cmd/tstream.go
+    binary: tstream
     goos:
       - linux
-      - darwin
     goarch:
       - arm64
-      - amd64
+    env:
+      - CC=aarch64-linux-gnu-gcc
+      - CXX=aarch64-linux-gnu-g++
     flags:
       - -mod=readonly
     ldflags:
       - -s -w -X main.version={{.Version}}
+    skip: true
 
+  - id: tserver
+    main: ./cmd/server.go
+    binary: tserver
+    goos:
+      - linux
+    goarch:
+      - amd64
+    flags:
+      - -mod=readonly
 
 archives:
   - id: tstream
@@ -75,20 +86,21 @@ archives:
       - darwin-amd64
       - darwin-arm64
       - linux-amd64
+      - linux-arm64
     replacements:
       darwin: MacOS
       linux: Linux
       amd64: x86_64
     name_template: "tstream_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
-  - id: server
+  - id: tserver
     builds:
-      - server
+      - tserver
     replacements:
       darwin: MacOS
       linux: Linux
       amd64: x86_64
-    name_template: "server_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    name_template: "tserver_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
 
 checksum:
   name_template: 'checksums.txt'

@@ -8,12 +8,12 @@ on:
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-        run: cd tstream
 
       - name: Set up Go
         uses: actions/setup-go@v2
@@ -21,8 +21,7 @@ jobs:
           go-version: 1.16
 
       - name: setup release env
-        run: echo 'GITHUB_TOKEN=${{secrets.GITHUB_TOKEN}}' > .release-env
+        run: echo 'GITHUB_TOKEN=${{secrets.GITHUB_TOKEN}}' > ./tstream/.release-env
 
       - name: release publish
         run: make release
-        
