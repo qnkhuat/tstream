@@ -14,7 +14,7 @@ const Navbar: React.FC<Props> = () => {
         </Link>
         <div className="flex items-center font-bold text-gray-100">
           <Link to="/start-streaming" className="border-r border-white pr-4">Start streaming</Link>
-          <a href="https://github.com/qnkhuat/tstream" className="pl-4">Github</a>
+          <a href="https://github.com/qnkhuat/tstream" className="pl-4">GitHub</a>
         </div>
       </div>
     </div>
