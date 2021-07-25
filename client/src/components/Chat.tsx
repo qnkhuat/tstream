@@ -38,7 +38,7 @@ const ChatSection: React.FC<ChatMsg> = ({ Name, Content, Color, Time}) => {
   return (
     <>
       <div className="w-full flex p-2 hover:bg-gray-900 rounded-lg">
-        <div className="break-all">
+        <div className="break-all text-sm sm:text-base">
           {
             Name === '' ? 
               <div className="font-bold">
@@ -163,8 +163,6 @@ class Chat extends React.Component<Props, State> {
 
   }
 
-
-
   getUserConfig(): TstreamUser | null {
     const payload = localStorage.getItem(USER_CONFIG_KEY);
     if (payload !== null) {
@@ -259,7 +257,7 @@ class Chat extends React.Component<Props, State> {
                   backgroundColor: "rgba(75,85,99,1)",
                   fontFamily: "'Ubuntu Mono', monospace",}
             }}
-            placeholder={(this.state.isWaitingUsername) ? "Please enter your name..." : "Chat with everyone..."}
+            placeholder={(this.state.isWaitingUsername) ? "Please enter your name" : "Send a message"}
             fullWidth
             multiline
             value={this.state.inputContent}
