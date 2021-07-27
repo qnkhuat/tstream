@@ -6,6 +6,8 @@
 <a href="https://tstream.club">TStream.club </a> | <a href="https://discord.gg/qATHjk6ady"> Join our Discord </a> | <a href="https://tstream.club/start-streaming">Start Streaming</a>
 </p>
 
+<p align="center"><a href="https://www.producthunt.com/posts/tstream?utm_source=badge-featured&utm_medium=badge&utm_souce=badge-tstream" target="_blank"><img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=305917&theme=light" alt="TStream - Live streaming from your terminal | Product Hunt" style="width: 250px; height: 54px;" width="250" height="54" /></a></p>
+
 ![TStream](./client/public/demo.gif)
 
 # How to Start Streaming
