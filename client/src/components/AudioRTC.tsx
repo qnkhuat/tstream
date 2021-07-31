@@ -125,7 +125,7 @@ class AudioRTC extends React.Component<Props, State> {
           this.setState({trackIDs: []});
           break;
       }
-      console.log("Peer connection state: ", this.peerConn?.connectionState);
+      console.log("WebRTC state: ", this.peerConn?.connectionState);
     }
 
     // listen to onicecandidate event and send it back to server
@@ -148,7 +148,6 @@ class AudioRTC extends React.Component<Props, State> {
 
     this.wsConn.onmessage = (ev: MessageEvent) => {
       const msg = JSON.parse(ev.data)
-      console.log("Got new message", msg);
 
       if (msg.Type !== constants.MSG_TRTC) console.error("Expected RTC message");
 
