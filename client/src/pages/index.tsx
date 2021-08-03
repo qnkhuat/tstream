@@ -41,7 +41,6 @@ function Home() {
 
   useEffect(() => {
     const requestData = () => {
-      console.log("Trigger")
       axios.get<Room[]>(urljoin(process.env.REACT_APP_API_URL as string, "/api/rooms?status=Streaming")).then((res) => {
         // get all for search purpose
         setLiveStreams(res.data);
