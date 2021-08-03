@@ -40,25 +40,34 @@ function Home() {
   const [ recentStreams, setRecentStreams ] = useState<Room[]>();
 
   useEffect(() => {
+    const requestData = () => {
+      console.log("Trigger")
+      axios.get<Room[]>(urljoin(process.env.REACT_APP_API_URL as string, "/api/rooms?status=Streaming")).then((res) => {
+        // get all for search purpose
+        setLiveStreams(res.data);
 
-    axios.get<Room[]>(urljoin(process.env.REACT_APP_API_URL as string, "/api/rooms?status=Streaming")).then((res) => {
-      // get all for search purpose
-      setLiveStreams(res.data);
+        // display part of it because each streampreview will create an xterm to display preview
+        // and xterm require a lot of memmory
+        setDisplayLiveStreams(getDisplayStreams(res.data));
+      }).catch((e) => console.error("Failed to get streaming rooms: ", e))
 
-      // display part of it because each streampreview will create an xterm to display preview
-      // and xterm require a lot of memmory
-      setDisplayLiveStreams(getDisplayStreams(res.data));
-    }).catch((e) => console.error("Failed to get streaming rooms: ", e))
+      axios.get<Room[]>(urljoin(process.env.REACT_APP_API_URL as string, "/api/rooms?status=Stopped&n=30")).then((res) => {
+        let displayRecentStreams = res.data;
 
-    axios.get<Room[]>(urljoin(process.env.REACT_APP_API_URL as string, "/api/rooms?status=Stopped&n=30")).then((res) => {
-      let displayRecentStreams = res.data;
+        // filter stream with duration more than 5 minutes
+        displayRecentStreams = displayRecentStreams.filter((stream) => dayjs(stream.LastActiveTime).diff(dayjs(stream.StartedTime), "minute") > 5);
+        // sort by descending started time
+        displayRecentStreams = displayRecentStreams.sort((a, b) => dayjs(b.StartedTime).diff(dayjs(a.StartedTime)));
+        setRecentStreams(displayRecentStreams);
+      }).catch((e) => console.error("Failed to get streaming rooms: ", e))
+    }
+    requestData();
 
-      // filter stream with duration more than 5 minutes
-      displayRecentStreams = displayRecentStreams.filter((stream) => dayjs(stream.LastActiveTime).diff(dayjs(stream.StartedTime), "minute") > 5);
-      // sort by descending started time
-      displayRecentStreams = displayRecentStreams.sort((a, b) => dayjs(b.StartedTime).diff(dayjs(a.StartedTime)));
-      setRecentStreams(displayRecentStreams);
-    }).catch((e) => console.error("Failed to get streaming rooms: ", e))
+    // Refresh the pages every 15 seconds
+    const intervalId = setInterval(() => {
+      requestData();
+    }, 15000);
+    return () => clearInterval(intervalId);
 
   }, []);
 
