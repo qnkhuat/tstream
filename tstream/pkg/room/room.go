@@ -9,6 +9,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/qnkhuat/tstream/internal/cfg"
 	"github.com/qnkhuat/tstream/pkg/message"
+	"github.com/qnkhuat/tstream/pkg/playback"
 	"log"
 	"strings"
 	"sync"
@@ -33,12 +34,14 @@ type Room struct {
 	status         message.RoomStatus
 	secret         string // used to verify streamer
 	sfu            *SFU
+	playback       *playback.Playback
 }
 
 func New(name, title, secret string) *Room {
 	clients := make(map[string]*Client)
 	var buffer []message.Wrapper
 	var cacheChat []message.Chat
+	playback := playback.New(234234324, "./")
 	return &Room{
 		name:           name,
 		accViewers:     0,
@@ -51,6 +54,7 @@ func New(name, title, secret string) *Room {
 		secret:         secret,
 		cacheChat:      cacheChat,
 		sfu:            NewSFU(),
+		playback:       playback,
 	}
 }
 
@@ -110,7 +114,7 @@ func (r *Room) Streamer() *websocket.Conn {
 
 // Wait for request from streamer and broadcast those message to clients
 func (r *Room) Start() {
-	r.sfu.Start()
+	go r.playback.Start()
 
 	go func() {
 		for _ = range time.Tick(cfg.SERVER_CLEAN_INTERVAL * time.Second) {
@@ -147,6 +151,7 @@ func (r *Room) Start() {
 			r.addMsgBuffer(msg)
 			r.lastActiveTime = time.Now()
 			r.Broadcast(msg, []message.CRole{message.RViewer}, []string{})
+			r.playback.In <- msg
 
 		default:
 			log.Printf("Unknown message type: %s", msgType)

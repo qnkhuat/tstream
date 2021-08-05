@@ -37,6 +37,7 @@ class WSTerminal extends React.Component<Props, {}> {
 
   componentDidMount() {
     this.props.msgManager.sub(constants.MSG_TWRITE, (buffer: Uint8Array) => {
+      console.log("Got message ", buffer.length);
       this.termRef.current?.writeUtf8(buffer);
     })
 

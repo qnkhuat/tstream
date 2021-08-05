@@ -29,14 +29,15 @@ type Streamer struct {
 	secret     string
 	title      string
 	conn       *websocket.Conn
-	Out        chan interface{}
-	In         chan interface{}
+	tr         *Transporter
+	Out        chan message.Wrapper
+	In         chan message.Wrapper
 }
 
 func New(clientAddr, serverAddr, username, title string) *Streamer {
 	pty := ptyMaster.New()
-	out := make(chan interface{}, 256) // buffer 256 send requests
-	in := make(chan interface{}, 256)  // buffer 256 send requests
+	out := make(chan message.Wrapper, 256) // buffer 256 send requests
+	in := make(chan message.Wrapper, 256)  // buffer 256 send requests
 
 	secret := GetSecret(CONFIG_PATH)
 
@@ -64,6 +65,7 @@ func (s *Streamer) Start() error {
 	fmt.Printf("Press Enter to continue!")
 	bufio.NewReader(os.Stdin).ReadString('\n')
 
+	// Init websocket connection
 	err := s.ConnectWS()
 	if err != nil {
 		log.Println(err)
@@ -71,6 +73,10 @@ func (s *Streamer) Start() error {
 		s.Stop(err.Error())
 		return err
 	}
+
+	// Init transporter
+	s.tr = NewTransporter(s.Out)
+	go s.tr.Start()
 
 	fmt.Printf("🔥 Streaming at: %s/%s\n", s.clientAddr, s.username)
 
@@ -87,7 +93,8 @@ func (s *Streamer) Start() error {
 
 	// Pipe command response to Pty and server
 	go func() {
-		mw := io.MultiWriter(os.Stdout, s)
+		//mw := io.MultiWriter(os.Stdout, s, s.tr)
+		mw := io.MultiWriter(os.Stdout, s.tr)
 		_, err := io.Copy(mw, s.pty.F())
 		if err != nil {
 			log.Printf("Failed to send pty to mw: %s", err)
@@ -253,7 +260,7 @@ func (s *Streamer) Write(data []byte) (int, error) {
 	// the xterm will show duplciated text
 	// Clue: marshal ensure data is encoded in UTF-8
 	dataByte, _ := json.Marshal(message.TermWrite{Data: data})
-	payload := &message.Wrapper{
+	payload := message.Wrapper{
 		Type: message.TWrite,
 		Data: dataByte,
 	}

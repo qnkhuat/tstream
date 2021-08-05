@@ -61,6 +61,7 @@ type Winsize struct {
 
 type TermWrite struct {
 	Data []byte
+	Time int64
 }
 
 type Chat struct {

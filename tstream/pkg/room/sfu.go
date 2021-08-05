@@ -40,16 +40,6 @@ func NewSFU() *SFU {
 	}
 }
 
-func (s *SFU) Start() {
-	// TODO: this should be requested by client, not server auto send it every 3 seconds
-	// request a keyframe every 3 seconds
-	//go func() {
-	//	for range time.NewTicker(time.Second * 3).C {
-	//		s.sendKeyFrame()
-	//	}
-	//}()
-}
-
 // TODO : break down this method
 func (s *SFU) AddPeer(cl *Client) error {
 

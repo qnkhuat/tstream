@@ -4,9 +4,10 @@ import { RouteComponentProps, withRouter } from "react-router-dom";
 import * as base64 from "../../lib/base64";
 import * as util from "../../lib/util";
 import * as constants from "../../lib/constants";
+import * as message from "../../lib/message";
 import PubSub from "../../lib/pubsub";
 
-import Chat, { ChatMsg } from "../../components/Chat";
+import Chat from "../../components/Chat";
 import Navbar from "../../components/Navbar";
 import WSTerminal from "../../components/WSTerminal";
 import Uptime from "../../components/Uptime";
@@ -206,8 +207,15 @@ class Room extends React.Component<Props, State> {
 
       if (msg.Type === constants.MSG_TWRITE) {
 
-        let buffer = base64.str2ab(JSON.parse(window.atob(msg.Data)).Data);
-        msgManager.pub(msg.Type, buffer);
+        let arr = JSON.parse(window.atob(msg.Data));
+        arr.forEach((el: string, i: number) => {
+          let singleMsg = JSON.parse(window.atob(el));
+          let buffer = base64.str2ab(singleMsg.Data);
+          setTimeout(() => {
+            msgManager.pub(msg.Type, buffer);
+          }, singleMsg.Time as number);
+        })
+        
 
       } else if (msg.Type === constants.MSG_TWINSIZE) {
 
@@ -236,8 +244,8 @@ class Room extends React.Component<Props, State> {
 
     })
 
-    msgManager.sub(constants.MSG_TCHAT_OUT, (chat:ChatMsg) => {
-      let chatList: ChatMsg[] = [chat];
+    msgManager.sub(constants.MSG_TCHAT_OUT, (chat:message.ChatMsg) => {
+      let chatList: message.ChatMsg[] = [chat];
 
       let payload = JSON.stringify({
         Type: constants.MSG_TCHAT,
