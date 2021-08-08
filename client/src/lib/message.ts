@@ -1,6 +1,11 @@
+export interface TermWriteBlock {
+  Data: string;
+  Offset: number;
+}
+
 export interface TermWrite {
   Data: string;
-  Time: number;
+  Offset: number;
 }
 
 export interface ChatMsg {

@@ -9,7 +9,6 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/qnkhuat/tstream/internal/cfg"
 	"github.com/qnkhuat/tstream/pkg/message"
-	"github.com/qnkhuat/tstream/pkg/playback"
 	"log"
 	"strings"
 	"sync"
@@ -34,14 +33,12 @@ type Room struct {
 	status         message.RoomStatus
 	secret         string // used to verify streamer
 	sfu            *SFU
-	playback       *playback.Playback
 }
 
 func New(name, title, secret string) *Room {
 	clients := make(map[string]*Client)
 	var buffer []message.Wrapper
 	var cacheChat []message.Chat
-	playback := playback.New(234234324, "./")
 	return &Room{
 		name:           name,
 		accViewers:     0,
@@ -54,7 +51,6 @@ func New(name, title, secret string) *Room {
 		secret:         secret,
 		cacheChat:      cacheChat,
 		sfu:            NewSFU(),
-		playback:       playback,
 	}
 }
 
@@ -114,7 +110,6 @@ func (r *Room) Streamer() *websocket.Conn {
 
 // Wait for request from streamer and broadcast those message to clients
 func (r *Room) Start() {
-	go r.playback.Start()
 
 	go func() {
 		for _ = range time.Tick(cfg.SERVER_CLEAN_INTERVAL * time.Second) {
@@ -147,11 +142,10 @@ func (r *Room) Start() {
 				log.Printf("Failed to decode winsize message: %s", err)
 			}
 
-		case message.TWrite:
+		case message.TWriteBlock:
 			r.addMsgBuffer(msg)
 			r.lastActiveTime = time.Now()
 			r.Broadcast(msg, []message.CRole{message.RViewer}, []string{})
-			r.playback.In <- msg
 
 		default:
 			log.Printf("Unknown message type: %s", msgType)
@@ -358,7 +352,9 @@ func (r *Room) ReadAndHandleClientMessage(ID string) {
 }
 
 func (r *Room) Broadcast(msg message.Wrapper, roles []message.CRole, IDExclude []string) {
+	log.Printf("Broadcasting message: %s", msg.Type)
 
+	// TODO : make this run concurrently
 	for id, client := range r.clients {
 		// Check if client is in the list of roles to broadcast
 		found := false
@@ -373,7 +369,6 @@ func (r *Room) Broadcast(msg message.Wrapper, roles []message.CRole, IDExclude [
 			continue
 		}
 
-		// TODO: make this for loop run in parallel
 		var isExcluded bool = false
 		for _, idExclude := range IDExclude {
 			if id == idExclude {

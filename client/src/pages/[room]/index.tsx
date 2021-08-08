@@ -5,6 +5,7 @@ import * as base64 from "../../lib/base64";
 import * as util from "../../lib/util";
 import * as constants from "../../lib/constants";
 import * as message from "../../lib/message";
+import * as pako from "pako";
 import PubSub from "../../lib/pubsub";
 
 import Chat from "../../components/Chat";
@@ -205,29 +206,47 @@ class Room extends React.Component<Props, State> {
     ws.onmessage = (ev: MessageEvent) => {
       let msg = JSON.parse(ev.data);
 
-      if (msg.Type === constants.MSG_TWRITE) {
+      switch (msg.Type) {
 
-        let arr = JSON.parse(window.atob(msg.Data));
-        arr.forEach((el: string, i: number) => {
-          let singleMsg = JSON.parse(window.atob(el));
-          let buffer = base64.str2ab(singleMsg.Data);
-          setTimeout(() => {
-            msgManager.pub(msg.Type, buffer);
-          }, singleMsg.Time as number);
-        })
-        
+        case constants.MSG_TWRITEBLOCK:
+            let blockMsg: message.TermWriteBlock = JSON.parse(window.atob(msg.Data));
+          // this is a big chunk of encoding/decoding
+          // Since we have to : reduce message size by usign gzip and also
+          // every single termwrite have to be decoded, or else the rendering will screw up
+          // the whole block often took 9-20 milliseconds to decode a 3 seconds block of message
+          let data = pako.ungzip(base64.str2ab(blockMsg.Data));
+          let dataArr: string[] = JSON.parse(base64.ab2str(data));
+          //let bufferArray: Uint8Array[] = [];
+          dataArr.forEach((data: string) => {
+            let writeMsg: message.TermWrite = JSON.parse(window.atob(data));
+            let buffer = base64.str2ab(writeMsg.Data)
+            //bufferArray.push(buffer);
+            setTimeout(() => {
+              console.log("Buffer : ", buffer.length, " offset ", writeMsg.Offset);
+              msgManager.pub(msg.Type, buffer);
+            }, writeMsg.Offset as number);
+          })
+          //console.log(base64.concatab(bufferArray).length);
+          //msgManager.pub(msg.Type, base64.concatab(bufferArray));
+          break;
+        case constants.MSG_TWINSIZE:
 
-      } else if (msg.Type === constants.MSG_TWINSIZE) {
+          msgManager.pub(msg.Type, msg.Data);
+          break;
 
-        msgManager.pub(msg.Type, msg.Data);
+        case constants.MSG_TCHAT:
 
-      } else if (msg.Type === constants.MSG_TCHAT) {
+          msgManager.pub(constants.MSG_TCHAT_IN, msg.Data);
+          break;
 
-        msgManager.pub(constants.MSG_TCHAT_IN, msg.Data);
+        case constants.MSG_TROOM_INFO:
 
-      } else if (msg.Type === constants.MSG_TROOM_INFO) {
+          this.setState({roomInfo: msg.Data});
+          break;
 
-        this.setState({roomInfo: msg.Data});
+        default:
+
+          console.error("Unhandled message: ", msg.Type)
 
       }
     }

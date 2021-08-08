@@ -31,4 +31,6 @@
 - [x] In room Chat
 - [x] Voice chat
 - [ ] Stream playback
+- [ ] Private session
 - [ ] User management system
+

@@ -1,5 +1,6 @@
 // Message type
 export const MSG_TWRITE = "Write";
+export const MSG_TWRITEBLOCK = "WriteBlock";
 export const MSG_TWINSIZE = "Winsize";
 export const MSG_TROOM_INFO = "RoomInfo";
 export const MSG_TCHAT = "Chat";

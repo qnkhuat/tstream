@@ -29,9 +29,11 @@ type Streamer struct {
 	secret     string
 	title      string
 	conn       *websocket.Conn
-	tr         *Transporter
+	recorder   *Recorder
 	Out        chan message.Wrapper
 	In         chan message.Wrapper
+	// interval of sending message in queue
+	interval time.Duration
 }
 
 func New(clientAddr, serverAddr, username, title string) *Streamer {
@@ -50,6 +52,7 @@ func New(clientAddr, serverAddr, username, title string) *Streamer {
 		title:      title,
 		Out:        out,
 		In:         in,
+		interval:   3 * time.Second,
 	}
 }
 
@@ -75,8 +78,8 @@ func (s *Streamer) Start() error {
 	}
 
 	// Init transporter
-	s.tr = NewTransporter(s.Out)
-	go s.tr.Start()
+	s.recorder = NewRecorder(s.interval, s.Out)
+	go s.recorder.Start()
 
 	fmt.Printf("🔥 Streaming at: %s/%s\n", s.clientAddr, s.username)
 
@@ -94,7 +97,7 @@ func (s *Streamer) Start() error {
 	// Pipe command response to Pty and server
 	go func() {
 		//mw := io.MultiWriter(os.Stdout, s, s.tr)
-		mw := io.MultiWriter(os.Stdout, s.tr)
+		mw := io.MultiWriter(os.Stdout, s.recorder)
 		_, err := io.Copy(mw, s.pty.F())
 		if err != nil {
 			log.Printf("Failed to send pty to mw: %s", err)
@@ -252,21 +255,6 @@ func (s *Streamer) Stop(msg string) {
 
 	fmt.Println()
 	fmt.Println(msg)
-}
-
-// Default behavior of Write is to send Write message
-func (s *Streamer) Write(data []byte) (int, error) {
-	// TODO: find out why if we don't encode this
-	// the xterm will show duplciated text
-	// Clue: marshal ensure data is encoded in UTF-8
-	dataByte, _ := json.Marshal(message.TermWrite{Data: data})
-	payload := message.Wrapper{
-		Type: message.TWrite,
-		Data: dataByte,
-	}
-
-	s.Out <- payload
-	return len(data), nil
 }
 
 func (s *Streamer) Winsize(rows, cols uint16) {

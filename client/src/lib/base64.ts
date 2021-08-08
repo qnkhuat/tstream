@@ -9,7 +9,20 @@ export function str2ab(input:string): Uint8Array{
   return bytes;
 }
 
-// array buffer to string
-export function ab2str(buf: number[]): string{
-  return String.fromCharCode.apply(null, buf);
+export function ab2str(buf: any): string{
+  return new TextDecoder().decode(buf);
+}
+
+export function concatab(array: Uint8Array[]): Uint8Array {
+  let len = 0;
+  array.forEach((a) => { len += a.byteLength; });
+
+  let result = new Uint8Array(len);
+  let runningIndex = 0
+  array.forEach((a) => {
+    result.set(new Uint8Array(a), runningIndex);
+    runningIndex += a.byteLength;
+  });
+  return result;
+
 }

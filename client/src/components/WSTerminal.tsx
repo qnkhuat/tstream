@@ -36,8 +36,7 @@ class WSTerminal extends React.Component<Props, {}> {
 
 
   componentDidMount() {
-    this.props.msgManager.sub(constants.MSG_TWRITE, (buffer: Uint8Array) => {
-      console.log("Got message ", buffer.length);
+    this.props.msgManager.sub(constants.MSG_TWRITEBLOCK, (buffer: Uint8Array) => {
       this.termRef.current?.writeUtf8(buffer);
     })
 
@@ -61,7 +60,7 @@ class WSTerminal extends React.Component<Props, {}> {
   }
 
   componentWillUnmount() {
-    this.props.msgManager.unsub(constants.MSG_TWRITE);
+    this.props.msgManager.unsub(constants.MSG_TWRITEBLOCK);
     this.props.msgManager.unsub(constants.MSG_TWINSIZE);
   }
 

@@ -6,7 +6,7 @@ const (
 	SERVER_STREAMER_REQUIRED_VERSION = "1.2.0" // Used to verify compatible verion of streamer
 
 	// Room
-	ROOM_BUFFER_SIZE    = 20 // number of recent broadcast message to buffer
+	ROOM_BUFFER_SIZE    = 3  // number of recent broadcast message to buffer
 	ROOM_CACHE_MSG_SIZE = 25 // number of recent chat messages to buffer
 
 	// Streamer
