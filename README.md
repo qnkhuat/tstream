@@ -31,4 +31,5 @@
 - [x] In room Chat
 - [x] Voice chat
 - [ ] Stream playback
+- [ ] Multiple tabs support
 - [ ] User management system
