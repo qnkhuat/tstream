@@ -32,5 +32,6 @@
 - [x] Voice chat
 - [ ] Stream playback
 - [ ] Private session
+- [ ] Multiple tabs support
 - [ ] User management system
 
