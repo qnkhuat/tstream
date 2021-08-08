@@ -48,10 +48,10 @@ const StreamPreview: FC<Props> = ({ title, wsUrl, streamerID, nViewers, startedT
           tempMsg.pub(msg.Type, blockMsg);
           break;
 
-        case constants.MSG_TWINSIZE:
-          let winSizeMsg = msg.Data;
-          tempMsg.pub(msg.Type, winSizeMsg);
+        default:
+          console.log("Unhandled message type: ", msg.Type)
           break;
+
       }
 
    }
