@@ -267,4 +267,7 @@ func (s *Streamer) writeWinsize(rows, cols uint16) {
 	}
 
 	s.recorder.WriteMsg(msg)
+
+	// send to server so server can easily save it as last winsize
+	s.Out <- msg
 }

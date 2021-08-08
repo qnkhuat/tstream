@@ -150,6 +150,17 @@ func (r *Room) Start() {
 			r.Broadcast(msg, []message.CRole{message.RViewer}, []string{})
 			r.recorder.WriteMsg(msg)
 
+		case message.TWinsize:
+			winsize := message.Winsize{}
+			err = message.ToStruct(msg.Data, &winsize)
+
+			if err == nil {
+				r.lastWinsize = winsize
+				r.lastActiveTime = time.Now()
+			} else {
+				log.Printf("Failed to decode winsize message: %s", err)
+			}
+
 		default:
 			log.Printf("Unknown message type: %s", msgType)
 		}
@@ -287,6 +298,17 @@ func (r *Room) ReadAndHandleClientMessage(ID string) {
 		case message.TRequestCacheChat:
 
 			payload := message.Wrapper{Type: message.TChat, Data: r.cacheChat}
+			client.Out <- payload
+
+		case message.TRequestWinsize:
+
+			payload := message.Wrapper{
+				Type: message.TWinsize,
+				Data: message.Winsize{
+					Rows: r.lastWinsize.Rows,
+					Cols: r.lastWinsize.Cols,
+				},
+			}
 			client.Out <- payload
 
 		case message.TChat:

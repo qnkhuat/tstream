@@ -11,6 +11,7 @@ import (
 	"time"
 )
 
+// 20 min of asciiquarium generate 10mins of playback
 type Recorder struct {
 	In             chan message.Wrapper
 	Interval       time.Duration
