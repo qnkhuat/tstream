@@ -35,7 +35,10 @@ type Recorder struct {
 }
 
 func NewRecorder(blockDuration time.Duration, delay time.Duration, out chan<- message.Wrapper) *Recorder {
+
 	if delay < blockDuration {
+		// delay should be larger than blockduraiton about .5 seconds for transmission time
+		// this will ensure a smooth stream
 		log.Printf("Block duration(%d) should smaller than delay(%d)", blockDuration, delay)
 		blockDuration = delay
 	}
@@ -56,11 +59,11 @@ func (r *Recorder) Start() {
 
 	// First message
 	time.Sleep(r.delay)
-	r.Send()
+	go r.Send()
 
 	// Send all message in queue after each block duration
 	for _ = range time.Tick(r.blockDuration) {
-		r.Send()
+		go r.Send()
 	}
 }
 
@@ -171,8 +174,11 @@ func (bl *Block) AddMessage(data []byte) {
 	// have to marshal any single termwrite message
 	// or else the rendering will screw up
 	byteData, _ := json.Marshal(message.TermWrite{
-		Data:   data,
-		Offset: time.Since(bl.startTime).Milliseconds(),
+		Data: data,
+		// offset of a single message is
+		// the different between now and block start time
+		// plus the (delay - duration)
+		Offset: time.Since(bl.startTime).Milliseconds() + bl.delay.Milliseconds() - bl.duration.Milliseconds(),
 	})
 	bl.queue = append(bl.queue, byteData)
 

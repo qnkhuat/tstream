@@ -53,7 +53,7 @@ func New(clientAddr, serverAddr, username, title string) *Streamer {
 		title:         title,
 		Out:           out,
 		In:            in,
-		delay:         3 * time.Second,
+		delay:         4 * time.Second,
 		blockDuration: 3 * time.Second, // block size has to smaller than delay
 	}
 }
