@@ -25,46 +25,60 @@ type Recorder struct {
 	// Channel to send message to
 	out chan<- message.Wrapper
 
-	// duration of each termwriteblock
+	// duration of each termwriteblock to send
 	blockDuration time.Duration
+
+	// delay of stream
+	delay time.Duration
 
 	currentBlock *Block
 }
 
-func NewRecorder(blockDuration time.Duration, out chan<- message.Wrapper) *Recorder {
-	currentBlock := NewBlock(blockDuration)
+func NewRecorder(blockDuration time.Duration, delay time.Duration, out chan<- message.Wrapper) *Recorder {
+	if delay < blockDuration {
+		log.Printf("Block duration(%d) should smaller than delay(%d)", blockDuration, delay)
+		blockDuration = delay
+	}
+	currentBlock := NewBlock(blockDuration, delay)
 	return &Recorder{
 		blockDuration: blockDuration,
 		out:           out,
 		currentBlock:  currentBlock,
+		delay:         delay,
 	}
 }
 
-/***
-Note: 3 seconds of parrot generate 70Kb of raw bytes. With gzip the data is just 6k
-***/
 func (r *Recorder) Start() {
 	if r.out == nil {
 		log.Printf("No output channel for recorder")
 		return
 	}
 
+	// First message
+	time.Sleep(r.delay)
+	r.Send()
+
 	// Send all message in queue after each block duration
 	for _ = range time.Tick(r.blockDuration) {
-		if r.currentBlock.NQueue() == 0 {
-			r.newBlock()
-			continue
-		}
-
-		payload, err := r.currentBlock.Serialize()
-		if err != nil {
-			log.Printf("Failed to serialize block")
-			r.newBlock()
-			continue
-		}
-		r.out <- payload
-		r.newBlock()
+		r.Send()
 	}
+}
+
+// send all message in block and create a new one
+func (r *Recorder) Send() {
+	if r.currentBlock.NQueue() == 0 {
+		r.newBlock()
+		return
+	}
+
+	payload, err := r.currentBlock.Serialize()
+	if err != nil {
+		log.Printf("Failed to serialize block")
+		r.newBlock()
+		return
+	}
+	r.out <- payload
+	r.newBlock()
 }
 
 func (r *Recorder) Write(data []byte) (int, error) {
@@ -77,7 +91,7 @@ func (r *Recorder) Write(data []byte) (int, error) {
 
 func (r *Recorder) newBlock() {
 	r.lock.Lock()
-	r.currentBlock = NewBlock(r.blockDuration)
+	r.currentBlock = NewBlock(r.blockDuration, r.delay)
 	defer r.lock.Unlock()
 }
 
@@ -92,16 +106,19 @@ type Block struct {
 	// how many milliseconds of data this block contains
 	duration time.Duration
 
+	delay time.Duration
+
 	// queue of encoded termwrite message
 	queue [][]byte
 }
 
-func NewBlock(duration time.Duration) *Block {
+func NewBlock(duration time.Duration, delay time.Duration) *Block {
 	var queue [][]byte
 	return &Block{
 		duration:  duration,
 		queue:     queue,
 		startTime: time.Now(),
+		delay:     delay,
 	}
 }
 
@@ -116,6 +133,8 @@ func (bl *Block) Serialize() (message.Wrapper, error) {
 	}
 
 	// compress with gzip
+	// with gzip data often compressed to 1/10 -> 1/8 its original
+	// Note: 3 seconds of parrot generate 70Kb of raw bytes. With gzip the data is just 6k
 	var b bytes.Buffer
 	gz := gzip.NewWriter(&b)
 	if _, err := gz.Write(dataByte); err != nil {
@@ -131,7 +150,6 @@ func (bl *Block) Serialize() (message.Wrapper, error) {
 		Duration:  bl.duration.Milliseconds(),
 		Data:      b.Bytes(),
 	}
-	log.Printf("bytes: %d, raw: %d", len(b.Bytes()), len(dataByte))
 
 	blockByte, err := json.Marshal(blockMsg)
 	if err != nil {

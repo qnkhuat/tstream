@@ -32,8 +32,9 @@ type Streamer struct {
 	recorder   *Recorder
 	Out        chan message.Wrapper
 	In         chan message.Wrapper
-	// interval of sending message in queue
-	interval time.Duration
+	// delay of sending message in queue
+	delay         time.Duration
+	blockDuration time.Duration
 }
 
 func New(clientAddr, serverAddr, username, title string) *Streamer {
@@ -44,15 +45,16 @@ func New(clientAddr, serverAddr, username, title string) *Streamer {
 	secret := GetSecret(CONFIG_PATH)
 
 	return &Streamer{
-		secret:     secret,
-		pty:        pty,
-		serverAddr: serverAddr,
-		clientAddr: clientAddr,
-		username:   username,
-		title:      title,
-		Out:        out,
-		In:         in,
-		interval:   3 * time.Second,
+		secret:        secret,
+		pty:           pty,
+		serverAddr:    serverAddr,
+		clientAddr:    clientAddr,
+		username:      username,
+		title:         title,
+		Out:           out,
+		In:            in,
+		delay:         3 * time.Second,
+		blockDuration: 3 * time.Second, // block size has to smaller than delay
 	}
 }
 
@@ -78,7 +80,7 @@ func (s *Streamer) Start() error {
 	}
 
 	// Init transporter
-	s.recorder = NewRecorder(s.interval, s.Out)
+	s.recorder = NewRecorder(s.blockDuration, s.delay, s.Out)
 	go s.recorder.Start()
 
 	fmt.Printf("🔥 Streaming at: %s/%s\n", s.clientAddr, s.username)

@@ -4,6 +4,7 @@ import PubSub from "./../lib/pubsub";
 import * as base64 from "../lib/base64";
 import * as util from "../lib/util";
 import * as constants from "../lib/constants";
+import * as message from "../lib/message";
 
 import dayjs from "dayjs";
 import customParseFormat from 'dayjs/plugin/customParseFormat';
@@ -41,19 +42,19 @@ const StreamPreview: FC<Props> = ({ title, wsUrl, streamerID, nViewers, startedT
     ws.onmessage = (ev: MessageEvent) => {
       let msg = JSON.parse(ev.data);
 
-      if (msg.Type === constants.MSG_TWRITE) {
+      switch (msg.Type) {
+        case constants.MSG_TWRITEBLOCK:
+          let blockMsg: message.TermWriteBlock = JSON.parse(window.atob(msg.Data));
+          tempMsg.pub(msg.Type, blockMsg);
+          break;
 
-        let buffer = base64.str2ab(JSON.parse(window.atob(msg.Data)).Data);
-        tempMsg.pub(msg.Type, buffer);
-
-      } else if (msg.Type === constants.MSG_TWINSIZE) {
-
-        let winSizeMsg = msg.Data;
-        tempMsg.pub(msg.Type, winSizeMsg);
-
+        case constants.MSG_TWINSIZE:
+          let winSizeMsg = msg.Data;
+          tempMsg.pub(msg.Type, winSizeMsg);
+          break;
       }
-    }
 
+   }
     tempMsg.sub("request", (msgType: string) => {
 
       var payload = JSON.stringify({

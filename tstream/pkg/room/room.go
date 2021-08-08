@@ -18,21 +18,30 @@ import (
 var emptyByteArray []byte
 
 type Room struct {
-	lock           sync.Mutex
-	streamer       *websocket.Conn
-	clients        map[string]*Client // Chats + viewrer connection
-	accViewers     uint64             // accumulated viewers
-	name           string             // also is streamerID
-	id             uint64             // Id in DB
-	title          string
+	lock sync.Mutex
+
+	streamer *websocket.Conn
+	sfu      *SFU
+	clients  map[string]*Client // Chats + viewrer connection
+
+	msgBuffer []message.Wrapper
+	cacheChat []message.Chat
+
+	// config
+	delay uint64 // Viewer delay time with streamer ( in milliseconds )
+
+	// states
 	lastWinsize    message.Winsize
 	startedTime    time.Time
 	lastActiveTime time.Time
-	msgBuffer      []message.Wrapper
-	cacheChat      []message.Chat
-	status         message.RoomStatus
-	secret         string // used to verify streamer
-	sfu            *SFU
+	accViewers     uint64 // accumulated viewers
+
+	// room info
+	id     uint64 // Id in DB
+	name   string // also is streamerID
+	title  string
+	secret string // used to verify streamer
+	status message.RoomStatus
 }
 
 func New(name, title, secret string) *Room {
@@ -41,16 +50,17 @@ func New(name, title, secret string) *Room {
 	var cacheChat []message.Chat
 	return &Room{
 		name:           name,
-		accViewers:     0,
-		clients:        clients,
-		lastActiveTime: time.Now(),
-		startedTime:    time.Now(),
-		msgBuffer:      buffer,
-		status:         message.RStreaming,
 		title:          title,
 		secret:         secret,
+		clients:        clients,
+		accViewers:     0,
+		msgBuffer:      buffer,
 		cacheChat:      cacheChat,
 		sfu:            NewSFU(),
+		lastActiveTime: time.Now(),
+		startedTime:    time.Now(),
+		status:         message.RStreaming,
+		delay:          3000,
 	}
 }
 
@@ -352,7 +362,6 @@ func (r *Room) ReadAndHandleClientMessage(ID string) {
 }
 
 func (r *Room) Broadcast(msg message.Wrapper, roles []message.CRole, IDExclude []string) {
-	log.Printf("Broadcasting message: %s", msg.Type)
 
 	// TODO : make this run concurrently
 	for id, client := range r.clients {
@@ -409,6 +418,7 @@ func (r *Room) PrepareRoomInfo() message.RoomInfo {
 		StreamerID:     r.name,
 		Status:         r.status,
 		AccNViewers:    r.accViewers,
+		Delay:          r.delay,
 	}
 }
 

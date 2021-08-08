@@ -54,6 +54,7 @@ interface RoomInfo {
   NViewers: number;
   Title: string;
   Status: RoomStatus;
+  Delay: number;
 }
 
 interface Params {
@@ -209,26 +210,10 @@ class Room extends React.Component<Props, State> {
       switch (msg.Type) {
 
         case constants.MSG_TWRITEBLOCK:
-            let blockMsg: message.TermWriteBlock = JSON.parse(window.atob(msg.Data));
-          // this is a big chunk of encoding/decoding
-          // Since we have to : reduce message size by usign gzip and also
-          // every single termwrite have to be decoded, or else the rendering will screw up
-          // the whole block often took 9-20 milliseconds to decode a 3 seconds block of message
-          let data = pako.ungzip(base64.str2ab(blockMsg.Data));
-          let dataArr: string[] = JSON.parse(base64.ab2str(data));
-          //let bufferArray: Uint8Array[] = [];
-          dataArr.forEach((data: string) => {
-            let writeMsg: message.TermWrite = JSON.parse(window.atob(data));
-            let buffer = base64.str2ab(writeMsg.Data)
-            //bufferArray.push(buffer);
-            setTimeout(() => {
-              console.log("Buffer : ", buffer.length, " offset ", writeMsg.Offset);
-              msgManager.pub(msg.Type, buffer);
-            }, writeMsg.Offset as number);
-          })
-          //console.log(base64.concatab(bufferArray).length);
-          //msgManager.pub(msg.Type, base64.concatab(bufferArray));
+          let blockMsg: message.TermWriteBlock = JSON.parse(window.atob(msg.Data));
+          msgManager.pub(msg.Type, blockMsg);
           break;
+
         case constants.MSG_TWINSIZE:
 
           msgManager.pub(msg.Type, msg.Data);
@@ -329,12 +314,13 @@ class Room extends React.Component<Props, State> {
 
               <div id="terminal-window">
 
-                {!isStreamStopped && isRoomExisted &&
+                {!isStreamStopped && isRoomExisted && this.state.roomInfo && 
                 <WSTerminal
                   className="bg-black"
                   msgManager={this.msgManager}
                   width={terminalSize.width}
                   height={terminalSize.height}
+                  delay={this.state.roomInfo.Delay}
                 />}
 
                 {isStreamStopped && isRoomExisted &&

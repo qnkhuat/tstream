@@ -104,6 +104,7 @@ type RoomInfo struct {
 	Title          string
 	StreamerID     string
 	Status         RoomStatus
+	Delay          uint64 // Viewer delay time with streamer ( in milliseconds )
 }
 
 // used for streamer to update room info

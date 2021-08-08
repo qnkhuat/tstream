@@ -1,3 +1,4 @@
+// Generic pubsub class
 export default class PubSub {
 
   // set to true if one topic can only have one subscriber
