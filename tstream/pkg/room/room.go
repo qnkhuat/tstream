@@ -22,7 +22,6 @@ type Room struct {
 
 	streamer *websocket.Conn
 	sfu      *SFU
-	recorder *Recorder
 	clients  map[string]*Client // Chats + viewrer connection
 
 	msgBuffer []message.Wrapper
@@ -49,7 +48,6 @@ func New(name, title, secret string) *Room {
 	clients := make(map[string]*Client)
 	var buffer []message.Wrapper
 	var cacheChat []message.Chat
-	recorder := NewRecorder("./abc.tar.gz")
 	return &Room{
 		name:           name,
 		title:          title,
@@ -59,7 +57,6 @@ func New(name, title, secret string) *Room {
 		msgBuffer:      buffer,
 		cacheChat:      cacheChat,
 		sfu:            NewSFU(),
-		recorder:       recorder,
 		lastActiveTime: time.Now(),
 		startedTime:    time.Now(),
 		status:         message.RStreaming,
@@ -148,7 +145,6 @@ func (r *Room) Start() {
 			r.addMsgBuffer(msg)
 			r.lastActiveTime = time.Now()
 			r.Broadcast(msg, []message.CRole{message.RViewer}, []string{})
-			r.recorder.WriteMsg(msg)
 
 		case message.TWinsize:
 			winsize := message.Winsize{}
