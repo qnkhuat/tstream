@@ -29,26 +29,32 @@ type Streamer struct {
 	secret     string
 	title      string
 	conn       *websocket.Conn
-	Out        chan interface{}
-	In         chan interface{}
+	recorder   *Recorder
+	Out        chan message.Wrapper
+	In         chan message.Wrapper
+	// delay of sending message in queue
+	delay         time.Duration
+	blockDuration time.Duration
 }
 
 func New(clientAddr, serverAddr, username, title string) *Streamer {
 	pty := ptyMaster.New()
-	out := make(chan interface{}, 256) // buffer 256 send requests
-	in := make(chan interface{}, 256)  // buffer 256 send requests
+	out := make(chan message.Wrapper, 256) // buffer 256 send requests
+	in := make(chan message.Wrapper, 256)  // buffer 256 send requests
 
 	secret := GetSecret(CONFIG_PATH)
 
 	return &Streamer{
-		secret:     secret,
-		pty:        pty,
-		serverAddr: serverAddr,
-		clientAddr: clientAddr,
-		username:   username,
-		title:      title,
-		Out:        out,
-		In:         in,
+		secret:        secret,
+		pty:           pty,
+		serverAddr:    serverAddr,
+		clientAddr:    clientAddr,
+		username:      username,
+		title:         title,
+		Out:           out,
+		In:            in,
+		delay:         4 * time.Second,
+		blockDuration: 3 * time.Second, // block size has to smaller than delay
 	}
 }
 
@@ -64,6 +70,7 @@ func (s *Streamer) Start() error {
 	fmt.Printf("Press Enter to continue!")
 	bufio.NewReader(os.Stdin).ReadString('\n')
 
+	// Init websocket connection
 	err := s.ConnectWS()
 	if err != nil {
 		log.Println(err)
@@ -71,6 +78,10 @@ func (s *Streamer) Start() error {
 		s.Stop(err.Error())
 		return err
 	}
+
+	// Init transporter
+	s.recorder = NewRecorder(s.blockDuration, s.delay, s.Out)
+	go s.recorder.Start()
 
 	fmt.Printf("🔥 Streaming at: %s/%s\n", s.clientAddr, s.username)
 
@@ -87,7 +98,8 @@ func (s *Streamer) Start() error {
 
 	// Pipe command response to Pty and server
 	go func() {
-		mw := io.MultiWriter(os.Stdout, s)
+		//mw := io.MultiWriter(os.Stdout, s, s.tr)
+		mw := io.MultiWriter(os.Stdout, s.recorder)
 		_, err := io.Copy(mw, s.pty.F())
 		if err != nil {
 			log.Printf("Failed to send pty to mw: %s", err)
@@ -245,21 +257,6 @@ func (s *Streamer) Stop(msg string) {
 
 	fmt.Println()
 	fmt.Println(msg)
-}
-
-// Default behavior of Write is to send Write message
-func (s *Streamer) Write(data []byte) (int, error) {
-	// TODO: find out why if we don't encode this
-	// the xterm will show duplciated text
-	// Clue: marshal ensure data is encoded in UTF-8
-	dataByte, _ := json.Marshal(message.TermWrite{Data: data})
-	payload := &message.Wrapper{
-		Type: message.TWrite,
-		Data: dataByte,
-	}
-
-	s.Out <- payload
-	return len(data), nil
 }
 
 func (s *Streamer) Winsize(rows, cols uint16) {

@@ -17,6 +17,7 @@ type MType string
 
 const (
 	TWrite      MType = "Write"
+	TWriteBlock MType = "WriteBlock"
 	TChat       MType = "Chat"
 	TClose      MType = "Close"
 	TError      MType = "Error"
@@ -59,8 +60,21 @@ type Winsize struct {
 	Cols uint16
 }
 
+type TermWriteBlock struct {
+	StartTime time.Time
+
+	// how many milliseconds of data this block contains
+	Duration int64
+
+	// gzipped array of TermWrite
+	Data []byte
+}
+
 type TermWrite struct {
 	Data []byte
+
+	// Time Offset is the offset of this message with its parent block's start time
+	Offset int64 // milliseconds
 }
 
 type Chat struct {
@@ -90,6 +104,7 @@ type RoomInfo struct {
 	Title          string
 	StreamerID     string
 	Status         RoomStatus
+	Delay          uint64 // Viewer delay time with streamer ( in milliseconds )
 }
 
 // used for streamer to update room info

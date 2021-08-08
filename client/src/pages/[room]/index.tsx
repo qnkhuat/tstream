@@ -4,9 +4,11 @@ import { RouteComponentProps, withRouter } from "react-router-dom";
 import * as base64 from "../../lib/base64";
 import * as util from "../../lib/util";
 import * as constants from "../../lib/constants";
+import * as message from "../../lib/message";
+import * as pako from "pako";
 import PubSub from "../../lib/pubsub";
 
-import Chat, { ChatMsg } from "../../components/Chat";
+import Chat from "../../components/Chat";
 import Navbar from "../../components/Navbar";
 import WSTerminal from "../../components/WSTerminal";
 import Uptime from "../../components/Uptime";
@@ -52,6 +54,7 @@ interface RoomInfo {
   NViewers: number;
   Title: string;
   Status: RoomStatus;
+  Delay: number;
 }
 
 interface Params {
@@ -204,22 +207,31 @@ class Room extends React.Component<Props, State> {
     ws.onmessage = (ev: MessageEvent) => {
       let msg = JSON.parse(ev.data);
 
-      if (msg.Type === constants.MSG_TWRITE) {
+      switch (msg.Type) {
 
-        let buffer = base64.str2ab(JSON.parse(window.atob(msg.Data)).Data);
-        msgManager.pub(msg.Type, buffer);
+        case constants.MSG_TWRITEBLOCK:
+          let blockMsg: message.TermWriteBlock = JSON.parse(window.atob(msg.Data));
+          msgManager.pub(msg.Type, blockMsg);
+          break;
 
-      } else if (msg.Type === constants.MSG_TWINSIZE) {
+        case constants.MSG_TWINSIZE:
 
-        msgManager.pub(msg.Type, msg.Data);
+          msgManager.pub(msg.Type, msg.Data);
+          break;
 
-      } else if (msg.Type === constants.MSG_TCHAT) {
+        case constants.MSG_TCHAT:
 
-        msgManager.pub(constants.MSG_TCHAT_IN, msg.Data);
+          msgManager.pub(constants.MSG_TCHAT_IN, msg.Data);
+          break;
 
-      } else if (msg.Type === constants.MSG_TROOM_INFO) {
+        case constants.MSG_TROOM_INFO:
 
-        this.setState({roomInfo: msg.Data});
+          this.setState({roomInfo: msg.Data});
+          break;
+
+        default:
+
+          console.error("Unhandled message: ", msg.Type)
 
       }
     }
@@ -236,8 +248,8 @@ class Room extends React.Component<Props, State> {
 
     })
 
-    msgManager.sub(constants.MSG_TCHAT_OUT, (chat:ChatMsg) => {
-      let chatList: ChatMsg[] = [chat];
+    msgManager.sub(constants.MSG_TCHAT_OUT, (chat:message.ChatMsg) => {
+      let chatList: message.ChatMsg[] = [chat];
 
       let payload = JSON.stringify({
         Type: constants.MSG_TCHAT,
@@ -302,12 +314,13 @@ class Room extends React.Component<Props, State> {
 
               <div id="terminal-window">
 
-                {!isStreamStopped && isRoomExisted &&
+                {!isStreamStopped && isRoomExisted && this.state.roomInfo && 
                 <WSTerminal
                   className="bg-black"
                   msgManager={this.msgManager}
                   width={terminalSize.width}
                   height={terminalSize.height}
+                  delay={this.state.roomInfo.Delay}
                 />}
 
                 {isStreamStopped && isRoomExisted &&

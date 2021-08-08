@@ -1,5 +1,6 @@
 import React from "react";
 import * as constants from "../lib/constants";
+import * as message from "../lib/message";
 import PubSub from "../lib/pubsub";
 import TextField from '@material-ui/core/TextField';
 import KeyboardArrowRightRoundedIcon from '@material-ui/icons/KeyboardArrowRightRounded';
@@ -19,22 +20,15 @@ interface Props {
   className?: string;
 }
 
-export interface ChatMsg {
-  Name: string;
-  Content: string;
-  Color: string;
-  Time: string;
-}
-
 interface State {
-  msgList: ChatMsg[];
+  msgList: message.ChatMsg[];
   inputContent: string;
   userConfig: TstreamUser | null;
   isWaitingUsername: boolean,
   tempMsg: string,
 }
 
-const ChatSection: React.FC<ChatMsg> = ({ Name, Content, Color, Time}) => {
+const ChatSection: React.FC<message.ChatMsg> = ({ Name, Content, Color, Time}) => {
   return (
     <>
       <div className="w-full flex p-2 hover:bg-gray-900 rounded-lg">
@@ -71,8 +65,8 @@ class Chat extends React.Component<Props, State> {
     }
   }
 
-  addNewMsg(chatMsg: ChatMsg) {
-    let newMsgList = this.state.msgList as ChatMsg[];
+  addNewMsg(chatMsg: message.ChatMsg) {
+    let newMsgList = this.state.msgList as message.ChatMsg[];
     newMsgList.push(chatMsg);
     this.setState({
       msgList: newMsgList,
@@ -81,11 +75,11 @@ class Chat extends React.Component<Props, State> {
   }
 
   componentDidMount() {    
-    this.props.msgManager?.sub(constants.MSG_TCHAT_IN, (cacheChat: Array<ChatMsg>) => {
+    this.props.msgManager?.sub(constants.MSG_TCHAT_IN, (cacheChat: Array<message.ChatMsg>) => {
       if (cacheChat === null) {
         return;
       }
-      let newMsgList = this.state.msgList as ChatMsg[];
+      let newMsgList = this.state.msgList as message.ChatMsg[];
       for (let i = 0; i < cacheChat.length; i++) {
         newMsgList.push(cacheChat[i]);
       }
