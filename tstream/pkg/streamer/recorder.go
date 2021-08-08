@@ -19,9 +19,6 @@ import (
 type Recorder struct {
 	lock sync.Mutex
 
-	// A queue to store message
-	queue [][]byte
-
 	// Channel to send message to
 	out chan<- message.Wrapper
 
@@ -84,12 +81,23 @@ func (r *Recorder) Send() {
 	r.newBlock()
 }
 
+// used for TermWrite message only
 func (r *Recorder) Write(data []byte) (int, error) {
 	r.lock.Lock()
-	r.currentBlock.AddMessage(data)
+	r.currentBlock.AddMsg(message.Wrapper{
+		Type: message.TWrite,
+		Data: data,
+	})
 	r.lock.Unlock()
 	return len(data), nil
+}
 
+// add any message
+func (r *Recorder) WriteMsg(msg message.Wrapper) {
+	// used for TermWrite message only
+	r.lock.Lock()
+	r.currentBlock.AddMsg(msg)
+	r.lock.Unlock()
 }
 
 func (r *Recorder) newBlock() {
@@ -168,20 +176,22 @@ func (bl *Block) Serialize() (message.Wrapper, error) {
 	return msg, nil
 }
 
-func (bl *Block) AddMessage(data []byte) {
+func (bl *Block) AddMsg(msg message.Wrapper) {
+	// offset of a single message is
+	// the different between now and block start time
+	// plus the (delay - duration)
+	msg.Delay = time.Since(bl.startTime).Milliseconds() + bl.delay.Milliseconds() - bl.duration.Milliseconds()
+	data, err := json.Marshal(msg)
+	if err != nil {
+		log.Printf("Failed to marshal message: %s", err)
+		return
+	}
+	bl.AddToQueue(data)
+}
+
+func (bl *Block) AddToQueue(data []byte) {
 	bl.lock.Lock()
-
-	// have to marshal any single termwrite message
-	// or else the rendering will screw up
-	byteData, _ := json.Marshal(message.TermWrite{
-		Data: data,
-		// offset of a single message is
-		// the different between now and block start time
-		// plus the (delay - duration)
-		Offset: time.Since(bl.startTime).Milliseconds() + bl.delay.Milliseconds() - bl.duration.Milliseconds(),
-	})
-	bl.queue = append(bl.queue, byteData)
-
+	bl.queue = append(bl.queue, data)
 	bl.lock.Unlock()
 }
 

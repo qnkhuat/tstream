@@ -1,12 +1,13 @@
+export interface Wrapper {
+  Type: string;
+  Data: any;
+  Delay: number;
+}
+
 export interface TermWriteBlock {
   Data: string;
   Duration: number;
   StartTime: string;
-}
-
-export interface TermWrite {
-  Data: string;
-  Offset: number;
 }
 
 export interface ChatMsg {

@@ -53,6 +53,10 @@ const (
 type Wrapper struct {
 	Type MType
 	Data interface{}
+
+	// time delay of message to take affect
+	// this time is relative with the start time of the parent data block it is sent with
+	Delay int64 // milliseconds
 }
 
 type Winsize struct {
@@ -66,15 +70,8 @@ type TermWriteBlock struct {
 	// how many milliseconds of data this block contains
 	Duration int64
 
-	// gzipped array of TermWrite
+	// gzipped array of messages
 	Data []byte
-}
-
-type TermWrite struct {
-	Data []byte
-
-	// Time Offset is the offset of this message with its parent block's start time
-	Offset int64 // milliseconds
 }
 
 type Chat struct {
