@@ -43,18 +43,18 @@ class WSTerminal extends React.Component<Props, {}> {
       this.termRef.current?.writeUtf8(buffer);
     };
 
-    this.writeManager = new WriteManager(writeCB, this.props.delay);
+    let winsizeCB = (ws: Winsize) => {
+      this.termRef.current?.resize(ws.Cols, ws.Rows);
+      this.rescale();
+    }
+
+    this.writeManager = new WriteManager(writeCB, winsizeCB, this.props.delay);
   }
 
 
   componentDidMount() {
     this.props.msgManager.sub(constants.MSG_TWRITEBLOCK, (block: message.TermWriteBlock) => {
       this.writeManager.addBlock(block);
-    })
-
-    this.props.msgManager.sub(constants.MSG_TWINSIZE, (winsize: Winsize) => {
-      this.termRef.current?.resize(winsize.Cols, winsize.Rows)
-      this.rescale();
     })
 
     this.props.msgManager.pub("request", constants.MSG_TREQUEST_WINSIZE);
@@ -119,12 +119,14 @@ class WSTerminal extends React.Component<Props, {}> {
 
 class WriteManager {
 
-  queue: message.TermWrite[] = [];
+  queue: message.Wrapper[] = [];
   writeCB: (arr:Uint8Array) => void;
+  winsizeCB: (ws:Winsize) => void
   delay: number; // in milliseconds
 
-  constructor(writeCB: (arr: Uint8Array) => void, delay: number = 0) {
+  constructor(writeCB: (arr: Uint8Array) => void, winsizeCB: (ws: Winsize) => void, delay: number = 0) {
     this.writeCB = writeCB;
+    this.winsizeCB = winsizeCB;
     this.delay = delay;
   }
 
@@ -133,7 +135,7 @@ class WriteManager {
   }
   
 
-  addQueue(q: message.TermWrite[]) {
+  addQueue(q: message.Wrapper[]) {
     this.queue.push(...q); // Concatnate
     this.consume();
   }
@@ -149,10 +151,21 @@ class WriteManager {
       while (true && this.queue.length != 0) {
         let msg = this.queue[0];
 
-        if (msg.Offset < 0) {
-          bufferArray.push()
-          let buffer = base64.str2ab(msg.Data)
-          bufferArray.push(buffer);
+        if (msg.Delay < 0) {
+          switch (msg.Type) {
+            case constants.MSG_TWRITE:
+              let buffer = base64.str2ab(msg.Data)
+              bufferArray.push(buffer);
+              break;
+
+            case constants.MSG_TWINSIZE:
+              this.winsizeCB(msg.Data);
+              break;
+
+            default:
+              console.error("Unhandled message type: ", msg.Type);
+          }
+
           this.queue.shift();
         } else  break;
       }
@@ -162,10 +175,25 @@ class WriteManager {
       // TODO: are there any ways we don't have to create many settimeout liek this?
       // tried sequentially call to settimeout but the performance is much worse
       this.queue.forEach((msg) => {
-        let buffer = base64.str2ab(msg.Data);
-        setTimeout(() => {
-          this.writeCB(buffer);
-        }, msg.Offset);
+        switch (msg.Type) {
+
+          case constants.MSG_TWRITE:
+            let buffer = base64.str2ab(msg.Data);
+            setTimeout(() => {
+              this.writeCB(buffer);
+            }, msg.Delay);
+              break;
+
+          case constants.MSG_TWINSIZE:
+            setTimeout(() => {
+              this.winsizeCB(msg.Data);
+            }, msg.Delay);
+              break;
+
+          default:
+            console.error("Unhandled message type: ", msg.Type);
+        }
+
       })
       this.resetQueue();
     }
@@ -185,19 +213,17 @@ class WriteManager {
     // every single termwrite have to be decoded, or else the rendering will screw up
     // the whole block often took 9-20 milliseconds to decode a 3 seconds block of message
     let data = pako.ungzip(base64.str2ab(block.Data));
-    let dataArrString: string[] = JSON.parse(base64.ab2str(data));
+    let msgArrayString: string[] = JSON.parse(base64.ab2str(data));
 
-    // convert from string[] to message.TermWrite[]
-    let dataArrTermWrite: message.TermWrite[] = [];
-    dataArrString.forEach((data: string, index: number) => {
-      let writeMsg = JSON.parse(window.atob(data));
-
+    let msgArray: message.Wrapper[] = [];
+    msgArrayString.forEach((msgString: string, i) => {
       // re-compute the offset of this message with respect to the render time
-      writeMsg.Offset = writeMsg.Offset - blockDelayTime;
-      dataArrTermWrite.push(writeMsg);
+      let msg: message.Wrapper = JSON.parse(window.atob(msgString));
+      msg.Delay = msg.Delay - blockDelayTime;
+      msgArray.push(msg);
     })
 
-    this.addQueue(dataArrTermWrite);
+    this.addQueue(msgArray);
     
   }
 }

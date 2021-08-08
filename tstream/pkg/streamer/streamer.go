@@ -89,11 +89,11 @@ func (s *Streamer) Start() error {
 
 	// Send a winsize message at first
 	winSize, _ := ptyMaster.GetWinsize(0)
-	s.Winsize(winSize.Rows, winSize.Cols)
+	s.writeWinsize(winSize.Rows, winSize.Cols)
 
 	// Send a winsize message when ever terminal change size
 	s.pty.SetWinChangeCB(func(ws *ptyDevice.Winsize) {
-		s.Winsize(ws.Rows, ws.Cols)
+		s.writeWinsize(ws.Rows, ws.Cols)
 	})
 
 	// Pipe command response to Pty and server
@@ -154,15 +154,16 @@ func (s *Streamer) Start() error {
 	}()
 
 	// Periodcally send a winsize msg to keep alive
-	go func() {
-		ticker := time.NewTicker(cfg.STREAMER_REFRESH_INTERVAL * time.Second)
-		for {
-			select {
-			case <-ticker.C:
-				s.pty.Refresh()
-			}
-		}
-	}()
+	//go func() {
+	//	ticker := time.NewTicker(cfg.STREAMER_REFRESH_INTERVAL * time.Second)
+	//	for {
+	//		select {
+	//		case <-ticker.C:
+	//			log.Printf("refresh")
+	//			s.pty.Refresh()
+	//		}
+	//	}
+	//}()
 
 	s.pty.Wait() // Blocking until user exit
 	s.Stop("Bye!")
@@ -259,10 +260,11 @@ func (s *Streamer) Stop(msg string) {
 	fmt.Println(msg)
 }
 
-func (s *Streamer) Winsize(rows, cols uint16) {
-	payload := message.Wrapper{
+func (s *Streamer) writeWinsize(rows, cols uint16) {
+	msg := message.Wrapper{
 		Type: message.TWinsize,
 		Data: message.Winsize{Rows: rows, Cols: cols},
 	}
-	s.Out <- payload
+
+	s.recorder.WriteMsg(msg)
 }
