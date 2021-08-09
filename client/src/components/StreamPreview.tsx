@@ -52,6 +52,11 @@ const StreamPreview: FC<Props> = ({ title, wsUrl, streamerID, nViewers, startedT
           let winSizeMsg = msg.Data;
           tempMsg.pub(msg.Type, winSizeMsg);
           break;
+
+        default:
+          console.log("Unhandled message type: ", msg.Type)
+          break;
+
       }
 
    }

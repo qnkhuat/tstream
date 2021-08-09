@@ -214,7 +214,7 @@ class Room extends React.Component<Props, State> {
           msgManager.pub(msg.Type, blockMsg);
           break;
 
-        case constants.MSG_TWINSIZE:
+         case constants.MSG_TWINSIZE:
 
           msgManager.pub(msg.Type, msg.Data);
           break;

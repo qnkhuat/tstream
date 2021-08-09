@@ -22,6 +22,7 @@ type Room struct {
 
 	streamer *websocket.Conn
 	sfu      *SFU
+	recorder *Recorder
 	clients  map[string]*Client // Chats + viewrer connection
 
 	msgBuffer []message.Wrapper
@@ -48,6 +49,7 @@ func New(name, title, secret string) *Room {
 	clients := make(map[string]*Client)
 	var buffer []message.Wrapper
 	var cacheChat []message.Chat
+	recorder := NewRecorder("./abc.tar.gz")
 	return &Room{
 		name:           name,
 		title:          title,
@@ -57,6 +59,7 @@ func New(name, title, secret string) *Room {
 		msgBuffer:      buffer,
 		cacheChat:      cacheChat,
 		sfu:            NewSFU(),
+		recorder:       recorder,
 		lastActiveTime: time.Now(),
 		startedTime:    time.Now(),
 		status:         message.RStreaming,
@@ -127,6 +130,7 @@ func (r *Room) Start() {
 		}
 	}()
 
+	// Read from streamer and broadcast
 	for {
 		msg := message.Wrapper{}
 		err := r.streamer.ReadJSON(&msg)
@@ -139,23 +143,23 @@ func (r *Room) Start() {
 
 		switch msgType := msg.Type; msgType {
 
+		case message.TWriteBlock:
+
+			r.addMsgBuffer(msg)
+			r.lastActiveTime = time.Now()
+			r.Broadcast(msg, []message.CRole{message.RViewer}, []string{})
+			r.recorder.WriteMsg(msg)
+
 		case message.TWinsize:
 			winsize := message.Winsize{}
 			err = message.ToStruct(msg.Data, &winsize)
 
 			if err == nil {
 				r.lastWinsize = winsize
-				r.addMsgBuffer(msg)
 				r.lastActiveTime = time.Now()
-				r.Broadcast(msg, []message.CRole{message.RViewer}, []string{})
 			} else {
 				log.Printf("Failed to decode winsize message: %s", err)
 			}
-
-		case message.TWriteBlock:
-			r.addMsgBuffer(msg)
-			r.lastActiveTime = time.Now()
-			r.Broadcast(msg, []message.CRole{message.RViewer}, []string{})
 
 		default:
 			log.Printf("Unknown message type: %s", msgType)
@@ -274,16 +278,6 @@ func (r *Room) ReadAndHandleClientMessage(ID string) {
 		msg, _ := <-client.In
 
 		switch msgType := msg.Type; msgType {
-		case message.TRequestWinsize:
-
-			payload := message.Wrapper{
-				Type: message.TWinsize,
-				Data: message.Winsize{
-					Rows: r.lastWinsize.Rows,
-					Cols: r.lastWinsize.Cols,
-				},
-			}
-			client.Out <- payload
 
 		case message.TRequestCacheContent:
 			// Send msg buffer so clients doesn't face a idle screen when first started
@@ -304,6 +298,17 @@ func (r *Room) ReadAndHandleClientMessage(ID string) {
 		case message.TRequestCacheChat:
 
 			payload := message.Wrapper{Type: message.TChat, Data: r.cacheChat}
+			client.Out <- payload
+
+		case message.TRequestWinsize:
+
+			payload := message.Wrapper{
+				Type: message.TWinsize,
+				Data: message.Winsize{
+					Rows: r.lastWinsize.Rows,
+					Cols: r.lastWinsize.Cols,
+				},
+			}
 			client.Out <- payload
 
 		case message.TChat:

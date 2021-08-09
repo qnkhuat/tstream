@@ -55,10 +55,16 @@ class WSTerminal extends React.Component<Props, {}> {
   componentDidMount() {
     this.props.msgManager.sub(constants.MSG_TWRITEBLOCK, (block: message.TermWriteBlock) => {
       this.writeManager.addBlock(block);
+    });
+    
+    this.props.msgManager.sub(constants.MSG_TWINSIZE, (ws: Winsize) => {
+      this.termRef.current?.resize(ws.Cols, ws.Rows);
+      this.rescale();
     })
 
-    this.props.msgManager.pub("request", constants.MSG_TREQUEST_WINSIZE);
+
     this.props.msgManager.pub("request", constants.MSG_TREQUEST_CACHE_CONTENT);
+    this.props.msgManager.pub("request", constants.MSG_TREQUEST_WINSIZE);
 
     window.addEventListener("resize", () => this.rescale());
     this.rescale();
