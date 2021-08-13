@@ -8,12 +8,12 @@ package main
 import (
 	"flag"
 	"fmt"
-	"log"
-	"os"
-
 	"github.com/qnkhuat/tstream/internal/cfg"
 	"github.com/qnkhuat/tstream/internal/logging"
 	"github.com/qnkhuat/tstream/pkg/server"
+	"log"
+	"os"
+	"path/filepath"
 )
 
 func main() {
@@ -24,9 +24,10 @@ func main() {
 		fmt.Printf("\nFind a bug? Create an issue at: https://github.com/qnkhuat/tstream\n")
 	}
 
-	var db_path = flag.String("db", ".db", "Path to database")
+	var dbPath = flag.String("db", ".db", "Path to database")
 	var host = flag.String("host", "localhost:3000", "Host address to serve server")
 	var version = flag.Bool("version", false, fmt.Sprintf("TStream server version: %s", cfg.SERVER_VERSION))
+	var playbackDir = flag.String("playback", ".tstream/", "Directory to save playback files")
 
 	flag.Parse()
 
@@ -38,7 +39,15 @@ func main() {
 		return
 	}
 
-	s, err := server.New(*host, *db_path)
+	log.Printf("is abs: %s", filepath.IsAbs(*playbackDir))
+	absPlaybackDir, err := filepath.Abs(*playbackDir)
+	if err != nil {
+		log.Printf("Failed to create playback dir: %s", err)
+		return
+	}
+	fmt.Printf("Saving playback at: %s\n", absPlaybackDir)
+	log.Printf("Saving playback at: %s", absPlaybackDir)
+	s, err := server.New(*host, *dbPath, absPlaybackDir)
 	if err != nil {
 		fmt.Printf("Failed to create server: %s", err)
 		log.Printf("Failed to create server: %s", err)

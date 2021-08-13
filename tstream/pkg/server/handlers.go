@@ -215,7 +215,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				log.Printf("Failed to add streamer: %s", err)
 			}
-			room.Start() // Blocking call
+			room.Start(s.playbackDir) // Blocking call
 		} else {
 			graceClose(conn, "")
 			log.Printf("Unauthorized: %s", clientRole)

@@ -129,7 +129,7 @@ func (s *Streamer) Start() error {
 			err := s.conn.WriteJSON(msg)
 			if err != nil {
 				log.Printf("Failed to send message. Streamer closing: %s", err)
-				time.Sleep(cfg.STREAMER_RETRY_CONNECT_AFTER * time.Second)
+				time.Sleep(cfg.STREAMER_RETRY_CONNECT_AFTER)
 				log.Printf("Reconnecting...")
 				err = s.ConnectWS()
 				if err != nil {
@@ -147,23 +147,21 @@ func (s *Streamer) Start() error {
 	go func() {
 		msg := message.Wrapper{}
 		err := s.conn.ReadJSON(&msg)
-		log.Printf("Not implemented response for message: %s", msg.Type)
 		if err != nil {
 			log.Printf("Failed to receive message from server: %s", err)
 		}
 	}()
 
 	// Periodcally send a winsize msg to keep alive
-	//go func() {
-	//	ticker := time.NewTicker(cfg.STREAMER_REFRESH_INTERVAL * time.Second)
-	//	for {
-	//		select {
-	//		case <-ticker.C:
-	//			log.Printf("refresh")
-	//			s.pty.Refresh()
-	//		}
-	//	}
-	//}()
+	go func() {
+		ticker := time.NewTicker(cfg.STREAMER_REFRESH_INTERVAL)
+		for {
+			select {
+			case <-ticker.C:
+				s.pty.Refresh()
+			}
+		}
+	}()
 
 	s.pty.Wait() // Blocking until user exit
 	s.Stop("Bye!")

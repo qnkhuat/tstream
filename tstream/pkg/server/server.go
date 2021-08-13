@@ -2,39 +2,47 @@ package server
 
 import (
 	"fmt"
-	"log"
-	"net/http"
-	"sync"
-	"time"
-
 	"github.com/gorilla/mux"
 	"github.com/qnkhuat/tstream/internal/cfg"
 	"github.com/qnkhuat/tstream/pkg/message"
 	"github.com/qnkhuat/tstream/pkg/room"
 	"github.com/rs/cors"
+	"log"
+	"net/http"
+	"os"
+	"sync"
+	"time"
 )
 
 type Server struct {
-	lock   sync.RWMutex
-	rooms  map[string]*room.Room
-	addr   string
-	server *http.Server
-	db     *DB
+	lock        sync.RWMutex
+	rooms       map[string]*room.Room
+	addr        string
+	server      *http.Server
+	db          *DB
+	playbackDir string
 }
 
-func New(addr string, db_path string) (*Server, error) {
+func New(addr, dbPath, playbackDir string) (*Server, error) {
+	if _, err := os.Stat(playbackDir); os.IsNotExist(err) {
+		if err = os.MkdirAll(playbackDir, 0755); err != nil {
+			return nil, err
+		}
+	}
+
 	rooms := make(map[string]*room.Room)
 
-	db, err := SetupDB(db_path)
+	db, err := SetupDB(dbPath)
 	if err != nil {
 		log.Printf("Failed to setup database: %s", err)
 		return nil, err
 	}
 
 	return &Server{
-		addr:  addr,
-		rooms: rooms,
-		db:    db,
+		addr:        addr,
+		rooms:       rooms,
+		db:          db,
+		playbackDir: playbackDir,
 	}, nil
 }
 func CORS(next http.Handler) http.Handler {
@@ -61,6 +69,7 @@ func (s *Server) NewRoom(name, title, secret string) error {
 		return fmt.Errorf("Room %s existed", name)
 	}
 	r := room.New(name, title, secret)
+
 	msg := r.PrepareRoomInfo()
 	id, err := s.db.AddRoom(msg)
 	r.SetId(id)
@@ -69,7 +78,6 @@ func (s *Server) NewRoom(name, title, secret string) error {
 		log.Println("Failed to add room to database")
 		return err
 	}
-	s.rooms[name].SetId(id)
 	return nil
 }
 
@@ -108,19 +116,18 @@ func (s *Server) Stop() {
 // All unit are in seconds
 // interval : scan for every interval time
 // ildeThreshold : room with idle time above this threshold will be killed
-func (s *Server) repeatedlyCleanRooms(interval, idleThreshold int) {
-	for _ = range time.Tick(time.Duration(interval) * time.Second) {
+func (s *Server) repeatedlyCleanRooms(interval, idleThreshold time.Duration) {
+	for _ = range time.Tick(interval) {
 		c := s.scanAndCleanRooms(idleThreshold)
 		log.Printf("Auto cleaned %d rooms", c)
 	}
 }
 
 // Clean in active rooms or stopped one
-func (s *Server) scanAndCleanRooms(idleThreshold int) int {
-	threshold := time.Duration(idleThreshold) * time.Second
+func (s *Server) scanAndCleanRooms(idleThreshold time.Duration) int {
 	count := 0
 	for roomName, room := range s.rooms {
-		if time.Since(room.LastActiveTime()) > threshold || room.Status() == message.RStopped {
+		if time.Since(room.LastActiveTime()) > idleThreshold || room.Status() == message.RStopped {
 			room.Stop(message.RStopped)
 			s.deleteRoom(roomName)
 			msg := room.PrepareRoomInfo()
@@ -139,8 +146,8 @@ func (s *Server) deleteRoom(name string) {
 }
 
 // Periodically sync server state with DB
-func (s *Server) repeatedlySyncDB(interval int) {
-	tick := time.NewTicker(time.Duration(interval) * time.Second)
+func (s *Server) repeatedlySyncDB(interval time.Duration) {
+	tick := time.NewTicker(interval)
 	for {
 		select {
 		case <-tick.C:

@@ -10,6 +10,7 @@ import (
 	"github.com/qnkhuat/tstream/internal/cfg"
 	"github.com/qnkhuat/tstream/pkg/message"
 	"log"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -26,6 +27,7 @@ type Room struct {
 
 	msgBuffer []message.Wrapper
 	cacheChat []message.Chat
+	recorder  *Recorder
 
 	// config
 	delay uint64 // Viewer delay time with streamer ( in milliseconds )
@@ -119,10 +121,17 @@ func (r *Room) Streamer() *websocket.Conn {
 }
 
 // Wait for request from streamer and broadcast those message to clients
-func (r *Room) Start() {
+func (r *Room) Start(playbackDir string) {
+	// create folder to store record files
+	recordDir := filepath.Join(playbackDir, fmt.Sprintf("%d", r.id))
+	recorder, err := NewRecorder(recordDir)
+	r.recorder = recorder
+	if err != nil {
+		log.Printf("Failed to start recorder: %s", err)
+	}
 
 	go func() {
-		for _ = range time.Tick(cfg.SERVER_CLEAN_INTERVAL * time.Second) {
+		for _ = range time.Tick(cfg.SERVER_CLEAN_INTERVAL) {
 			r.scanAndCleanClients()
 		}
 	}()
@@ -145,6 +154,7 @@ func (r *Room) Start() {
 			r.addMsgBuffer(msg)
 			r.lastActiveTime = time.Now()
 			r.Broadcast(msg, []message.CRole{message.RViewer}, []string{})
+			r.recorder.WriteMsg(msg)
 
 		case message.TWinsize:
 			winsize := message.Winsize{}
@@ -188,11 +198,11 @@ func (r *Room) AddStreamer(conn *websocket.Conn) error {
 	// Periodically ping streamer
 	// If streamer response with a pong message => still alive
 	go func() {
-		for _ = range time.Tick(cfg.SERVER_PING_INTERVAL * time.Second) {
+		for _ = range time.Tick(cfg.SERVER_PING_INTERVAL) {
 			if r.status == message.RStopped {
 				return
 			}
-			if time.Now().Sub(r.lastActiveTime) > time.Second*cfg.SERVER_DISCONNECTED_THRESHHOLD {
+			if time.Now().Sub(r.lastActiveTime) > cfg.SERVER_DISCONNECTED_THRESHHOLD {
 				r.status = message.RStopped
 			} else {
 				r.status = message.RStreaming

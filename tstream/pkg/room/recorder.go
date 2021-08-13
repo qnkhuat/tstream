@@ -4,42 +4,58 @@ import (
 	"bufio"
 	"compress/gzip"
 	"encoding/json"
+	"fmt"
 	"github.com/qnkhuat/tstream/pkg/message"
 	"log"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 )
 
 // 20 min of asciiquarium generate 10mins of playback
 type Recorder struct {
-	In             chan message.Wrapper
 	Interval       time.Duration
-	path           string
+	dir            string
 	currentblockID uint
 	lock           sync.Mutex
-	f              F
 }
 
-func NewRecorder(path string) *Recorder {
-	f, _ := CreateGZ(path)
-	return &Recorder{
-		f:    f,
-		path: path,
+func NewRecorder(dir string) (*Recorder, error) {
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		if err = os.MkdirAll(dir, 0755); err != nil {
+			return nil, err
+		}
 	}
+	return &Recorder{
+		dir:            dir,
+		currentblockID: 0,
+	}, nil
 }
 
 func (re *Recorder) WriteMsg(msg message.Wrapper) error {
+	path := filepath.Join(re.dir, fmt.Sprintf("%d.gz", re.currentblockID))
+
+	f, err := CreateGZ(path)
+	if err != nil {
+		log.Printf("Failed to create file: %s", err)
+		return err
+	}
+
 	data, err := json.Marshal(msg)
 	if err != nil {
 		log.Printf("Failed to encode message")
 		return err
 	}
-	err = WriteGZ(re.f, data)
+
+	err = WriteGZ(f, data)
 	if err != nil {
 		log.Printf("Failed to write message: %s", err)
 		return err
 	}
+
+	CloseGZ(f)
+	re.currentblockID += 1
 	return nil
 }
 
@@ -68,8 +84,14 @@ func WriteGZ(f F, data []byte) error {
 		log.Printf("Failed to write data %s", err)
 		return err
 	}
-	log.Printf("Wrote %d bytes", n)
 	return nil
+}
+
+func CloseGZ(f F) {
+	f.bf.Flush()
+	// Close the gzip first.
+	f.gf.Close()
+	f.f.Close()
 }
 
 //func ReadGzFile(filename string) ([]byte, error) {

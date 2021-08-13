@@ -230,7 +230,6 @@ class Room extends React.Component<Props, State> {
           break;
 
         default:
-
           console.error("Unhandled message: ", msg.Type)
 
       }

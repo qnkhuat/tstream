@@ -54,17 +54,17 @@ func (db *DB) UpdateRooms(rooms map[uint64]message.RoomInfo) error {
 	err := db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte(BROOMS))
 
-    for id, msg := range rooms {
-      buf, err := json.Marshal(msg)
-      if err != nil {
-        return err
-      }
+		for id, msg := range rooms {
+			buf, err := json.Marshal(msg)
+			if err != nil {
+				return err
+			}
 
-      err = b.Put(itob(id), []byte(buf))
-      if err != nil {
-        return err
-      }  
-    }
+			err = b.Put(itob(id), []byte(buf))
+			if err != nil {
+				return err
+			}
+		}
 		return nil
 	})
 
@@ -85,7 +85,7 @@ func (db *DB) AddRoom(obj message.RoomInfo) (uint64, error) {
 
 		// newest record will be at the end of table
 		id, _ = b.NextSequence()
-    obj.Id = id
+		obj.Id = id
 
 		buf, err := json.Marshal(obj)
 		if err != nil {
@@ -114,7 +114,7 @@ func (db *DB) GetRooms(statuses []message.RoomStatus, skip int, n int) ([]messag
 		c := b.Cursor()
 
 		count := 0
-    // Default is to get from the most recent
+		// Default is to get from the most recent
 		for k, v := c.Last(); k != nil; k, v = c.Prev() {
 			if n != 0 && count < skip {
 				count += 1
@@ -135,16 +135,16 @@ func (db *DB) GetRooms(statuses []message.RoomStatus, skip int, n int) ([]messag
 
 			// filter by status
 			// empty string to get all
-      for _, status := range statuses {
-        if room.Status == status  {
-          rooms = append(rooms, room)
-          count += 1
-          break
-        }
-      }
-    }
+			for _, status := range statuses {
+				if room.Status == status {
+					rooms = append(rooms, room)
+					count += 1
+					break
+				}
+			}
+		}
 
-    return nil
-  })
-  return rooms, err
+		return nil
+	})
+	return rooms, err
 }
