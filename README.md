@@ -43,7 +43,8 @@ The easiest way to install `tserver` is download it from our [Release](https://g
 Or if you prefer to build from source
 - Clone the repo `git clone https://github.com/qnkhuat/tstream`
 - Install the [Go toolchain](https://golang.org/dl/)
-- Run `cd tstream/tstream && go run cmd/server`
+- Build the server package: `cd tstream/tstream && go build cmd/server`
+- Run it `./server`
 
 Optional configurations:
 - `-host localhost:3000`: Address to server tserver. Default is `localhost:3000`
