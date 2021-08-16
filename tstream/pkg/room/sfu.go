@@ -126,14 +126,14 @@ func (s *SFU) AddPeer(cl *Client) error {
 
 			buf := make([]byte, 1500)
 			for {
-				// remote from remote
+				// read from remote
 				i, _, err := t.Read(buf)
 				if err != nil {
 					log.Printf("Failed to read from track: %s", err)
 					return
 				}
 
-				// send to all peers
+				// send to all peers with delay
 				if _, err = trackLocal.Write(buf[:i]); err != nil {
 					log.Printf("Failed to write to track local: %s", err)
 					return
@@ -141,7 +141,6 @@ func (s *SFU) AddPeer(cl *Client) error {
 			}
 		})
 	}
-	log.Printf("new client")
 	s.syncPeers()
 
 	// Signaling starts

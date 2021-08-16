@@ -29,3 +29,19 @@ Action plan:
 - Integrate it to our front-end
 
 This is hard-core shit
+
+
+
+
+After consideration Here is what I think:
+What we want:
+- We want this to be as fast as possible, if this is slower than traditional stremaing => it's worthless
+
+That's said:
+- Viewer will be at max 1.5 seconds lag with streamer
+- Streaming will be serve using websocket
+- Server will record those changes and save it every x seconds
+- We will follow something like asciicast for format
+- Playback will use http to download files
+- The download part will be handled by the player
+- Let's have 2 seperate versions for watching the stream and playback for now
