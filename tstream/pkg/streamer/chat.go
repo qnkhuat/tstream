@@ -46,8 +46,7 @@ type Chat struct {
 	titleTextView    *tview.TextView
 	muteBtn          *tview.Button
 	mute             bool
-
-	lastToggleMute time.Time
+	lastToggleMute   time.Time
 }
 
 func NewChat(sessionId, serverAddr, username string) *Chat {

@@ -24,8 +24,8 @@ func main() {
 		fmt.Printf("\nFind a bug? Create an issue at: https://github.com/qnkhuat/tstream\n")
 	}
 
-	var dbPath = flag.String("db", ".db", "Path to database")
-	var host = flag.String("host", "localhost:3000", "Host address to serve server")
+	var dbPath = flag.String("db", ".db", "Path to boltDB")
+	var addr = flag.String("addr", "localhost:3000", "Host address to serve server")
 	var version = flag.Bool("version", false, fmt.Sprintf("TStream server version: %s", cfg.SERVER_VERSION))
 	var playbackDir = flag.String("playback", ".tstream/", "Directory to save playback files")
 
@@ -47,7 +47,7 @@ func main() {
 	}
 	fmt.Printf("Saving playback at: %s\n", absPlaybackDir)
 	log.Printf("Saving playback at: %s", absPlaybackDir)
-	s, err := server.New(*host, *dbPath, absPlaybackDir)
+	s, err := server.New(*addr, *dbPath, absPlaybackDir)
 	if err != nil {
 		fmt.Printf("Failed to create server: %s", err)
 		log.Printf("Failed to create server: %s", err)

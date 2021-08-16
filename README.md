@@ -47,7 +47,7 @@ Or if you prefer to build from source
 - Run it `./server`
 
 Optional configurations:
-- `-host localhost:3000`: Address to server tserver. Default is `localhost:3000`
+- `-addr localhost:3000`: Address to server tserver. Default is `localhost:3000`
 - `-db .db`: path to BoltDB file. This DB is used to store data like: finished streaming. Default is `$(pwd)/.db`
 
 Test the server with `curl http://localhost:3000/api/health`. It should return the current time
