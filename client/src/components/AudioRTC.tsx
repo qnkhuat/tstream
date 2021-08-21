@@ -1,5 +1,5 @@
 import React from "react";
-import * as util from "../lib/util";
+import * as utils from "../utils";
 import * as constants from "../lib/constants";
 
 import Button from '@material-ui/core/Button';
@@ -70,7 +70,7 @@ class AudioRTC extends React.Component<Props, State> {
     let peerConn = new RTCPeerConnection();
     this.peerConn = peerConn;
 
-    const wsUrl = util.getWsUrl(this.props.roomID);
+    const wsUrl = utils.getWsUrl(this.props.roomID);
     const wsConn = new WebSocket(wsUrl);
     this.wsConn = wsConn;
 
@@ -83,7 +83,7 @@ class AudioRTC extends React.Component<Props, State> {
       }
     };
 
-    util.sendWhenConnected(this.wsConn, JSON.stringify(clientInfo));
+    utils.sendWhenConnected(this.wsConn, JSON.stringify(clientInfo));
 
     this.peerConn.ontrack = (ev: RTCTrackEvent)  => {
       if (!this.state.isPlayed) {
@@ -138,7 +138,7 @@ class AudioRTC extends React.Component<Props, State> {
             Data: JSON.stringify(ev.candidate),
           }
         };
-        if (this.wsConn) util.sendWhenConnected(this.wsConn, JSON.stringify(candidate));
+        if (this.wsConn) utils.sendWhenConnected(this.wsConn, JSON.stringify(candidate));
       }
     }
 

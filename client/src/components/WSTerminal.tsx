@@ -1,8 +1,8 @@
 import React from "react";
 import Xterm from "./Xterm";
 import * as constants from "../lib/constants";
-import * as message from "../lib/message";
-import * as base64 from "../lib/base64";
+import * as message from "../types/message";
+import * as buffer from "../lib/buffer";
 import * as pako from "pako";
 import PubSub from "../lib/pubsub";
 
@@ -160,8 +160,8 @@ class WriteManager {
         if (msg.Delay < 0) {
           switch (msg.Type) {
             case constants.MSG_TWRITE:
-              let buffer = base64.str2ab(msg.Data)
-              bufferArray.push(buffer);
+              let bufferData = buffer.str2ab(msg.Data)
+              bufferArray.push(bufferData);
               break;
 
             case constants.MSG_TWINSIZE:
@@ -175,7 +175,7 @@ class WriteManager {
           this.queue.shift();
         } else  break;
       }
-      if ( bufferArray.length > 0) this.writeCB(base64.concatab(bufferArray));
+      if ( bufferArray.length > 0) this.writeCB(buffer.concatab(bufferArray));
 
       // schedule to render upcomming messages
       // TODO: are there any ways we don't have to create many settimeout liek this?
@@ -184,9 +184,9 @@ class WriteManager {
         switch (msg.Type) {
 
           case constants.MSG_TWRITE:
-            let buffer = base64.str2ab(msg.Data);
+            let bufferData = buffer.str2ab(msg.Data);
             setTimeout(() => {
-              this.writeCB(buffer);
+              this.writeCB(bufferData);
             }, msg.Delay);
               break;
 
@@ -218,8 +218,8 @@ class WriteManager {
     // Since we have to : reduce message size by usign gzip and also
     // every single termwrite have to be decoded, or else the rendering will screw up
     // the whole block often took 9-20 milliseconds to decode a 3 seconds block of message
-    let data = pako.ungzip(base64.str2ab(block.Data));
-    let msgArrayString: string[] = JSON.parse(base64.ab2str(data));
+    let data = pako.ungzip(buffer.str2ab(block.Data));
+    let msgArrayString: string[] = JSON.parse(buffer.ab2str(data));
 
     let msgArray: message.Wrapper[] = [];
     msgArrayString.forEach((msgString: string, i) => {

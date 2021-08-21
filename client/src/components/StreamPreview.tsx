@@ -1,10 +1,9 @@
 import { FC, ReactElement, useState, useEffect } from "react";
 import WSTerminal from "./WSTerminal";
 import PubSub from "./../lib/pubsub";
-import * as base64 from "../lib/base64";
-import * as util from "../lib/util";
+import * as utils from "../utils";
 import * as constants from "../lib/constants";
-import * as message from "../lib/message";
+import * as message from "../types/message";
 
 import dayjs from "dayjs";
 import customParseFormat from 'dayjs/plugin/customParseFormat';
@@ -25,7 +24,7 @@ interface Props {
 
 const StreamPreview: FC<Props> = ({ title, wsUrl, streamerID, nViewers, startedTime, lastActiveTime }): ReactElement => {
 
-  const [ upTime, setUpTime ] = useState(util.formatDuration(dayjs(), dayjs(startedTime)));
+  const [ upTime, setUpTime ] = useState(utils.formatDuration(dayjs(), dayjs(startedTime)));
   const [ msgManager, setMsgManager ] = useState<PubSub>();
 
   useEffect(() => {
@@ -36,7 +35,7 @@ const StreamPreview: FC<Props> = ({ title, wsUrl, streamerID, nViewers, startedT
       Type: "ClientInfo",
       Data: {Role: "Viewer"}
     });
-    util.sendWhenConnected(ws, payload);
+    utils.sendWhenConnected(ws, payload);
 
     const tempMsg = new PubSub();
     ws.onmessage = (ev: MessageEvent) => {
@@ -66,13 +65,13 @@ const StreamPreview: FC<Props> = ({ title, wsUrl, streamerID, nViewers, startedT
         Type: msgType,
         Data: "",
       });
-      util.sendWhenConnected(ws, payload);
+      utils.sendWhenConnected(ws, payload);
     })
 
     setMsgManager(tempMsg);
 
     setInterval(() => {
-      setUpTime(util.formatDuration(dayjs(), dayjs(startedTime)));
+      setUpTime(utils.formatDuration(dayjs(), dayjs(startedTime)));
     }, 1000);
 
     // preview doesn't need to be live

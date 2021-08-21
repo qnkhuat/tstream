@@ -13,7 +13,7 @@ export function sendWhenConnected(ws: WebSocket, msg: string) {
     } else {
       sendWhenConnected(ws, msg);
     }
-  }, 10); // wait 5 milisecond for the connection...
+  }, 10); // wait 10 milisecond for the connection...
 }
 
 export function formatDuration(from:dayjs.Dayjs, to: dayjs.Dayjs): string {
