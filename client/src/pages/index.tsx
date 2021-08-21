@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom"
-import urljoin from "url-join";
-import axios from "axios";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { findBestMatch } from "string-similarity";
@@ -10,24 +8,19 @@ import StreamPreview from "../components/StreamPreview";
 import Loading from "../components/Loading";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
-import * as util from "../lib/util";
+
+import * as utils from "../utils";
+import * as message from "../types/message";
+import * as api from "../api";
 
 import PersonIcon from '@material-ui/icons/Person';
 import TextField from '@material-ui/core/TextField';
 dayjs.extend(relativeTime)
 
+
 // max number of streampreview to display
 const NDisplayLiveStreams = 6;
 
-interface Room {
-  StreamerID: string;
-  LastActiveTime: string;
-  StartedTime:string;
-  StoppedTime:string;
-  NViewers: number;
-  AccNViewers:number;
-  Title: string;
-}
 
 interface RatingExtended extends stringSimilarity.Rating {
   type?: string;
@@ -35,31 +28,32 @@ interface RatingExtended extends stringSimilarity.Rating {
 
 function Home() {
 
-  const [ liveStreams, setLiveStreams ] = useState<Room[]>();
-  const [ displayLiveStreams, setDisplayLiveStreams ] = useState<Room[]>();
-  const [ recentStreams, setRecentStreams ] = useState<Room[]>();
+  const [ liveStreams, setLiveStreams ] = useState<message.RoomInfo[]>();
+  const [ displayLiveStreams, setDisplayLiveStreams ] = useState<message.RoomInfo[]>();
+  const [ recentStreams, setRecentStreams ] = useState<message.RoomInfo[]>();
 
   useEffect(() => {
     const requestData = () => {
-      axios.get<Room[]>(urljoin(process.env.REACT_APP_API_URL as string, "/api/rooms?status=Streaming")).then((res) => {
-        // get all for search purpose
-        setLiveStreams(res.data);
+      api.getRooms({status: message.RoomStatus.Streaming}).then((data) => {
+        setLiveStreams(data);
 
         // display part of it because each streampreview will create an xterm to display preview
         // and xterm require a lot of memmory
-        setDisplayLiveStreams(getDisplayStreams(res.data));
-      }).catch((e) => console.error("Failed to get streaming rooms: ", e))
+        setDisplayLiveStreams(getDisplayStreams(data));
+      }).catch((err) => console.error(`Failed to get room: ${err}`));
 
-      axios.get<Room[]>(urljoin(process.env.REACT_APP_API_URL as string, "/api/rooms?status=Stopped&n=30")).then((res) => {
-        let displayRecentStreams = res.data;
+      api.getRooms({status: message.RoomStatus.Stopped, n: 30}).then((data) => {
+        let displayRecentStreams = data;
 
         // filter stream with duration more than 5 minutes
         displayRecentStreams = displayRecentStreams.filter((stream) => dayjs(stream.LastActiveTime).diff(dayjs(stream.StartedTime), "minute") > 5);
         // sort by descending started time
         displayRecentStreams = displayRecentStreams.sort((a, b) => dayjs(b.StartedTime).diff(dayjs(a.StartedTime)));
         setRecentStreams(displayRecentStreams);
-      }).catch((e) => console.error("Failed to get streaming rooms: ", e))
+
+      }).catch((err) => console.error(`Failed to get room: ${err}`));
     }
+
     requestData();
 
     // Refresh the pages every 15 seconds
@@ -71,7 +65,7 @@ function Home() {
   }, []);
 
 
-  const getDisplayStreams = (streams: Room[]): Room[] => {
+  const getDisplayStreams = (streams: message.RoomInfo[]): message.RoomInfo[] => {
     if (!streams) return [];
     let newDisplayLiveStreams = [...streams];
     newDisplayLiveStreams.sort(() => 0.5 - Math.random());
@@ -90,10 +84,10 @@ function Home() {
       return
     }
 
-    const findUniqueStreamerId = (value: string, type: string, matchedLiveStreams: Room[]): Room[] => {
+    const findUniqueStreamerId = (value: string, type: string, matchedLiveStreams: message.RoomInfo[]): message.RoomInfo[] => {
       if(!liveStreams) return [];
 
-      let fieldType = type as keyof Room;
+      let fieldType = type as keyof message.RoomInfo;
       const result = liveStreams.filter((stream) => {
         return !matchedLiveStreams.includes(stream) && stream[fieldType] === value;
       });
@@ -112,7 +106,7 @@ function Home() {
     var mergeRatings = streamerIDRatings.concat(titleRatings) as RatingExtended[];;
     mergeRatings.sort((a, b) => b.rating - a.rating); // sort descending
 
-    let matchedLiveStreams: Room[] = [];
+    let matchedLiveStreams: message.RoomInfo[] = [];
 
     for (let e of mergeRatings){
       if (e.rating < .5) break;
@@ -125,7 +119,7 @@ function Home() {
 
   if (!displayLiveStreams || !recentStreams) return <Loading/>;
 
-  let displayRecentStreams: Room[] = recentStreams;
+  let displayRecentStreams: message.RoomInfo[] = recentStreams;
 
   return (
     <>
@@ -150,7 +144,7 @@ function Home() {
                       <StreamPreview
                         key={i} title={r.Title} streamerID={r.StreamerID}
                         startedTime={r.StartedTime} lastActiveTime={r.LastActiveTime}
-                        wsUrl={util.getWsUrl(r.StreamerID)}
+                        wsUrl={utils.getWsUrl(r.StreamerID)}
                         nViewers={r.NViewers}
                       />
                     </Link>
@@ -170,7 +164,7 @@ function Home() {
                   <p>{dayjs(r.StartedTime).fromNow()}</p>
                 </div>
 
-                <p className="absolute top-4 right-4 bg-gray-800 p-1 rounded-md font-semibold">{util.formatDuration(dayjs(r.LastActiveTime), dayjs(r.StartedTime))}</p>
+                <p className="absolute top-4 right-4 bg-gray-800 p-1 rounded-md font-semibold">{utils.formatDuration(dayjs(r.LastActiveTime), dayjs(r.StartedTime))}</p>
                 <p className="absolute bottom-4 right-4 text-whtie font-semibold text-right mt-4"><PersonIcon/> {r.AccNViewers}</p>
 
               </div>)}

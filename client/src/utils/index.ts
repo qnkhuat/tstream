@@ -6,14 +6,16 @@ export function getWsUrl(sessionID: string): string{
   return urljoin(wsHost, "ws", sessionID);
 }
 
-export function sendWhenConnected(ws: WebSocket, msg: string) {
+export function sendWhenConnected(ws: WebSocket, msg: string, n: number = 0, maxTries: number = 100) {
   setTimeout(() => {
     if (ws.readyState === 1) {
       ws.send(msg);
-    } else {
-      sendWhenConnected(ws, msg);
+    } else if (n < maxTries) {
+      sendWhenConnected(ws, msg, n + 1);
+    } else{
+      console.error("Exceed tries to send message: ", msg);
     }
-  }, 10); // wait 5 milisecond for the connection...
+  }, 10); // wait 10 milisecond for the connection...
 }
 
 export function formatDuration(from:dayjs.Dayjs, to: dayjs.Dayjs): string {

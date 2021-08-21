@@ -16,3 +16,19 @@ export interface ChatMsg {
   Color: string;
   Time: string;
 }
+
+export enum RoomStatus {
+  Streaming = "Streaming",
+    Stopped = "Stopped",
+}
+
+export interface RoomInfo {
+  StreamerID: string;
+  LastActiveTime: string;
+  StartedTime:string;
+  StoppedTime:string;
+  NViewers: number;
+  AccNViewers:number;
+  Title: string;
+}
+

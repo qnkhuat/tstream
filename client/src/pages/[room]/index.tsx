@@ -1,16 +1,14 @@
 import React from 'react';
 import { RouteComponentProps, withRouter } from "react-router-dom";
 
-import * as base64 from "../../lib/base64";
-import * as util from "../../lib/util";
+import * as utils from "../../utils";
 import * as constants from "../../lib/constants";
-import * as message from "../../lib/message";
-import * as pako from "pako";
+import * as message from "../../types/message";
 import PubSub from "../../lib/pubsub";
 
 import Chat from "../../components/Chat";
 import Navbar from "../../components/Navbar";
-import WSTerminal from "../../components/WSTerminal";
+import Terminal from "../../components/Terminal";
 import Uptime from "../../components/Uptime";
 import Loading from "../../components/Loading";
 import AudioRTC from "../../components/AudioRTC";
@@ -174,7 +172,7 @@ class Room extends React.Component<Props, State> {
 
 
   componentDidMount() {
-    const wsUrl = util.getWsUrl(this.props.match.params.roomID);
+    const wsUrl = utils.getWsUrl(this.props.match.params.roomID);
     const msgManager = new PubSub();
 
     // set up websocket connection
@@ -186,7 +184,7 @@ class Room extends React.Component<Props, State> {
       Data: {Role: "Viewer"}
     })
 
-    util.sendWhenConnected(ws, payload);
+    utils.sendWhenConnected(ws, payload);
 
     ws.onclose = (ev: CloseEvent) => {
       let roomInfo = this.state.roomInfo;
@@ -244,7 +242,7 @@ class Room extends React.Component<Props, State> {
         Data: "",
       });
 
-      util.sendWhenConnected(ws, payload);
+      utils.sendWhenConnected(ws, payload);
 
     })
 
@@ -256,7 +254,7 @@ class Room extends React.Component<Props, State> {
         Data: chatList,
       });
 
-      util.sendWhenConnected(ws, payload);
+      utils.sendWhenConnected(ws, payload);
     })
 
     msgManager.pub("request", constants.MSG_TREQUEST_ROOM_INFO);
@@ -315,7 +313,7 @@ class Room extends React.Component<Props, State> {
               <div id="terminal-window">
 
                 {!isStreamStopped && isRoomExisted && this.state.roomInfo && 
-                <WSTerminal
+                <Terminal
                   className="bg-black"
                   msgManager={this.msgManager}
                   width={terminalSize.width}

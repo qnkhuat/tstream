@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import * as util from "./../lib/util";
+import * as utils from "./../utils";
 import dayjs from "dayjs";
 
 interface Props {
@@ -8,10 +8,10 @@ interface Props {
 }
 
 const Uptime: React.FC<Props> = ({startTime, className=""}) => {
-  const [ upTime, setUptime ] = useState(util.formatDuration(dayjs(), dayjs(startTime)));
+  const [ upTime, setUptime ] = useState(utils.formatDuration(dayjs(), dayjs(startTime)));
   useEffect(() => {
     let id = setInterval(() => {
-      setUptime(util.formatDuration(dayjs(), dayjs(startTime)));
+      setUptime(utils.formatDuration(dayjs(), dayjs(startTime)));
     }, 1000)
     return () => {
       clearInterval(id);

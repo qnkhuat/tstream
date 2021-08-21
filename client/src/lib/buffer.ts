@@ -1,4 +1,3 @@
-// str to buffer array
 export function str2ab(input:string): Uint8Array{
   let binary_string =  window.atob(input);
   let len = binary_string.length;
