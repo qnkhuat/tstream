@@ -4,12 +4,11 @@ import { RouteComponentProps, withRouter } from "react-router-dom";
 import * as utils from "../../utils";
 import * as constants from "../../lib/constants";
 import * as message from "../../types/message";
-import * as pako from "pako";
 import PubSub from "../../lib/pubsub";
 
 import Chat from "../../components/Chat";
 import Navbar from "../../components/Navbar";
-import WSTerminal from "../../components/WSTerminal";
+import Terminal from "../../components/Terminal";
 import Uptime from "../../components/Uptime";
 import Loading from "../../components/Loading";
 import AudioRTC from "../../components/AudioRTC";
@@ -314,7 +313,7 @@ class Room extends React.Component<Props, State> {
               <div id="terminal-window">
 
                 {!isStreamStopped && isRoomExisted && this.state.roomInfo && 
-                <WSTerminal
+                <Terminal
                   className="bg-black"
                   msgManager={this.msgManager}
                   width={terminalSize.width}

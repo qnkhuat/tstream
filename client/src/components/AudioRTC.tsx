@@ -125,7 +125,6 @@ class AudioRTC extends React.Component<Props, State> {
           this.setState({trackIDs: []});
           break;
       }
-      console.log("WebRTC state: ", this.peerConn?.connectionState);
     }
 
     // listen to onicecandidate event and send it back to server

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom"
-import urljoin from "url-join";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import { findBestMatch } from "string-similarity";
@@ -12,7 +11,7 @@ import Footer from "../components/Footer";
 
 import * as utils from "../utils";
 import * as message from "../types/message";
-import * as api from  from "../api";
+import * as api from "../api";
 
 import PersonIcon from '@material-ui/icons/Person';
 import TextField from '@material-ui/core/TextField';
