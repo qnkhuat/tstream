@@ -65,11 +65,11 @@ func main() {
 		fmt.Printf("\nFind a bug? Create an issue at: https://github.com/qnkhuat/tstream\n")
 	}
 
-	var server = flag.String("server", "https://server.tstream.club", "Server endpoint")
-	var client = flag.String("client", "https://tstream.club", "TStream client url")
-	var version = flag.Bool("version", false, fmt.Sprintf("TStream version: %s", cfg.STREAMER_VERSION))
 	var private = flag.Bool("private", false, "Start a private session")
 	var chat = flag.Bool("chat", false, "Open chat client: %s")
+	var client = flag.String("client", "https://tstream.club", "TStream client url")
+	var server = flag.String("server", "https://server.tstream.club", "Server endpoint")
+	var version = flag.Bool("version", false, fmt.Sprintf("TStream version: %s", cfg.STREAMER_VERSION))
 
 	flag.Parse()
 	fmt.Printf("TStream v%s\n", cfg.STREAMER_VERSION)

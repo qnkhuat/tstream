@@ -24,6 +24,8 @@ The easiest way to install `tstream` is download it form our [Release](https://g
 # Start Streaming
 Just type `tstream` in the terminal and it will instruct you 🙂
 
+If you want to start a private session run: `tstream -private`
+
 ### (Optional) Tstream chat inside terminal
 We also have a chat client on terminal, you can start it with `tstream -chat` after you've started your streaming session
 ![TStream chat](./client/public/chat.gif)

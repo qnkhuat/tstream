@@ -95,7 +95,11 @@ func (s *Streamer) Start() error {
 	s.recorder = NewRecorder(s.blockDuration, s.delay, s.Out)
 	go s.recorder.Start()
 
-	fmt.Printf("🔥 Streaming at: %s/%s\n", s.clientAddr, s.username)
+	if s.private {
+		fmt.Printf("🔥 Streaming at: %s/%s?key=%s\n", s.clientAddr, s.username, s.key)
+	} else {
+		fmt.Printf("🔥 Streaming at: %s/%s\n", s.clientAddr, s.username)
+	}
 
 	s.pty.MakeRaw()
 

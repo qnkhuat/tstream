@@ -67,7 +67,6 @@
     "@types/string-similarity": "^4.0.0",
     "@types/url-join": "^4.0.0",
     "autoprefixer": "^9.8.6",
-    "meow": "^10.1.1",
     "postcss": "^7.0.36",
     "tailwindcss": "npm:@tailwindcss/postcss7-compat@^2.2.4"
   }
