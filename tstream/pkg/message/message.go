@@ -43,11 +43,8 @@ const (
 	// Server can request client info to assign roles and verrification
 	TRequestClientInfo MType = "RequestClientInfo"
 
-	// Server will when this message if streamer is verified. Then streamer can proceed to start stream
-	TStreamerAuthorized MType = "StreamerAuthorized"
-
-	// If websocket connection is illegal. server send this message to streamer then close connection
-	TStreamerUnauthorized MType = "StreamerUnauthorized"
+	TAuthorized   MType = "Authorized"
+	TUnauthorized MType = "Unauthorized"
 )
 
 type Wrapper struct {
@@ -102,6 +99,7 @@ type RoomInfo struct {
 	StreamerID     string
 	Status         RoomStatus
 	Delay          uint64 // Viewer delay time with streamer ( in milliseconds )
+	Private        bool
 }
 
 // used for streamer to update room info
@@ -124,7 +122,8 @@ const (
 type ClientInfo struct {
 	Name   string
 	Role   CRole
-	Secret string
+	Secret string // used to verify streamer
+	Key    string // used to access private room
 }
 
 // ** RTC ***

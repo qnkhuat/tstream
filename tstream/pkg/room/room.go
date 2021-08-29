@@ -22,7 +22,6 @@ type Room struct {
 
 	streamer *websocket.Conn
 	sfu      *SFU
-	recorder *Recorder
 	clients  map[string]*Client // Chats + viewrer connection
 
 	msgBuffer []message.Wrapper
@@ -38,18 +37,19 @@ type Room struct {
 	accViewers     uint64 // accumulated viewers
 
 	// room info
-	id     uint64 // Id in DB
-	name   string // also is streamerID
-	title  string
-	secret string // used to verify streamer
-	status message.RoomStatus
+	id      uint64 // Id in DB
+	name    string // also is streamerID
+	title   string
+	secret  string // used to verify streamer
+	status  message.RoomStatus
+	key     string // used to access private room
+	private bool
 }
 
 func New(name, title, secret string) *Room {
 	clients := make(map[string]*Client)
 	var buffer []message.Wrapper
 	var cacheChat []message.Chat
-	recorder := NewRecorder("./abc.tar.gz")
 	return &Room{
 		name:           name,
 		title:          title,
@@ -59,12 +59,27 @@ func New(name, title, secret string) *Room {
 		msgBuffer:      buffer,
 		cacheChat:      cacheChat,
 		sfu:            NewSFU(),
-		recorder:       recorder,
 		lastActiveTime: time.Now(),
 		startedTime:    time.Now(),
 		status:         message.RStreaming,
 		delay:          3000,
 	}
+}
+
+func (r *Room) Private() bool {
+	return r.private
+}
+
+func (r *Room) SetPrivate(private bool) {
+	r.private = private
+}
+
+func (r *Room) Key() string {
+	return r.key
+}
+
+func (r *Room) SetKey(key string) {
+	r.key = key
 }
 
 func (r *Room) LastActiveTime() time.Time {
@@ -148,7 +163,6 @@ func (r *Room) Start() {
 			r.addMsgBuffer(msg)
 			r.lastActiveTime = time.Now()
 			r.Broadcast(msg, []message.CRole{message.RViewer}, []string{})
-			r.recorder.WriteMsg(msg)
 
 		case message.TWinsize:
 			winsize := message.Winsize{}
@@ -423,6 +437,7 @@ func (r *Room) PrepareRoomInfo() message.RoomInfo {
 		Status:         r.status,
 		AccNViewers:    r.accViewers,
 		Delay:          r.delay,
+		Private:        r.private,
 	}
 }
 
@@ -441,7 +456,6 @@ func (r *Room) Summary() map[string]interface{} {
 	summary["NViewers"] = r.NViewers()
 	summary["NClients"] = len(r.clients)
 	summary["sfu.Nparticipants"] = len(r.sfu.participants)
-	summary["secret"] = r.secret
 	summary["sfu.Nlocaltracks"] = len(r.sfu.trackLocals)
 	return summary
 }

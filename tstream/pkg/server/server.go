@@ -56,21 +56,22 @@ func CORS(next http.Handler) http.Handler {
 	})
 }
 
-func (s *Server) NewRoom(name, title, secret string) error {
+func (s *Server) NewRoom(name, title, secret string, private bool, key string) (*room.Room, error) {
+	var r *room.Room
 	if _, ok := s.rooms[name]; ok {
-		return fmt.Errorf("Room %s existed", name)
+		return r, fmt.Errorf("Room %s existed", name)
 	}
-	r := room.New(name, title, secret)
+	r = room.New(name, title, secret)
+	r.SetPrivate(private)
+	r.SetKey(key)
 	msg := r.PrepareRoomInfo()
 	id, err := s.db.AddRoom(msg)
+	if err != nil {
+		return r, err
+	}
 	r.SetId(id)
 	s.rooms[name] = r
-	if err != nil {
-		log.Println("Failed to add room to database")
-		return err
-	}
-	s.rooms[name].SetId(id)
-	return nil
+	return r, nil
 }
 
 func (s *Server) Start() {
@@ -84,7 +85,7 @@ func (s *Server) Start() {
 	router.HandleFunc("/api/room/{roomName}/status", s.handleRoomStatus).Methods("GET", "OPTIONS")
 	// Add room
 	router.HandleFunc("/api/room", s.handleAddRoom).Queries("streamerID", "{streamerID}", "title", "{title}").Methods("POST", "OPTIONS")
-	router.HandleFunc("/ws/{roomName}", s.handleWS) // for streamers
+	router.HandleFunc("/ws/{roomName}", s.handleWS).Methods("GET", "OPTIONS")
 	handler := cors.Default().Handler(router)
 
 	s.server = &http.Server{Addr: s.addr, Handler: handler}
@@ -109,7 +110,7 @@ func (s *Server) Stop() {
 // interval : scan for every interval time
 // ildeThreshold : room with idle time above this threshold will be killed
 func (s *Server) repeatedlyCleanRooms(interval, idleThreshold int) {
-	for _ = range time.Tick(time.Duration(interval) * time.Second) {
+	for range time.Tick(time.Duration(interval) * time.Second) {
 		c := s.scanAndCleanRooms(idleThreshold)
 		log.Printf("Auto cleaned %d rooms", c)
 	}
@@ -160,7 +161,7 @@ func (s *Server) syncDB() {
 	// check if all streaming rooms inside DB are actually still streaming
 	// there is a case where server suddenly die so the streaming rooms inside DB will turn into zoombie state
 	// if found, we update its state to stopped
-	dbStreamingRooms, err := s.db.GetRooms([]message.RoomStatus{message.RStreaming}, 0, 0)
+	dbStreamingRooms, err := s.db.GetRooms([]message.RoomStatus{message.RStreaming}, 0, 0, false)
 	if err != nil {
 		log.Printf("failed to get rooms from db")
 	}

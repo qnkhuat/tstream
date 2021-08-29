@@ -154,6 +154,11 @@ class WriteManager {
               break;
 
             case constants.MSG_TWINSIZE:
+              // write the previous buffers 
+              if ( bufferArray.length > 0) this.writeCB(buffer.concatab(bufferArray));
+              // reset it
+              bufferArray = [];
+              // resize
               this.winsizeCB(msg.Data);
               break;
 
