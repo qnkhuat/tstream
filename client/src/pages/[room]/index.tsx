@@ -329,23 +329,24 @@ class Room extends React.Component<Props, State> {
                   height={terminalSize.height}
                   delay={this.state.roomInfo.Delay}
                 />}
+                {this.state.roomInfo?.Status != RoomStatus.Streaming &&
+                  <div
+                    style={terminalSize}
+                    className="bg-black flex justify-center items-center">
+                    {this.state.roomInfo?.Status == RoomStatus.Stopped && 
+                      <p className="text-2xl font-bold">The stream has stopped</p>
+                    }
+                    
+                    {this.state.roomInfo?.Status == RoomStatus.NotExisted && 
+                      <p className="text-2xl font-bold">The stream has stopped</p>
+                    }
 
-                <div
-                  style={terminalSize}
-                  className="bg-black flex justify-center items-center">
-                  {this.state.roomInfo?.Status == RoomStatus.Stopped && 
-                    <p className="text-2xl font-bold">The stream has stopped</p>
-                  }
-                  
-                  {this.state.roomInfo?.Status == RoomStatus.NotExisted && 
-                    <p className="text-2xl font-bold">The stream has stopped</p>
-                  }
+                    {this.state.roomInfo?.Status == RoomStatus.Unauthorized && 
+                      <p className="text-2xl font-bold">Unauthorized</p>
+                    }
 
-                  {this.state.roomInfo?.Status == RoomStatus.Unauthorized && 
-                    <p className="text-2xl font-bold">Unauthorized</p>
-                  }
-
-                </div>
+                  </div>
+                }
 
                 <IconButton className={`absolute bottom-3 right-4 z-10 rounded-full bg-gray-700 p-1`} onClick={this.toggleChatWindow.bind(this)}>
                   {this.state.fullScreen && <FullscreenExitIcon/>}

@@ -62,7 +62,8 @@ func New(name, title, secret string) *Room {
 		lastActiveTime: time.Now(),
 		startedTime:    time.Now(),
 		status:         message.RStreaming,
-		delay:          3000,
+		// TODO: no more  hardcoding
+		delay: 1500,
 	}
 }
 

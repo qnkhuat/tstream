@@ -48,14 +48,15 @@ func New(clientAddr, serverAddr, username, title string) *Streamer {
 	secret := GetSecret(CONFIG_PATH)
 
 	return &Streamer{
-		secret:        secret,
-		pty:           pty,
-		serverAddr:    serverAddr,
-		clientAddr:    clientAddr,
-		username:      username,
-		title:         title,
-		Out:           out,
-		In:            in,
+		secret:     secret,
+		pty:        pty,
+		serverAddr: serverAddr,
+		clientAddr: clientAddr,
+		username:   username,
+		title:      title,
+		Out:        out,
+		In:         in,
+		// TODO: no more hardcoding
 		delay:         1500 * time.Millisecond,
 		blockDuration: 1 * time.Second, // block size has to smaller than delay
 	}
@@ -164,16 +165,16 @@ func (s *Streamer) Start() error {
 	}()
 
 	// Periodcally send a winsize msg to keep alive
-	//go func() {
-	//	ticker := time.NewTicker(cfg.STREAMER_REFRESH_INTERVAL * time.Second)
-	//	for {
-	//		select {
-	//		case <-ticker.C:
-	//			log.Printf("refresh")
-	//			s.pty.Refresh()
-	//		}
-	//	}
-	//}()
+	go func() {
+		ticker := time.NewTicker(cfg.STREAMER_REFRESH_INTERVAL * time.Second)
+		for {
+			select {
+			case <-ticker.C:
+				log.Printf("refresh")
+				s.pty.Refresh()
+			}
+		}
+	}()
 
 	s.pty.Wait() // Blocking until user exit
 	s.Stop("Bye!")
