@@ -82,7 +82,7 @@ For example : `tstream -server http://localhost:3000`
 - [x] In room Chat
 - [x] Voice chat
 - [ ] Stream playback
-- [ ] Private session
+- [x] Private session
 - [ ] Multiple tabs support
 - [ ] User management system
 
