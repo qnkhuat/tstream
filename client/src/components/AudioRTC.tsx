@@ -79,7 +79,7 @@ class AudioRTC extends React.Component<Props, State> {
       Type: constants.MSG_TCLIENT_INFO,
       Data:  {
         Name: this.props.roomID,
-        Role: constants.MSG_FRTC_TYPE_CONSUMER,
+        Role: constants.MSG_ROLE_RTCCONSUMER,
       }
     };
 

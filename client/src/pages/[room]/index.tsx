@@ -24,11 +24,6 @@ const ChatWindowMinWidth: number = 400; // px
 // In verticle mode term will have in height
 const TermWindowMinHeightRatio: number = 0.6 // %
 
-
-interface Params {
-  roomID: string;
-}
-
 interface RectSize {
   width: number;
   height: number;
@@ -39,6 +34,7 @@ enum RoomStatus {
     Disconnected = "Disconnected",
     Stopped = "Stopped",
     Streaming = "Streaming",
+    Unauthorized = "Unauthorized",
 }
 
 enum Orientation {
@@ -57,6 +53,7 @@ interface RoomInfo {
 
 interface Params {
   roomID: string;
+  roomKey?: string;
 }
 
 interface Props extends RouteComponentProps<Params> {
@@ -178,17 +175,21 @@ class Room extends React.Component<Props, State> {
     // set up websocket connection
     const ws =  new WebSocket(wsUrl);
 
+    const query = new URLSearchParams(this.props.location.search);
     // Send client info for server to verify
     let payload = JSON.stringify({
-      Type: "ClientInfo",
-      Data: {Role: "Viewer"}
+      Type: constants.MSG_TCLIENT_INFO,
+      Data: {
+        Role: constants.MSG_ROLE_VIEWER, 
+        Key: query.get("key"),
+      }
     })
 
     utils.sendWhenConnected(ws, payload);
 
     ws.onclose = (ev: CloseEvent) => {
       let roomInfo = this.state.roomInfo;
-      if (roomInfo && roomInfo.Status !== RoomStatus.NotExisted) {
+      if (roomInfo && roomInfo.Status !== RoomStatus.NotExisted && roomInfo.Status !== RoomStatus.Unauthorized) {
         roomInfo.Status = RoomStatus.Stopped;
         this.setState({roomInfo: roomInfo});
       }
@@ -225,6 +226,16 @@ class Room extends React.Component<Props, State> {
         case constants.MSG_TROOM_INFO:
 
           this.setState({roomInfo: msg.Data});
+          break;
+
+        case constants.MSG_TUNAUTHORIZED:
+          this.setState({roomInfo: {
+              ...this.state.roomInfo, 
+              Status: RoomStatus.Unauthorized
+            } as RoomInfo
+          });
+
+          ws.close();
           break;
 
         default:
@@ -277,8 +288,6 @@ class Room extends React.Component<Props, State> {
   render() {
     document.title = getSiteTitle(this.props.match.params.roomID, this.state.roomInfo?.Title as string);
     const isConnected = this.state.roomInfo != null;
-    const isStreamStopped = this.state.roomInfo?.Status === RoomStatus.Stopped;
-    const isRoomExisted = this.state.roomInfo?.Status !== RoomStatus.NotExisted;
     const terminalSize: RectSize = this.state.termSize;
     return (
       <>
@@ -292,7 +301,7 @@ class Room extends React.Component<Props, State> {
           <div id="room" className={`flex relative ${this.state.orientation === Orientation.Horizontal ? "flex-row" : "flex-col"}`}>
             <div id="terminal-view" className="relative"
               onMouseMove={() => this.flashTitle()}>
-              {isConnected && !isStreamStopped && isRoomExisted &&
+              {this.state.roomInfo?.Status == RoomStatus.Streaming &&
               <div id="info" className={`relative w-full ${this.state.mouseMove ? "visible" : "hidden"}`}>
 
                 <div className={`top-0 left-0 w-full absolute z-10 px-4 py-2 bg-opacity-80 bg-gray-800 `}>
@@ -312,7 +321,7 @@ class Room extends React.Component<Props, State> {
 
               <div id="terminal-window">
 
-                {!isStreamStopped && isRoomExisted && this.state.roomInfo && 
+                {this.state.roomInfo?.Status == RoomStatus.Streaming &&
                 <Terminal
                   className="bg-black"
                   msgManager={this.msgManager}
@@ -320,20 +329,24 @@ class Room extends React.Component<Props, State> {
                   height={terminalSize.height}
                   delay={this.state.roomInfo.Delay}
                 />}
-
-                {isStreamStopped && isRoomExisted &&
+                {this.state.roomInfo?.Status != RoomStatus.Streaming &&
                   <div
                     style={terminalSize}
                     className="bg-black flex justify-center items-center">
-                    <p className="text-2xl font-bold">The stream has stopped</p>
-                  </div>}
+                    {this.state.roomInfo?.Status == RoomStatus.Stopped && 
+                      <p className="text-2xl font-bold">The stream has stopped</p>
+                    }
+                    
+                    {this.state.roomInfo?.Status == RoomStatus.NotExisted && 
+                      <p className="text-2xl font-bold">The stream has stopped</p>
+                    }
 
-                {!isRoomExisted &&
-                  <div
-                    style={terminalSize}
-                    className="bg-black flex justify-center items-center">
-                    <p className="text-2xl font-bold">Stream not existed</p>
-                  </div>}
+                    {this.state.roomInfo?.Status == RoomStatus.Unauthorized && 
+                      <p className="text-2xl font-bold">You're not authorized to view this room</p>
+                    }
+
+                  </div>
+                }
 
                 <IconButton className={`absolute bottom-3 right-4 z-10 rounded-full bg-gray-700 p-1`} onClick={this.toggleChatWindow.bind(this)}>
                   {this.state.fullScreen && <FullscreenExitIcon/>}

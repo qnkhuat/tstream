@@ -1,9 +1,9 @@
 package cfg
 
 const (
-	SERVER_VERSION                   = "1.3.1" // Used to verify compatible verion of streamer
-	STREAMER_VERSION                 = "1.3.1" // retry connect with server if websocket is broke
-	SERVER_STREAMER_REQUIRED_VERSION = "1.3.1" // Used to verify compatible verion of streamer
+	SERVER_VERSION                   = "1.3.2" // Used to verify compatible verion of streamer
+	STREAMER_VERSION                 = "1.3.2" // retry connect with server if websocket is broke
+	SERVER_STREAMER_REQUIRED_VERSION = "1.3.2" // Used to verify compatible verion of streamer
 
 	// Room
 	ROOM_BUFFER_SIZE    = 3    // number of recent broadcast message to buffer

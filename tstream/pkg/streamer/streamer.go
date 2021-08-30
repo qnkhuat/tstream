@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -35,6 +36,8 @@ type Streamer struct {
 	// delay of sending message in queue
 	delay         time.Duration
 	blockDuration time.Duration
+	private       bool
+	key           string // key to access if room is private
 }
 
 func New(clientAddr, serverAddr, username, title string) *Streamer {
@@ -45,16 +48,17 @@ func New(clientAddr, serverAddr, username, title string) *Streamer {
 	secret := GetSecret(CONFIG_PATH)
 
 	return &Streamer{
-		secret:        secret,
-		pty:           pty,
-		serverAddr:    serverAddr,
-		clientAddr:    clientAddr,
-		username:      username,
-		title:         title,
-		Out:           out,
-		In:            in,
-		delay:         4 * time.Second,
-		blockDuration: 3 * time.Second, // block size has to smaller than delay
+		secret:     secret,
+		pty:        pty,
+		serverAddr: serverAddr,
+		clientAddr: clientAddr,
+		username:   username,
+		title:      title,
+		Out:        out,
+		In:         in,
+		// TODO: no more hardcoding
+		delay:         1500 * time.Millisecond,
+		blockDuration: 1 * time.Second, // block size has to smaller than delay
 	}
 }
 
@@ -62,6 +66,14 @@ var emptyByteArray []byte
 var httpUpgrader = websocket.Upgrader{
 	ReadBufferSize:  cfg.STREAMER_READ_BUFFER_SIZE,
 	WriteBufferSize: cfg.STREAMER_WRITE_BBUFFER_SIZE,
+}
+
+func (s *Streamer) SetPrivate(private bool) {
+	s.private = private
+}
+
+func (s *Streamer) SetKey(key string) {
+	s.key = key
 }
 
 func (s *Streamer) Start() error {
@@ -83,7 +95,11 @@ func (s *Streamer) Start() error {
 	s.recorder = NewRecorder(s.blockDuration, s.delay, s.Out)
 	go s.recorder.Start()
 
-	fmt.Printf("🔥 Streaming at: %s/%s\n", s.clientAddr, s.username)
+	if s.private {
+		fmt.Printf("🔥 Streaming at: %s/%s?key=%s\n", s.clientAddr, s.username, s.key)
+	} else {
+		fmt.Printf("🔥 Streaming at: %s/%s\n", s.clientAddr, s.username)
+	}
 
 	s.pty.MakeRaw()
 
@@ -143,7 +159,6 @@ func (s *Streamer) Start() error {
 
 	// Read and handle message from server
 	// Current for ping message only
-	// TODO: secure this, otherwise server can control streamer terminal
 	go func() {
 		msg := message.Wrapper{}
 		err := s.conn.ReadJSON(&msg)
@@ -154,16 +169,16 @@ func (s *Streamer) Start() error {
 	}()
 
 	// Periodcally send a winsize msg to keep alive
-	//go func() {
-	//	ticker := time.NewTicker(cfg.STREAMER_REFRESH_INTERVAL * time.Second)
-	//	for {
-	//		select {
-	//		case <-ticker.C:
-	//			log.Printf("refresh")
-	//			s.pty.Refresh()
-	//		}
-	//	}
-	//}()
+	go func() {
+		ticker := time.NewTicker(cfg.STREAMER_REFRESH_INTERVAL * time.Second)
+		for {
+			select {
+			case <-ticker.C:
+				log.Printf("refresh")
+				s.pty.Refresh()
+			}
+		}
+	}()
 
 	s.pty.Wait() // Blocking until user exit
 	s.Stop("Bye!")
@@ -171,13 +186,14 @@ func (s *Streamer) Start() error {
 }
 
 func (s *Streamer) RequestAddRoom() int {
-	body := map[string]string{"secret": s.secret}
+	body := map[string]string{"secret": s.secret, "key": s.key}
 	jsonValue, _ := json.Marshal(body)
 	payload := bytes.NewBuffer(jsonValue)
 	queries := url.Values{
 		"streamerID": {s.username},
 		"title":      {strings.TrimSpace(s.title)},
 		"version":    {cfg.STREAMER_VERSION},
+		"private":    {strconv.FormatBool(s.private)},
 	}
 
 	resp, err := http.Post(fmt.Sprintf("%s/api/room?%s", s.serverAddr, queries.Encode()), "application/json", payload)
@@ -237,9 +253,9 @@ func (s *Streamer) ConnectWS() error {
 	// Verify server's response
 	msg := message.Wrapper{}
 	err = conn.ReadJSON(&msg)
-	if msg.Type == message.TStreamerUnauthorized {
+	if msg.Type == message.TUnauthorized {
 		return fmt.Errorf("Unauthorized connection")
-	} else if msg.Type != message.TStreamerAuthorized {
+	} else if msg.Type != message.TAuthorized {
 		return fmt.Errorf("Expect connect confirmation from server")
 	}
 	return nil

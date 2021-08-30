@@ -7,6 +7,7 @@ export function getWsUrl(sessionID: string): string{
 }
 
 export function sendWhenConnected(ws: WebSocket, msg: string, n: number = 0, maxTries: number = 100) {
+  if (ws.readyState === 2 || ws.readyState === 3) return;
   setTimeout(() => {
     if (ws.readyState === 1) {
       ws.send(msg);
