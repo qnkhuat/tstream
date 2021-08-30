@@ -342,7 +342,7 @@ class Room extends React.Component<Props, State> {
                     }
 
                     {this.state.roomInfo?.Status == RoomStatus.Unauthorized && 
-                      <p className="text-2xl font-bold">Unauthorized</p>
+                      <p className="text-2xl font-bold">You're not authorized to view this room</p>
                     }
 
                   </div>
