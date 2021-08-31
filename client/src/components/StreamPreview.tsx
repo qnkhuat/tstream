@@ -66,7 +66,7 @@ const StreamPreview: FC<Props> = ({ title, wsUrl, streamerID, nViewers, startedT
         Data: "",
       });
       setTimeout(() => {
-        ws.send(payload);
+        utils.sendWhenConnected(ws, payload);
       }, 100);
     })
 

@@ -6,7 +6,6 @@ import * as message from "../types/message";
 import * as buffer from "../lib/buffer";
 import * as pako from "pako";
 
-
 interface Winsize {
   Rows: number;
   Cols: number;
@@ -20,7 +19,6 @@ interface Props {
   delay?: number;
   className?: string;
 }
-
 
 const Terminal: React.FC<Props> = ({ msgManager, width = -1, height = -1, delay = 0, className = ""}: Props) => {
   const termRef = useRef<Xterm>(null);
@@ -101,6 +99,7 @@ const Terminal: React.FC<Props> = ({ msgManager, width = -1, height = -1, delay 
   return (
     <div className={`relative ${className} overflow-hidden`}
       style={{width: width!, height: height!}}>
+      <div className="overlay bg-transparent absolute top-0 left-0 z-10 w-full h-full"></div>
       <div ref={divRef}
         className="divref absolute top-1/2 left-1/2 origin-top-left transform -translate-x-1/2 -translate-y-1/2 overflow-hidden">
         <Xterm
@@ -118,8 +117,8 @@ class WriteManager {
 
   queue: message.Wrapper[] = [];
   writeCB: (arr:Uint8Array) => void;
-  winsizeCB: (ws:Winsize) => void
-    delay: number; // in milliseconds
+  winsizeCB: (ws:Winsize) => void;
+  delay: number; // in milliseconds
 
   constructor(writeCB: (arr: Uint8Array) => void, winsizeCB: (ws: Winsize) => void, delay: number = 0) {
     this.writeCB = writeCB;
@@ -212,7 +211,7 @@ class WriteManager {
     let msgArrayString: string[] = JSON.parse(buffer.ab2str(data));
 
     let msgArray: message.Wrapper[] = [];
-    msgArrayString.forEach((msgString: string, i) => {
+    msgArrayString.forEach((msgString: string) => {
       // re-compute the offset of this message with respect to the render time
       let msg: message.Wrapper = JSON.parse(window.atob(msgString));
       msg.Delay = msg.Delay - blockDelayTime;

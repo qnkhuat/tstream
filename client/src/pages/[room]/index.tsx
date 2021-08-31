@@ -302,18 +302,18 @@ class Room extends React.Component<Props, State> {
             <div id="terminal-view" className="relative"
               onMouseMove={() => this.flashTitle()}>
               {this.state.roomInfo?.Status == RoomStatus.Streaming &&
-              <div id="info" className={`relative w-full ${this.state.mouseMove ? "visible" : "hidden"}`}>
+              <div id="info" className={`relative w-full ${this.state.mouseMove ? "visible" : "hidden"} z-20`}>
 
-                <div className={`top-0 left-0 w-full absolute z-10 px-4 py-2 bg-opacity-80 bg-gray-800 `}>
+                <div className={`top-0 left-0 w-full absolute z-20 px-4 py-2 bg-opacity-80 bg-gray-800 `}>
                   <p className="text-2xl">{this.state.roomInfo!.Title}</p>
                   <p className="text-md">@{this.state.roomInfo!.StreamerID}</p>
                 </div>
 
-                <div id="info-uptime" className={`p-1 bg-red-400 rounded absolute top-4 right-4 z-10`}>
+                <div id="info-uptime" className={`p-1 bg-red-400 rounded absolute top-4 right-4 z-20`}>
                   <Uptime className="text-md text-white font-semibold" startTime={new Date(this.state.roomInfo!.StartedTime)} />
                 </div>
 
-                <div id="info-nviewers" className="p-1 bg-gray-400 rounded absolute top-4 right-24 z-10">
+                <div id="info-nviewers" className="p-1 bg-gray-400 rounded absolute top-4 right-24 z-20">
                   <p className="text-md text-whtie font-semibold"><PersonIcon/> {this.state.roomInfo!.NViewers}</p>
                 </div>
 
