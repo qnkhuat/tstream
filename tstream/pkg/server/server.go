@@ -80,7 +80,7 @@ func (s *Server) Start() {
 	router := mux.NewRouter()
 	router.Use(CORS)
 
-	router.HandleFunc("/api/health", handleHealth).Methods("GET", "OPTIONS")
+	router.HandleFunc("/api/health", handleHealth).Methods("GET", "POST", "OPTIONS")
 	router.HandleFunc("/api/rooms", s.handleListRooms).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/room/{roomName}/status", s.handleRoomStatus).Methods("GET", "OPTIONS")
 	// Add room

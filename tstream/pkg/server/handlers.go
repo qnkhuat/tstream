@@ -33,8 +33,18 @@ const (
 )
 
 /*** Health check API ***/
+type HealtcheckBody struct {
+	Data string `schema:"data"`
+}
+
 func handleHealth(w http.ResponseWriter, r *http.Request) {
-	log.Printf("health check")
+	var b HealtcheckBody
+	err := json.NewDecoder(r.Body).Decode(&b)
+	if err != nil {
+		log.Printf("Error: %s", err)
+	}
+
+	log.Printf("health check body: %v", b)
 	fmt.Fprintf(w, "I'm fine: %s\n", time.Now().String())
 }
 
