@@ -29,7 +29,7 @@ var decoder = schema.NewDecoder()
 
 const (
 	// Time to wait before force close on connection.
-	CLOSE_GRACE_PERIOD = 2 * time.Second
+	GRACE_CLOSE_DURATION = 2 * time.Second
 )
 
 /*** Health check API ***/
@@ -238,7 +238,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				log.Printf("Failed to add streamer: %s", err)
 			}
-			room.Start(s.playbackDir) // Blocking call
+			room.Start(s.recordsDir) // Blocking call
 		} else {
 			graceClose(conn, "")
 			log.Printf("Unauthorized: %s", clientRole)
@@ -310,5 +310,5 @@ func compareVer(a, b string) int {
 
 func graceClose(conn *websocket.Conn, message string) {
 	conn.WriteControl(websocket.CloseMessage, []byte{}, time.Now().Add(time.Second))
-	time.Sleep(CLOSE_GRACE_PERIOD * time.Second)
+	time.Sleep(GRACE_CLOSE_DURATION)
 }

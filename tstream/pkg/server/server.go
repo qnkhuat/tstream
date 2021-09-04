@@ -16,17 +16,17 @@ import (
 )
 
 type Server struct {
-	lock        sync.RWMutex
-	rooms       map[string]*room.Room
-	addr        string
-	server      *http.Server
-	db          *DB
-	playbackDir string
+	lock       sync.RWMutex
+	rooms      map[string]*room.Room
+	addr       string
+	server     *http.Server
+	db         *DB
+	recordsDir string
 }
 
-func New(addr, dbPath, playbackDir string) (*Server, error) {
-	if _, err := os.Stat(playbackDir); os.IsNotExist(err) {
-		if err = os.MkdirAll(playbackDir, 0755); err != nil {
+func New(addr, dbPath, recordsDir string) (*Server, error) {
+	if _, err := os.Stat(recordsDir); os.IsNotExist(err) {
+		if err = os.MkdirAll(recordsDir, 0755); err != nil {
 			return nil, err
 		}
 	}
@@ -40,12 +40,14 @@ func New(addr, dbPath, playbackDir string) (*Server, error) {
 	}
 
 	return &Server{
-		addr:        addr,
-		rooms:       rooms,
-		db:          db,
-		playbackDir: playbackDir,
+		addr:       addr,
+		rooms:      rooms,
+		db:         db,
+		recordsDir: recordsDir,
 	}, nil
 }
+
+// Middlewares
 func CORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
@@ -62,6 +64,15 @@ func CORS(next http.Handler) http.Handler {
 		// Next
 		next.ServeHTTP(w, r)
 		return
+	})
+}
+
+func loggingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Do stuff here
+		log.Println(r.RequestURI)
+		// Call the next handler, which can be another middleware in the chain, or the final handler.
+		next.ServeHTTP(w, r)
 	})
 }
 
@@ -88,6 +99,7 @@ func (s *Server) Start() {
 	fmt.Printf("Serving at: %s\n", s.addr)
 	router := mux.NewRouter()
 	router.Use(CORS)
+	router.Use(loggingMiddleware)
 
 	router.HandleFunc("/api/health", handleHealth).Methods("GET", "OPTIONS")
 	router.HandleFunc("/api/rooms", s.handleListRooms).Methods("GET", "OPTIONS")
@@ -95,6 +107,9 @@ func (s *Server) Start() {
 	// Add room
 	router.HandleFunc("/api/room", s.handleAddRoom).Queries("streamerID", "{streamerID}", "title", "{title}").Methods("POST", "OPTIONS")
 	router.HandleFunc("/ws/{roomName}", s.handleWS).Methods("GET", "OPTIONS")
+
+	router.PathPrefix("/static/records/").Handler(http.StripPrefix("/static/records/", http.FileServer(http.Dir(s.recordsDir))))
+
 	handler := cors.Default().Handler(router)
 
 	s.server = &http.Server{Addr: s.addr, Handler: handler}

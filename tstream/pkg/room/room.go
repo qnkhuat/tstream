@@ -140,22 +140,26 @@ func (r *Room) Streamer() *websocket.Conn {
 }
 
 // Wait for request from streamer and broadcast those message to clients
-func (r *Room) Start(playbackDir string) {
+func (r *Room) Start(recordsRoot string) {
 	// create folder to store record files
-	recordDir := filepath.Join(playbackDir, fmt.Sprintf("%d", r.id))
+	recordDir := filepath.Join(recordsRoot, fmt.Sprintf("%d", r.id))
+
 	recorder, err := NewRecorder(recordDir)
 	r.recorder = recorder
 	if err != nil {
 		log.Printf("Failed to start recorder: %s", err)
+	} else {
+		go recorder.Start(cfg.ROOM_SEGMENT_DURATION, int(r.Id()))
 	}
 
 	go func() {
-		for _ = range time.Tick(cfg.SERVER_CLEAN_INTERVAL) {
+		for range time.Tick(cfg.SERVER_CLEAN_INTERVAL) {
 			r.scanAndCleanClients()
 		}
 	}()
 
-	// Read from streamer and broadcast
+	// Read message from streamer and handle
+	// Blocking call
 	for {
 		msg := message.Wrapper{}
 		err := r.streamer.ReadJSON(&msg)
@@ -169,10 +173,13 @@ func (r *Room) Start(playbackDir string) {
 		switch msgType := msg.Type; msgType {
 
 		case message.TWriteBlock:
-
 			r.addMsgBuffer(msg)
 			r.lastActiveTime = time.Now()
 			r.Broadcast(msg, []message.CRole{message.RViewer}, []string{})
+
+			if recorder != nil {
+				recorder.AddMsg(msg)
+			}
 
 		case message.TWinsize:
 			winsize := message.Winsize{}
@@ -216,7 +223,7 @@ func (r *Room) AddStreamer(conn *websocket.Conn) error {
 	// Periodically ping streamer
 	// If streamer response with a pong message => still alive
 	go func() {
-		for _ = range time.Tick(cfg.SERVER_PING_INTERVAL) {
+		for range time.Tick(cfg.SERVER_PING_INTERVAL) {
 			if r.status == message.RStopped {
 				return
 			}
@@ -235,7 +242,7 @@ func (r *Room) AddStreamer(conn *websocket.Conn) error {
 func (r *Room) AddClient(ID string, role message.CRole, conn *websocket.Conn) error {
 	_, ok := r.clients[ID]
 	if ok {
-		return fmt.Errorf("Room :%s, Client %s existed", r.Id, ID)
+		return fmt.Errorf("Room :%d, Client %s existed", r.Id(), ID)
 	}
 
 	cl := NewClient(role, conn)
@@ -433,6 +440,9 @@ func (r *Room) Stop(status message.RoomStatus) {
 		r.RemoveClient(id)
 	}
 	r.sfu.Stop()
+	if r.recorder != nil {
+		r.recorder.Stop()
+	}
 	r.streamer.Close()
 }
 

@@ -58,15 +58,15 @@ func (r *Recorder) Start() {
 	time.Sleep(r.delay)
 	go r.Send()
 
-	// Send all message in queue after each block duration
-	for _ = range time.Tick(r.blockDuration) {
+	// Send all message in buffer after each block duration
+	for range time.Tick(r.blockDuration) {
 		go r.Send()
 	}
 }
 
 // send all message in block and create a new one
 func (r *Recorder) Send() {
-	if r.currentBlock.NQueue() == 0 {
+	if r.currentBlock.NBuffer() == 0 {
 		r.newBlock()
 		return
 	}
@@ -111,7 +111,7 @@ type Block struct {
 	lock sync.Mutex
 
 	// Each data block will have its own start time
-	// Any message in queue will be offset to this startime
+	// Any message in buffer will be offset to this startime
 	startTime time.Time
 
 	// how many milliseconds of data this block contains
@@ -119,15 +119,15 @@ type Block struct {
 
 	delay time.Duration
 
-	// queue of encoded termwrite message
-	queue [][]byte
+	// buffer of encoded termwrite message
+	buffer [][]byte
 }
 
 func NewBlock(duration time.Duration, delay time.Duration) *Block {
-	var queue [][]byte
+	var buffer [][]byte
 	return &Block{
 		duration:  duration,
-		queue:     queue,
+		buffer:    buffer,
 		startTime: time.Now(),
 		delay:     delay,
 	}
@@ -136,8 +136,8 @@ func NewBlock(duration time.Duration, delay time.Duration) *Block {
 func (bl *Block) Serialize() (message.Wrapper, error) {
 	var msg message.Wrapper
 
-	// Serialize message queue
-	dataByte, err := json.Marshal(bl.queue)
+	// Serialize message buffer
+	dataByte, err := json.Marshal(bl.buffer)
 	if err != nil {
 		log.Printf("Failed to marshal message: %s", err)
 		return msg, err
@@ -186,15 +186,15 @@ func (bl *Block) AddMsg(msg message.Wrapper) {
 		log.Printf("Failed to marshal message: %s", err)
 		return
 	}
-	bl.AddToQueue(data)
+	bl.AddToBuffer(data)
 }
 
-func (bl *Block) AddToQueue(data []byte) {
+func (bl *Block) AddToBuffer(data []byte) {
 	bl.lock.Lock()
-	bl.queue = append(bl.queue, data)
+	bl.buffer = append(bl.buffer, data)
 	bl.lock.Unlock()
 }
 
-func (bl *Block) NQueue() int {
-	return len(bl.queue)
+func (bl *Block) NBuffer() int {
+	return len(bl.buffer)
 }

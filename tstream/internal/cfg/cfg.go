@@ -5,13 +5,15 @@ import (
 )
 
 const (
+	MANIFEST_VERSION                 = 0
 	SERVER_VERSION                   = "1.3.2" // Used to verify compatible verion of streamer
 	STREAMER_VERSION                 = "1.3.2" // retry connect with server if websocket is broke
 	SERVER_STREAMER_REQUIRED_VERSION = "1.3.2" // Used to verify compatible verion of streamer
 
 	// Room
-	ROOM_BUFFER_SIZE    = 3  // number of recent broadcast message to buffer
-	ROOM_CACHE_MSG_SIZE = 25 // number of recent chat messages to buffer
+	ROOM_BUFFER_SIZE      = 3                // number of recent broadcast message to buffer
+	ROOM_CACHE_MSG_SIZE   = 25               // number of recent chat messages to buffer
+	ROOM_SEGMENT_DURATION = 10 * time.Second // Duration of a segment for recording
 
 	// Streamer
 	STREAMER_ENVKEY_SESSIONID    = "TSTREAM_SESSIONID"

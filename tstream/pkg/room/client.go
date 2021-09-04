@@ -55,7 +55,7 @@ func (cl *Client) Start() {
 
 	// periodically ping client
 	go func() {
-		for _ = range time.Tick(cfg.SERVER_PING_INTERVAL) {
+		for range time.Tick(cfg.SERVER_PING_INTERVAL) {
 			cl.conn.WriteControl(websocket.PingMessage, emptyByteArray, time.Time{})
 			if time.Now().Sub(cl.lastActiveTime) > cfg.SERVER_DISCONNECTED_THRESHHOLD {
 				cl.alive = false

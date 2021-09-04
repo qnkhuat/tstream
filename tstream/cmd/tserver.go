@@ -27,7 +27,7 @@ func main() {
 	var dbPath = flag.String("db", ".db", "Path to boltDB")
 	var addr = flag.String("addr", "localhost:3000", "Host address to serve server")
 	var version = flag.Bool("version", false, fmt.Sprintf("TStream server version: %s", cfg.SERVER_VERSION))
-	var playbackDir = flag.String("playback", ".tstream/", "Directory to save playback files")
+	var recordRoot = flag.String("playback", ".tstream/", "Directory to save record files")
 
 	flag.Parse()
 
@@ -39,15 +39,14 @@ func main() {
 		return
 	}
 
-	log.Printf("is abs: %s", filepath.IsAbs(*playbackDir))
-	absPlaybackDir, err := filepath.Abs(*playbackDir)
+	absRecordRoot, err := filepath.Abs(*recordRoot)
 	if err != nil {
-		log.Printf("Failed to create playback dir: %s", err)
+		log.Printf("Failed to create record dir: %s", err)
 		return
 	}
-	fmt.Printf("Saving playback at: %s\n", absPlaybackDir)
-	log.Printf("Saving playback at: %s", absPlaybackDir)
-	s, err := server.New(*addr, *dbPath, absPlaybackDir)
+	fmt.Printf("Saving records at: %s\n", absRecordRoot)
+	log.Printf("Saving records at: %s", absRecordRoot)
+	s, err := server.New(*addr, *dbPath, absRecordRoot)
 	if err != nil {
 		fmt.Printf("Failed to create server: %s", err)
 		log.Printf("Failed to create server: %s", err)

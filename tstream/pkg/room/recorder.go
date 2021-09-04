@@ -1,10 +1,14 @@
+/***
+Recorder service for room
+It takes a block of messages and write to gzip files
+A file often contains minutes of messages
+***/
 package room
 
 import (
-	"bufio"
-	"compress/gzip"
 	"encoding/json"
 	"fmt"
+	"github.com/qnkhuat/tstream/internal/cfg"
 	"github.com/qnkhuat/tstream/pkg/message"
 	"log"
 	"os"
@@ -13,12 +17,15 @@ import (
 	"time"
 )
 
-// 20 min of asciiquarium generate 10mins of playback
+// 20 min of asciiquarium generate 10mins of record
 type Recorder struct {
-	Interval       time.Duration
-	dir            string
-	currentblockID uint
-	lock           sync.Mutex
+	startTime        time.Time
+	dir              string
+	Interval         time.Duration
+	lock             sync.Mutex
+	currentSegmentID int
+	currentSegment   *Segment
+	manifest         *Manifest
 }
 
 func NewRecorder(dir string) (*Recorder, error) {
@@ -27,89 +34,201 @@ func NewRecorder(dir string) (*Recorder, error) {
 			return nil, err
 		}
 	}
+	manifestPath := filepath.Join(dir, "manifest.jsonl")
 	return &Recorder{
-		dir:            dir,
-		currentblockID: 0,
+		startTime:        time.Now(),
+		currentSegmentID: 0,
+		currentSegment:   NewSegment(),
+		dir:              dir,
+		manifest:         NewManifest(manifestPath),
 	}, nil
 }
 
-func (re *Recorder) WriteMsg(msg message.Wrapper) error {
-	path := filepath.Join(re.dir, fmt.Sprintf("%d.gz", re.currentblockID))
-
-	f, err := CreateGZ(path)
-	if err != nil {
-		log.Printf("Failed to create file: %s", err)
-		return err
-	}
-
-	data, err := json.Marshal(msg)
-	if err != nil {
-		log.Printf("Failed to encode message")
-		return err
-	}
-
-	err = WriteGZ(f, data)
-	if err != nil {
-		log.Printf("Failed to write message: %s", err)
-		return err
-	}
-
-	CloseGZ(f)
-	re.currentblockID += 1
+func (re *Recorder) AddMsg(msg message.Wrapper) error {
+	// Delay compared to the start time of the block
+	re.currentSegment.Add(msg)
 	return nil
 }
 
-type F struct {
-	f  *os.File
-	gf *gzip.Writer
-	bf *bufio.Writer
+func (re *Recorder) newSegment() {
+	re.currentSegment = NewSegment()
 }
 
-func CreateGZ(path string) (F, error) {
-	var f F
-	fi, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0660)
-	if err != nil {
-		log.Printf("Failed to create file: %s", err)
-		return f, err
+func (re *Recorder) Start(writeInterval time.Duration, id int) {
+	manifestHeader := ManifestHeader{
+		Id:              id,
+		Version:         cfg.MANIFEST_VERSION,
+		Time:            time.Now(),
+		SegmentDuration: writeInterval.Milliseconds(),
 	}
-	gf := gzip.NewWriter(fi)
-	bf := bufio.NewWriter(gf)
-	f = F{fi, gf, bf}
-	return f, nil
+	err := re.manifest.WriteHeader(manifestHeader)
+	if err != nil {
+		log.Printf("Failed to write manifest header: %s", err)
+		return
+	}
+
+	for range time.Tick(writeInterval) {
+		re.WriteCurrentSegment()
+	}
 }
 
-func WriteGZ(f F, data []byte) error {
-	n, err := f.bf.Write(data)
-	if n != len(data) || err != nil {
+func (re *Recorder) WriteCurrentSegment() error {
+	var err error
+	re.lock.Lock()
+
+	data, err := re.currentSegment.BytesBuffer()
+	if err != nil {
+		log.Printf("Failed to gzip data: %s", err)
+		re.lock.Unlock()
+		return err
+	}
+
+	gzFileName := fmt.Sprintf("%d.gz", re.currentSegmentID)
+	gzPath := filepath.Join(re.dir, gzFileName)
+	err = CreateWriteCloseGZ(gzPath, data)
+	if err != nil {
 		log.Printf("Failed to write data %s", err)
+	} else {
+		log.Printf("Writing: %s(%d)", gzPath, re.currentSegment.Nbuffer())
+		manifestEntry := ManifestEntry{
+			Offset: time.Since(re.startTime).Milliseconds(),
+			Id:     re.currentSegmentID,
+			Path:   gzFileName,
+		}
+		err = re.manifest.WriteEntry(manifestEntry)
+		if err != nil {
+			log.Printf("Failed to write entry: %s", err)
+		}
+	}
+
+	re.currentSegmentID += 1
+	re.currentSegment = NewSegment()
+	re.lock.Unlock()
+	return err
+
+}
+
+func (re *Recorder) Stop() {
+	re.WriteCurrentSegment()
+}
+
+/* Segment
+** Equivalent to one file that contains recorded content for a duration
+**/
+
+type Segment struct {
+	startTime time.Time
+	lock      sync.Mutex
+	buffer    []message.Wrapper
+}
+
+func NewSegment() *Segment {
+	var buffer []message.Wrapper
+	se := &Segment{
+		buffer:    buffer,
+		startTime: time.Now(),
+	}
+	return se
+}
+
+func (se *Segment) Add(msg message.Wrapper) {
+	msg.Delay = time.Since(se.startTime).Milliseconds()
+	se.lock.Lock()
+	se.buffer = append(se.buffer, msg)
+	se.lock.Unlock()
+}
+
+func (se *Segment) Nbuffer() int {
+	return len(se.buffer)
+}
+
+func (se *Segment) BytesBuffer() ([]byte, error) {
+	var bytesBuffer []byte
+
+	bytesBuffer, err := json.Marshal(se.buffer)
+	if err != nil {
+		return bytesBuffer, err
+	}
+
+	return bytesBuffer, nil
+}
+
+//func (se *Segment) Gzip() ([]byte, error) {
+//	se.lock.Lock()
+//	defer se.lock.Unlock()
+//
+//	dataByte, err := json.Marshal(se.buffer)
+//	if err != nil {
+//		return []byte{}, err
+//	}
+//
+//	var b bytes.Buffer
+//	gz := gzip.NewWriter(&b)
+//	if _, err := gz.Write(dataByte); err != nil {
+//		gz.Close()
+//		return []byte{}, err
+//	}
+//	gz.Close()
+//
+//	return b.Bytes(), nil
+//}
+
+/* Manfiest
+** Used to store information about all segments of a playback
+** Playback player should use this file to find which files to download
+**/
+
+type Manifest struct {
+	path string
+}
+
+type ManifestHeader struct {
+	// Start time of stream
+	Version         int       `json:"version"`
+	Time            time.Time `json:"time"`
+	Id              int       `json:"id"`
+	SegmentDuration int64     `json:"segmentDuration"`
+}
+
+type ManifestEntry struct {
+	// Offset time with the stream header
+	Offset int64  `json:"offset"`
+	Id     int    `json:"id"`
+	Path   string `json:"path"`
+}
+
+func NewManifest(path string) *Manifest {
+	return &Manifest{path}
+}
+
+func (ma *Manifest) WriteHeader(header ManifestHeader) error {
+	if _, err := os.Stat(ma.path); os.IsExist(err) {
+		// File shouldn't existed
 		return err
 	}
+
+	f, err := os.Create(ma.path)
+	defer f.Close()
+	if err != nil {
+		return err
+	}
+	lineByte, _ := json.Marshal(header)
+	f.WriteString(string(lineByte) + "\n")
 	return nil
 }
 
-func CloseGZ(f F) {
-	f.bf.Flush()
-	// Close the gzip first.
-	f.gf.Close()
-	f.f.Close()
-}
+func (ma *Manifest) WriteEntry(entry ManifestEntry) error {
+	if _, err := os.Stat(ma.path); os.IsNotExist(err) {
+		// File should existed and contains header
+		return err
+	}
 
-//func ReadGzFile(filename string) ([]byte, error) {
-//	fi, err := os.Open(filename)
-//	if err != nil {
-//		return nil, err
-//	}
-//	defer fi.Close()
-//
-//	fz, err := gzip.NewReader(fi)
-//	if err != nil {
-//		return nil, err
-//	}
-//	defer fz.Close()
-//
-//	s, err := ioutil.ReadAll(fz)
-//	if err != nil {
-//		return nil, err
-//	}
-//	return s, nil
-//}
+	f, err := os.OpenFile(ma.path, os.O_APPEND|os.O_WRONLY, 0600)
+	defer f.Close()
+	if err != nil {
+		return err
+	}
+	lineByte, _ := json.Marshal(entry)
+	f.WriteString(string(lineByte) + "\n")
+	return nil
+}
