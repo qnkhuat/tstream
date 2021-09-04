@@ -144,7 +144,7 @@ func (r *Room) Start(recordsRoot string) {
 	// create folder to store record files
 	recordDir := filepath.Join(recordsRoot, fmt.Sprintf("%d", r.id))
 
-	recorder, err := NewRecorder(recordDir)
+	recorder, err := NewRecorder(recordDir, int(r.id))
 	r.recorder = recorder
 	if err != nil {
 		log.Printf("Failed to start recorder: %s", err)

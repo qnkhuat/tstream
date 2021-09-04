@@ -8,7 +8,6 @@ package room
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/qnkhuat/tstream/internal/cfg"
 	"github.com/qnkhuat/tstream/pkg/message"
 	"log"
 	"os"
@@ -17,7 +16,31 @@ import (
 	"time"
 )
 
-// 20 min of asciiquarium generate 10mins of record
+const MANIFEST_FILENAME = "manifest.json"
+
+/* Manfiest
+** Used to store information about all segments of a playback
+** Playback player should use this file to find which files to download
+**/
+
+type Manifest struct {
+	Id              int               `json:"id"`
+	Version         int               `json:"version"`
+	StartTime       time.Time         `json:"startTime"`
+	StopTime        time.Time         `json:"stopTime"`
+	SegmentDuration int64             `json:"segmentDuration"`
+	Segments        []ManifestSegment `json:"segments"`
+}
+
+type ManifestSegment struct {
+	// Offset time with the stream header
+	Offset int64  `json:"offset"`
+	Id     int    `json:"id"`
+	Path   string `json:"path"`
+}
+
+/* Recodrer
+**/
 type Recorder struct {
 	startTime        time.Time
 	dir              string
@@ -28,19 +51,23 @@ type Recorder struct {
 	manifest         *Manifest
 }
 
-func NewRecorder(dir string) (*Recorder, error) {
+func NewRecorder(dir string, id int) (*Recorder, error) {
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		if err = os.MkdirAll(dir, 0755); err != nil {
 			return nil, err
 		}
 	}
-	manifestPath := filepath.Join(dir, "manifest.jsonl")
+	//manifestPath := filepath.Join(dir, "manifest.jsonl")
+	manifest := &Manifest{
+		Version: 0,
+		Id:      id,
+	}
 	return &Recorder{
 		startTime:        time.Now(),
 		currentSegmentID: 0,
 		currentSegment:   NewSegment(),
 		dir:              dir,
-		manifest:         NewManifest(manifestPath),
+		manifest:         manifest,
 	}, nil
 }
 
@@ -55,20 +82,12 @@ func (re *Recorder) newSegment() {
 }
 
 func (re *Recorder) Start(writeInterval time.Duration, id int) {
-	manifestHeader := ManifestHeader{
-		Id:              id,
-		Version:         cfg.MANIFEST_VERSION,
-		Time:            time.Now(),
-		SegmentDuration: writeInterval.Milliseconds(),
-	}
-	err := re.manifest.WriteHeader(manifestHeader)
-	if err != nil {
-		log.Printf("Failed to write manifest header: %s", err)
-		return
-	}
+	re.manifest.StartTime = time.Now()
+	re.manifest.SegmentDuration = writeInterval.Milliseconds()
 
 	for range time.Tick(writeInterval) {
 		re.WriteCurrentSegment()
+		re.dumpManifest()
 	}
 }
 
@@ -88,28 +107,41 @@ func (re *Recorder) WriteCurrentSegment() error {
 	err = CreateWriteCloseGZ(gzPath, data)
 	if err != nil {
 		log.Printf("Failed to write data %s", err)
-	} else {
-		log.Printf("Writing: %s(%d)", gzPath, re.currentSegment.Nbuffer())
-		manifestEntry := ManifestEntry{
-			Offset: time.Since(re.startTime).Milliseconds(),
-			Id:     re.currentSegmentID,
-			Path:   gzFileName,
-		}
-		err = re.manifest.WriteEntry(manifestEntry)
-		if err != nil {
-			log.Printf("Failed to write entry: %s", err)
-		}
 	}
 
+	manifestSegment := ManifestSegment{
+		Offset: re.currentSegment.startTime.Sub(re.startTime).Milliseconds(),
+		Id:     re.currentSegmentID,
+		Path:   gzFileName,
+	}
+
+	re.manifest.Segments = append(re.manifest.Segments, manifestSegment)
 	re.currentSegmentID += 1
 	re.currentSegment = NewSegment()
 	re.lock.Unlock()
 	return err
+}
 
+func (re *Recorder) dumpManifest() error {
+	path := filepath.Join(re.dir, MANIFEST_FILENAME)
+	f, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
+	defer f.Close()
+	if err != nil {
+		return err
+	}
+
+	content, err := json.Marshal(re.manifest)
+	if err != nil {
+		return err
+	}
+	f.WriteString(string(content))
+	return nil
 }
 
 func (re *Recorder) Stop() {
 	re.WriteCurrentSegment()
+	re.manifest.StopTime = time.Now()
+	re.dumpManifest()
 }
 
 /* Segment
@@ -151,84 +183,4 @@ func (se *Segment) BytesBuffer() ([]byte, error) {
 	}
 
 	return bytesBuffer, nil
-}
-
-//func (se *Segment) Gzip() ([]byte, error) {
-//	se.lock.Lock()
-//	defer se.lock.Unlock()
-//
-//	dataByte, err := json.Marshal(se.buffer)
-//	if err != nil {
-//		return []byte{}, err
-//	}
-//
-//	var b bytes.Buffer
-//	gz := gzip.NewWriter(&b)
-//	if _, err := gz.Write(dataByte); err != nil {
-//		gz.Close()
-//		return []byte{}, err
-//	}
-//	gz.Close()
-//
-//	return b.Bytes(), nil
-//}
-
-/* Manfiest
-** Used to store information about all segments of a playback
-** Playback player should use this file to find which files to download
-**/
-
-type Manifest struct {
-	path string
-}
-
-type ManifestHeader struct {
-	// Start time of stream
-	Version         int       `json:"version"`
-	Time            time.Time `json:"time"`
-	Id              int       `json:"id"`
-	SegmentDuration int64     `json:"segmentDuration"`
-}
-
-type ManifestEntry struct {
-	// Offset time with the stream header
-	Offset int64  `json:"offset"`
-	Id     int    `json:"id"`
-	Path   string `json:"path"`
-}
-
-func NewManifest(path string) *Manifest {
-	return &Manifest{path}
-}
-
-func (ma *Manifest) WriteHeader(header ManifestHeader) error {
-	if _, err := os.Stat(ma.path); os.IsExist(err) {
-		// File shouldn't existed
-		return err
-	}
-
-	f, err := os.Create(ma.path)
-	defer f.Close()
-	if err != nil {
-		return err
-	}
-	lineByte, _ := json.Marshal(header)
-	f.WriteString(string(lineByte) + "\n")
-	return nil
-}
-
-func (ma *Manifest) WriteEntry(entry ManifestEntry) error {
-	if _, err := os.Stat(ma.path); os.IsNotExist(err) {
-		// File should existed and contains header
-		return err
-	}
-
-	f, err := os.OpenFile(ma.path, os.O_APPEND|os.O_WRONLY, 0600)
-	defer f.Close()
-	if err != nil {
-		return err
-	}
-	lineByte, _ := json.Marshal(entry)
-	f.WriteString(string(lineByte) + "\n")
-	return nil
 }
