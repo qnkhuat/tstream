@@ -25,10 +25,31 @@ export enum RoomStatus {
 export interface RoomInfo {
   StreamerID: string;
   LastActiveTime: string;
-  StartedTime:string;
-  StoppedTime:string;
+  StartedTime: string;
+  StoppedTime: string;
   NViewers: number;
-  AccNViewers:number;
+  AccNViewers: number;
   Title: string;
 }
 
+
+export interface TermSize {
+  Rows: number;
+  Cols: number;
+}
+
+
+export interface ManifestSegment {
+  Offset: number;
+  Id: number;
+  Path: string;
+}
+
+export interface Manifest {
+  Version: number;
+  Id: number;
+  StartTime: Date;
+  StopTime: Date;
+  SegmentDuration: number;
+  Segments: ManifestSegment[];
+}

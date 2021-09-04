@@ -1,22 +1,35 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { RouteComponentProps } from "react-router-dom";
+import React, { useRef, useEffect, useReducer } from 'react';
 import pako from "pako";
-
-import Terminal, { WriteManager } from "../../components/Terminal";
-import Xterm from "../../components/Xterm";
-import * as message from "../../types/message";
+import Terminal, { WriteManager } from "../Terminal";
+import Xterm from "../Xterm";
 import * as api from "../../api";
+import * as message from "../../types/message";
 
-interface Params {
-  Id: string;
-  roomKey?: string;
+interface Props {
+  id: number;
+  width: number;
+  height: number;
 }
 
-interface Props extends RouteComponentProps<Params> {}
+interface State {
+  play: boolean;
+  rate: number;
+  currentTime: number; // in milliseconds
+}
 
-const Records: React.FC<Props> = (props: Props) => {
+export enum PlayerAction { 
+  SeekTo,
+    Play,
+    Pause,
+    UpdateRate
+
+}
+
+
+//const reducer = (state: State, action: Aciton) => 
+
+const Player: React.FC<Props> = ({id, width, height}: Props) => {
   const termRef = useRef<Xterm>(null);
-
   useEffect(() => {
     const writeCB = (bufferData: Uint8Array) => {
       termRef.current?.writeUtf8(bufferData);
@@ -28,10 +41,11 @@ const Records: React.FC<Props> = (props: Props) => {
 
     const writeManager = new WriteManager(writeCB, winsizeCB, 0);
 
-    api.getRecordManifest(props.match.params.Id).then((data) => {
+    api.getRecordManifest(id.toString()).then((data) => {
       console.log(data);
     });
-    api.getRecordSegment(props.match.params.Id, "3.gz").then((data) => {
+
+    api.getRecordSegment(id.toString(), "3.gz").then((data) => {
       //const msgArray = JSON.parse(buffer.ab2str(data));
       const msgArray = JSON.parse(pako.ungzip(data, {to : "string"}));
       //console.log(msgArray)
@@ -43,13 +57,14 @@ const Records: React.FC<Props> = (props: Props) => {
     }).catch(console.error);
   }, []);
 
+
   return <>
     <Terminal 
       ref={termRef}
-      width={800}
-      height={400}
+      width={width}
+      height={height}
     />
   </>
 }
 
-export default Records;
+export default Player;

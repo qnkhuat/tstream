@@ -187,7 +187,7 @@ class Room extends React.Component<Props, State> {
 
     utils.sendWhenConnected(ws, payload);
 
-    ws.onclose = (ev: CloseEvent) => {
+    ws.onclose = () => {
       let roomInfo = this.state.roomInfo;
       if (roomInfo && roomInfo.Status !== RoomStatus.NotExisted && roomInfo.Status !== RoomStatus.Unauthorized) {
         roomInfo.Status = RoomStatus.Stopped;
@@ -197,7 +197,7 @@ class Room extends React.Component<Props, State> {
 
     // TODO : reconnect on error
     // https://github.com/joewalnes/reconnecting-websocket
-    ws.onerror = (ev: Event) => {
+    ws.onerror = () => {
       let roomInfo = {} as RoomInfo;
       roomInfo.Status = RoomStatus.NotExisted;
       this.setState({roomInfo: roomInfo});

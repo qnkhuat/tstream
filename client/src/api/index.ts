@@ -14,7 +14,7 @@ export const getRooms = async (arg: getRoomsArg): Promise<message.RoomInfo[]> =>
 }
 
 export const getRecordManifest = async (recordId: string) => {
-  let url = urljoin(process.env.REACT_APP_API_URL as string, `/static/records/${recordId}/manifest.jsonl`)
+  let url = urljoin(process.env.REACT_APP_API_URL as string, `/static/records/${recordId}/manifest.json`)
   return axios.get(url).then((res) => res.data);
 }
 
