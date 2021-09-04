@@ -1,6 +1,6 @@
 // Base version: https://github.com/robert-harbison/xterm-for-react/blob/master/src/XTerm.tsx
 //
-import * as React from 'react'
+import React from 'react'
 import PropTypes from 'prop-types'
 
 import 'xterm/css/xterm.css'
@@ -135,7 +135,7 @@ class Xterm extends React.Component<IProps> {
   constructor(props: IProps) {
     super(props)
 
-    this.terminalRef = React.createRef()
+    this.terminalRef = React.createRef<HTMLDivElement>()
 
     // Bind Methods
     this.onData = this.onData.bind(this)

@@ -26,7 +26,7 @@ interface RatingExtended extends stringSimilarity.Rating {
   type?: string;
 }
 
-function Home() {
+const Home = () => {
 
   const [ liveStreams, setLiveStreams ] = useState<message.RoomInfo[]>();
   const [ displayLiveStreams, setDisplayLiveStreams ] = useState<message.RoomInfo[]>();

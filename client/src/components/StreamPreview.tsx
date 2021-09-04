@@ -1,5 +1,5 @@
 import { FC, ReactElement, useState, useEffect } from "react";
-import Terminal from "./Terminal";
+import PubSubTerminal from "./PubSubTerminal";
 import PubSub from "./../lib/pubsub";
 import * as utils from "../utils";
 import * as constants from "../lib/constants";
@@ -82,7 +82,7 @@ const StreamPreview: FC<Props> = ({ title, wsUrl, streamerID, nViewers, startedT
   return (
     <div className="relative bg-black rounded-lg w-full my-4">
       {msgManager &&
-      <Terminal 
+      <PubSubTerminal
         className="bg-black"
         msgManager={msgManager} 
         height={window.innerWidth > 600 ? 350 : 250} 

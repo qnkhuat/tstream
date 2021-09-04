@@ -8,7 +8,7 @@ import PubSub from "../../lib/pubsub";
 
 import Chat from "../../components/Chat";
 import Navbar from "../../components/Navbar";
-import Terminal from "../../components/Terminal";
+import PubSubTerminal from "../../components/PubSubTerminal";
 import Uptime from "../../components/Uptime";
 import Loading from "../../components/Loading";
 import AudioRTC from "../../components/AudioRTC";
@@ -321,7 +321,7 @@ class Room extends React.Component<Props, State> {
               <div id="terminal-window">
 
                 {this.state.roomInfo?.Status == RoomStatus.Streaming &&
-                <Terminal
+                <PubSubTerminal
                   className="bg-black"
                   msgManager={this.msgManager}
                   width={terminalSize.width}
