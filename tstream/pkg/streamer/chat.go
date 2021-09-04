@@ -580,9 +580,9 @@ func (c *Chat) connectWS(role message.CRole) (*websocket.Conn, error) {
 		return conn, fmt.Errorf("Failed to read websocket message: %s", err)
 	}
 
-	if msg.Type == message.TStreamerUnauthorized {
+	if msg.Type == message.TUnauthorized {
 		return conn, fmt.Errorf("Unauthorized connection")
-	} else if msg.Type != message.TStreamerAuthorized {
+	} else if msg.Type != message.TAuthorized {
 		return conn, fmt.Errorf("Expect connect confirmation from server")
 	}
 

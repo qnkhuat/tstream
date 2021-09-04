@@ -44,9 +44,10 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 // - n - int         : Number of rooms to get. Set to -1 to get all
 // - skip - string   : Number of rooms to skip. Used for paging
 type ListRoomQuery struct {
-	Status string `schema:"status"`
-	N      int    `schema:"n"`
-	Skip   int    `schema:"skip"`
+	Status  string `schema:"status"`
+	N       int    `schema:"n"`
+	Skip    int    `schema:"skip"`
+	Private bool   `schema:"private"`
 }
 
 func (s *Server) handleListRooms(w http.ResponseWriter, r *http.Request) {
@@ -61,11 +62,11 @@ func (s *Server) handleListRooms(w http.ResponseWriter, r *http.Request) {
 	var rooms []message.RoomInfo
 	switch q.Status {
 	case "Stopped":
-		rooms, err = s.db.GetRooms([]message.RoomStatus{message.RStopped}, q.Skip, q.N)
+		rooms, err = s.db.GetRooms([]message.RoomStatus{message.RStopped}, q.Skip, q.N, q.Private)
 	case "Streaming":
-		rooms, err = s.db.GetRooms([]message.RoomStatus{message.RStreaming}, q.Skip, q.N)
+		rooms, err = s.db.GetRooms([]message.RoomStatus{message.RStreaming}, q.Skip, q.N, q.Private)
 	case "":
-		rooms, err = s.db.GetRooms([]message.RoomStatus{message.RStreaming, message.RStopped}, q.Skip, q.N) // get all
+		rooms, err = s.db.GetRooms([]message.RoomStatus{message.RStreaming, message.RStopped}, q.Skip, q.N, q.Private) // get all
 	default:
 		http.Error(w, fmt.Sprintf("%s", "Invalid status"), 400)
 		return
@@ -78,10 +79,12 @@ type AddRoomQuery struct {
 	Title      string `schema:"title,required"`
 	StreamerID string `schema:"streamerID,required"`
 	Version    string `schema:"version,required"`
+	Private    bool   `schema:"private"`
 }
 
 type AddRoomBody struct {
-	Secret string `schema:secret,required`
+	Secret string `schema:"secret,required"`
+	Key    string `schema:"key"`
 }
 
 func (s *Server) handleAddRoom(w http.ResponseWriter, r *http.Request) {
@@ -107,13 +110,27 @@ func (s *Server) handleAddRoom(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, ok := s.rooms[q.StreamerID]; !ok {
+	if r, ok := s.rooms[q.StreamerID]; !ok {
 		if len(b.Secret) == 0 {
 			http.Error(w, "Secret must be non-empty", 400)
 			return
 		}
-		s.NewRoom(q.StreamerID, q.Title, b.Secret)
-		log.Printf("Added a room %s, %s", q.StreamerID, q.Title)
+
+		if q.Private {
+			if len(b.Key) < 6 {
+				http.Error(w, "Key must be more than 6 characters", 400)
+				return
+			}
+		}
+
+		_, err := s.NewRoom(q.StreamerID, q.Title, b.Secret, q.Private, b.Key)
+		if err != nil {
+			log.Printf("Failed to add room: %s", err)
+			http.Error(w, "Failed to create room", 400)
+			return
+		}
+
+		log.Printf("Added a room %s, %s, %v", q.StreamerID, q.Title, q.Private)
 		w.WriteHeader(http.StatusOK)
 		return
 	} else {
@@ -122,6 +139,10 @@ func (s *Server) handleAddRoom(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Room existed and you're not authorized to access this room", 401)
 			return
 		} else {
+			// Reset info
+			r.SetTitle(q.Title)
+			r.SetPrivate(q.Private)
+			r.SetKey(b.Key)
 			log.Printf("Room existed: %s", q.StreamerID)
 			http.Error(w, "Room existed", 400)
 			return
@@ -155,6 +176,10 @@ func (s *Server) handleRoomStatus(w http.ResponseWriter, r *http.Request) {
  If connection come from Streamer or producerRTC => then server will verify the client's secret with rooom's secret
  This has to be happen in the exact order
 ***/
+type viewRoom struct {
+	Key string `schema:"key"`
+}
+
 func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	roomName := vars["roomName"]
@@ -191,18 +216,16 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// response = true to send back a confirmation
-	isAuthorized := func(response bool) bool {
-		yes := clientInfo.Secret == room.Secret()
+	isAuthorized := func(clientSecret, roomSecret string) bool {
+		yes := clientSecret == roomSecret
 
-		if response {
-			var payload message.Wrapper
-			if yes {
-				payload = message.Wrapper{Type: message.TStreamerAuthorized, Data: ""}
-			} else {
-				payload = message.Wrapper{Type: message.TStreamerUnauthorized, Data: ""}
-			}
-			conn.WriteJSON(payload)
+		var payload message.Wrapper
+		if yes {
+			payload = message.Wrapper{Type: message.TAuthorized, Data: ""}
+		} else {
+			payload = message.Wrapper{Type: message.TUnauthorized, Data: ""}
 		}
+		conn.WriteJSON(payload)
 		return yes
 	}
 
@@ -210,7 +233,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	switch clientRole := clientInfo.Role; clientRole {
 
 	case message.RStreamer:
-		if isAuthorized(true) {
+		if isAuthorized(clientInfo.Secret, room.Secret()) {
 			err = room.AddStreamer(conn)
 			if err != nil {
 				log.Printf("Failed to add streamer: %s", err)
@@ -223,7 +246,7 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 		return
 
 	case message.RStreamerChat, message.RProducerRTC:
-		if isAuthorized(true) {
+		if isAuthorized(clientInfo.Secret, room.Secret()) {
 			clientID := room.NewClientID()
 			room.AddClient(clientID, clientRole, conn) // Blocking call
 		} else {
@@ -233,8 +256,13 @@ func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 		return
 
 	case message.RViewer, message.RConsumerRTC:
-		clientID := room.NewClientID()
-		room.AddClient(clientID, clientRole, conn) // Blocking call
+		if room.Private() && !isAuthorized(clientInfo.Key, room.Key()) {
+			graceClose(conn, "Unauthorized")
+			log.Printf("Unauthorized: %s", clientRole)
+		} else {
+			clientID := room.NewClientID()
+			room.AddClient(clientID, clientRole, conn) // Blocking call
+		}
 		return
 
 	default:

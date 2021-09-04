@@ -104,8 +104,9 @@ func (db *DB) AddRoom(obj message.RoomInfo) (uint64, error) {
 
 // skip: number of records to skip
 // n : number of records toget. Set to 0 to get all
+// private : set to true to return private room. Default is not return Private room
 // return a list of rooms with the first item is the lastest room
-func (db *DB) GetRooms(statuses []message.RoomStatus, skip int, n int) ([]message.RoomInfo, error) {
+func (db *DB) GetRooms(statuses []message.RoomStatus, skip int, n int, private bool) ([]message.RoomInfo, error) {
 
 	var rooms []message.RoomInfo
 
@@ -131,6 +132,11 @@ func (db *DB) GetRooms(statuses []message.RoomStatus, skip int, n int) ([]messag
 			err := json.Unmarshal(v, &room)
 			if err != nil {
 				return err
+			}
+
+			// skip Private room if don't ask for it
+			if room.Private && !private {
+				continue
 			}
 
 			// filter by status

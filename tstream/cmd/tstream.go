@@ -20,6 +20,7 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/manifoldco/promptui"
 	"github.com/qnkhuat/tstream/internal/cfg"
 	"github.com/qnkhuat/tstream/internal/logging"
@@ -30,6 +31,31 @@ import (
 	"regexp"
 )
 
+func validateUsername(input string) error {
+	var validUsername = regexp.MustCompile(`^[a-z][a-z0-9]*[._-]?[a-z0-9]+$`)
+	if validUsername.MatchString(input) && len(input) > 2 && len(input) < 20 {
+		return nil
+	} else {
+		return fmt.Errorf("Invalid username")
+	}
+}
+
+func validateTitle(input string) error {
+	if len(input) > 1 {
+		return nil
+	} else {
+		return fmt.Errorf("Title must not be empty")
+	}
+}
+
+func validateRoomKey(input string) error {
+	if len(input) > 6 {
+		return nil
+	} else {
+		return fmt.Errorf("Room key must be at least 6 characeters")
+	}
+}
+
 func main() {
 
 	logging.Config("/tmp/tstream.log", "STREAMER: ")
@@ -39,10 +65,11 @@ func main() {
 		fmt.Printf("\nFind a bug? Create an issue at: https://github.com/qnkhuat/tstream\n")
 	}
 
-	var server = flag.String("server", "https://server.tstream.club", "Server endpoint")
-	var client = flag.String("client", "https://tstream.club", "TStream client url")
-	var version = flag.Bool("version", false, fmt.Sprintf("TStream version: %s", cfg.STREAMER_VERSION))
+	var private = flag.Bool("private", false, "Start a private session")
 	var chat = flag.Bool("chat", false, "Open chat client: %s")
+	var client = flag.String("client", "https://tstream.club", "TStream client url")
+	var server = flag.String("server", "https://server.tstream.club", "Server endpoint")
+	var version = flag.Bool("version", false, fmt.Sprintf("TStream version: %s", cfg.STREAMER_VERSION))
 
 	flag.Parse()
 	fmt.Printf("TStream v%s\n", cfg.STREAMER_VERSION)
@@ -53,23 +80,7 @@ func main() {
 		return
 	}
 
-	validateUsername := func(input string) error {
-		var validUsername = regexp.MustCompile(`^[a-z][a-z0-9]*[._-]?[a-z0-9]+$`)
-		if validUsername.MatchString(input) && len(input) > 2 && len(input) < 20 {
-			return nil
-		} else {
-			return fmt.Errorf("Invalid username")
-		}
-	}
-
-	validateTitle := func(input string) error {
-		if len(input) > 1 {
-			return nil
-		} else {
-			return fmt.Errorf("Title must not be empty")
-		}
-	}
-
+	// Define prompts
 	u, err := user.Current()
 	if err != nil {
 		log.Fatalf(err.Error())
@@ -94,6 +105,12 @@ func main() {
 		Validate: validateTitle,
 	}
 
+	promptRoomKey := promptui.Prompt{
+		Label:    "Room key",
+		Default:  uuid.NewString(),
+		Validate: validateRoomKey,
+	}
+
 	if !*chat {
 		// Start Streaming session
 
@@ -106,12 +123,23 @@ func main() {
 		if err != nil {
 			os.Exit(1)
 		}
+
 		title, err := promptTitle.Run()
 		if err != nil {
 			os.Exit(1)
 		}
 
 		s := streamer.New(*client, *server, username, title)
+
+		if *private {
+			var roomKey string
+			roomKey, err = promptRoomKey.Run()
+			if err != nil {
+				os.Exit(1)
+			}
+			s.SetPrivate(true)
+			s.SetKey(roomKey)
+		}
 
 		// Request server add room and check availability
 		statusCode := s.RequestAddRoom()
