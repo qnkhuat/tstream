@@ -13,8 +13,8 @@ import * as utils from "../utils";
 import * as message from "../types/message";
 import * as api from "../api";
 
-import PersonIcon from '@material-ui/icons/Person';
-import TextField from '@material-ui/core/TextField';
+import PersonIcon from '@mui/icons-material/Person';
+import TextField from '@mui/material/TextField';
 dayjs.extend(relativeTime)
 
 

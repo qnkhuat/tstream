@@ -9,7 +9,7 @@ import Uptime from "./Uptime";
 import dayjs from "dayjs";
 import customParseFormat from 'dayjs/plugin/customParseFormat';
 
-import PersonIcon from '@material-ui/icons/Person';
+import PersonIcon from '@mui/icons-material/Person';
 dayjs.extend(customParseFormat);
 
 interface Props {

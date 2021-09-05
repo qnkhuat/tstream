@@ -2,13 +2,13 @@ import React from "react";
 import * as utils from "../utils";
 import * as constants from "../lib/constants";
 
-import Button from '@material-ui/core/Button';
-import Modal from '@material-ui/core/Modal';
-import IconButton from '@material-ui/core/IconButton';
-import Slider from '@material-ui/core/Slider';
-import VolumeMuteIcon from '@material-ui/icons/VolumeMute';
-import VolumeDown from '@material-ui/icons/VolumeDown';
-import VolumeUp from '@material-ui/icons/VolumeUp';
+import Button from '@mui/material/Button';
+import Modal from '@mui/material/Modal';
+import IconButton from '@mui/material/IconButton';
+import Slider from '@mui/material/Slider';
+import VolumeMuteIcon from '@mui/icons-material/VolumeMute';
+import VolumeDown from '@mui/icons-material/VolumeDown';
+import VolumeUp from '@mui/icons-material/VolumeUp';
 
 interface Props {
   roomID: string;

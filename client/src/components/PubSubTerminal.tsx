@@ -19,7 +19,6 @@ interface Props {
 
 const PubSubTerminal: React.FC<Props> = ({ msgManager, width = -1, height = -1, delay = 0, className = "" }: Props) => {
   const termRef = useRef<Xterm>(null);
-  const divRef = useRef<HTMLDivElement>(null);
   const [termSize, setTermSize] = useState<message.TermSize>({Rows: 0, Cols: 0});
 
   // handle message to from msgmanager
@@ -55,19 +54,13 @@ const PubSubTerminal: React.FC<Props> = ({ msgManager, width = -1, height = -1, 
   }, [msgManager]);
 
   return (
-    <div className={`relative ${className} overflow-hidden`}
-      style={{width: width!, height: height!}}>
-      <div ref={divRef}
-        className="divref absolute top-1/2 left-1/2 origin-top-left transform -translate-x-1/2 -translate-y-1/2 overflow-hidden">
-        <Terminal
-          width={width}
-          height={height}
-          rows={termSize.Rows}
-          cols={termSize.Cols}
-          ref={termRef}
-        />
-      </div>
-    </div>
+    <Terminal
+      width={width}
+      height={height}
+      rows={termSize.Rows}
+      cols={termSize.Cols}
+      ref={termRef}
+    />
   )
 }
 

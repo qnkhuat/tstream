@@ -1,7 +1,7 @@
-import { useState, useCallback} from "react";
+import { useState, useCallback } from "react";
 import { Dimension } from "../types";
 
-// Get dimension of a DOM when it's mounted
+// TODO: use ResizeObserver API to update dimension when it size changes
 const useDimension = (): [Dimension, (args: any) => void ] => {
   const [ dimension, setDimension ] = useState<Dimension>({width: 0, height: 0});
 

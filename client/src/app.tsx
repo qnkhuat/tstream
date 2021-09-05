@@ -1,8 +1,8 @@
 import "./app.css";
 import Router from "./router";
 
-import { createTheme, ThemeProvider } from '@material-ui/core/styles';
-import CssBaseline from '@material-ui/core/CssBaseline';
+import { createTheme, ThemeProvider } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
 import termlog from "termlog";
 termlog();
 

@@ -13,10 +13,10 @@ import Uptime from "../../components/Uptime";
 import Loading from "../../components/Loading";
 import AudioRTC from "../../components/AudioRTC";
 
-import IconButton from '@material-ui/core/IconButton';
-import PersonIcon from '@material-ui/icons/Person';
-import FullscreenIcon from '@material-ui/icons/Fullscreen';
-import FullscreenExitIcon from '@material-ui/icons/FullscreenExit';
+import IconButton from '@mui/material/IconButton';
+import PersonIcon from '@mui/icons-material/Person';
+import FullscreenIcon from '@mui/icons-material/Fullscreen';
+import FullscreenExitIcon from '@mui/icons-material/FullscreenExit';
 
 // In horizontal mode chat window will have minimum width
 const ChatWindowMinWidth: number = 400; // px

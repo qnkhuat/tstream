@@ -2,8 +2,8 @@ import React from "react";
 import * as constants from "../lib/constants";
 import * as message from "../types/message";
 import PubSub from "../lib/pubsub";
-import TextField from '@material-ui/core/TextField';
-import KeyboardArrowRightRoundedIcon from '@material-ui/icons/KeyboardArrowRightRounded';
+import TextField from '@mui/material/TextField';
+import KeyboardArrowRightRoundedIcon from '@mui/icons-material/KeyboardArrowRightRounded';
 
 // key in local storage
 const USER_CONFIG_KEY = "tstreamUser";

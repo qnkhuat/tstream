@@ -14,7 +14,8 @@ interface Props {
   className?: string;
 }
 
-const Terminal = React.forwardRef<Xterm, Props>(({ width=-1, height=-1, rows=0, cols = 0, delay=0, className = "" }, ref) => {
+const Terminal = React.forwardRef<Xterm, Props>(({ width=-1, height=-1, rows=0, cols = 0, className = "" }, ref) => {
+  console.log("TERMINAL get winsize", width ,height);
 
   useEffect(() => {
     const rescale = () => {
@@ -55,18 +56,17 @@ const Terminal = React.forwardRef<Xterm, Props>(({ width=-1, height=-1, rows=0, 
   }, [width, height, ref, rows, cols]);
 
 
-  return <div className={`relative overflow-hidden ${className}`}
-  >
+  return <div className={`relative overflow-hidden bg-black ${className}`}
+    style={{width: width!, height: height!}}>
     <div className="overlay bg-transparent absolute top-0 left-0 z-10 w-full h-full"></div>
-    <Xterm 
-      ref={ref} 
-      //innerRef={ref}
-      options={{
-        rightClickSelectsWord: false,
-          disableStdin: true,
-      }}
-
-    />
+    <div className="divref absolute top-1/2 left-1/2 origin-top-left transform -translate-x-1/2 -translate-y-1/2 overflow-hidden">
+      <Xterm 
+        ref={ref} 
+        options={{
+          rightClickSelectsWord: false,
+            disableStdin: true,
+        }}/>
+    </div>
   </div>
 });
 

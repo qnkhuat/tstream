@@ -4,11 +4,10 @@
   "private": true,
   "dependencies": {
     "@craco/craco": "^5.9.0",
-    "@emotion/react": "^11.4.0",
+    "@emotion/react": "^11.4.1",
     "@emotion/styled": "^11.3.0",
-    "@material-ui/core": "^5.0.0-beta.0",
-    "@material-ui/icons": "^5.0.0-alpha.37",
-    "@material-ui/styles": "^4.11.4",
+    "@mui/icons-material": "^5.0.0-rc.0",
+    "@mui/material": "^5.0.0-rc.0",
     "@tailwindcss/typography": "^0.4.1",
     "@testing-library/jest-dom": "^5.11.4",
     "@testing-library/react": "^11.1.0",
@@ -64,6 +63,7 @@
   "devDependencies": {
     "@types/pako": "^1.0.2",
     "@types/react-router-dom": "^5.1.7",
+    "@types/resize-observer-browser": "^0.1.6",
     "@types/string-similarity": "^4.0.0",
     "@types/url-join": "^4.0.0",
     "autoprefixer": "^9.8.6",
