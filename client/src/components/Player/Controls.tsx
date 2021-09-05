@@ -3,24 +3,21 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
 import IconButton from '@mui/material/IconButton';
 import Slider from '@mui/material/Slider';
+import { PlayerState, PlayerAction, playerActions, PlayerActionType} from "./store";
 
 interface Props {
-  play: boolean;
-  rate: number;
-  currentTime: number;
-  handlePlay?: () => void;
-  handlePause?: () => void;
-  handleJumpTo?: (value: number) => void;
   className?: string;
+  state: PlayerState;
+  dispatch: React.Dispatch<PlayerAction>;
 }
 
-const Controls: React.FC<Props> = ({ play = false, rate, handlePlay, handlePause, handleJumpTo, className = "" }: Props) => {
+const Controls: React.FC<Props> = ({ state, dispatch, className = "" }: Props) => {
   return <div className={`flex items-center ${className} px-10 mb-5`}>
-    <IconButton onClick={play ? handlePause : handlePlay}
+    <IconButton onClick={() => state.play ? dispatch(playerActions.pause()) : dispatch(playerActions.play()) }
       className="mr-4"
     >
-      {play && <PauseIcon/>}
-      {!play && <PlayArrowIcon/>}
+      {state.play && <PauseIcon/>}
+      {!state.play && <PlayArrowIcon/>}
     </IconButton>
     <Slider
       size="small"
@@ -28,7 +25,7 @@ const Controls: React.FC<Props> = ({ play = false, rate, handlePlay, handlePause
       aria-label="Small"
       valueLabelDisplay="auto"
       color="primary"
-      onChange={(e, value) => {if(handleJumpTo) handleJumpTo(value[0])}}
+      //onChange={(e, value) => {if(handleJumpTo) handleJumpTo(value[0])}}
     />
   </div>
 }

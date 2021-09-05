@@ -13,10 +13,9 @@ interface Props {
   height: number;
 }
 
-//const reducer = (state: State, action: Aciton) => 
-
 const Player: React.FC<Props> = ({id, width, height}: Props) => {
-  const [ state, dispatch ] = useReducer(store.reducer, store.initialState);
+  const [ state, dispatch ] = useReducer(store.playerReducer, store.initialState);
+
   const termRef = useRef<Xterm>(null);
 
   useEffect(() => {
@@ -30,18 +29,14 @@ const Player: React.FC<Props> = ({id, width, height}: Props) => {
 
     const writeManager = new WriteManager(writeCB, winsizeCB, 0);
 
-    api.getRecordManifest(id.toString()).then((data) => {
-      //console.log(data);
-    });
-
     api.getRecordSegment(id.toString(), "3.gz").then((data) => {
       const msgArray = JSON.parse(pako.ungzip(data, {to : "string"}));
       const alo = msgArray[0];
       let blockMsg: message.TermWriteBlock = JSON.parse(window.atob(alo.Data));
       writeManager.addBlock(blockMsg);
     }).catch(console.error);
-  }, []);
 
+  }, []);
 
   return <>
     <div className="relative">
@@ -51,10 +46,11 @@ const Player: React.FC<Props> = ({id, width, height}: Props) => {
         height={height}
       />
       <Controls 
-        {...state}
-        handlePlay={() => dispatch({type: store.PlayerAction.Play})}
-        handlePause={() => dispatch({type: store.PlayerAction.Pause})}
-        handleJumpTo={(value) => dispatch({type: store.PlayerAction.JumpTo, payload: {to: value}})}
+        state={state}
+        dispatch={dispatch}
+        //handlePlay={() => dispatch({type: store.PlayerActionType.Play})}
+        //handlePause={() => dispatch({type: store.PlayerActionType.Pause})}
+        //handleJumpTo={(value) => dispatch({type: store.PlayerActionType.JumpTo, payload: {to: value}})}
         className="absolute bottom-0 w-full z-30 left-0"
       />
     </div>
