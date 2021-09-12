@@ -24,19 +24,19 @@ const MANIFEST_FILENAME = "manifest.json"
 **/
 
 type Manifest struct {
-	Id              int               `json:"id"`
-	Version         int               `json:"version"`
-	StartTime       time.Time         `json:"startTime"`
-	StopTime        time.Time         `json:"stopTime"`
-	SegmentDuration int64             `json:"segmentDuration"`
-	Segments        []ManifestSegment `json:"segments"`
+	Id              int
+	Version         int
+	StartTime       time.Time
+	StopTime        time.Time
+	SegmentDuration int64
+	Segments        []ManifestSegment
 }
 
 type ManifestSegment struct {
 	// Offset time with the stream header
-	Offset int64  `json:"offset"`
-	Id     int    `json:"id"`
-	Path   string `json:"path"`
+	Offset int64
+	Id     int
+	Path   string
 }
 
 /* Recodrer
