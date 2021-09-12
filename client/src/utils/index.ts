@@ -1,5 +1,4 @@
 import urljoin from "url-join";
-import dayjs from "dayjs";
 
 export function getWsUrl(sessionID: string): string{
   const wsHost: string = (process.env.REACT_APP_API_URL as string).replace("http", "ws");
@@ -19,17 +18,21 @@ export function sendWhenConnected(ws: WebSocket, msg: string, n: number = 0, max
   }, 10); // wait 10 milisecond for the connection...
 }
 
-export function formatDuration(from:dayjs.Dayjs, to: dayjs.Dayjs): string {
-  let diff = from.diff(to, "second");
+// duration is in seconds
+export function formatDuration(duration: number, full: boolean = false): string {
 
-  let hours = Math.floor(diff / 3600);
-  diff = diff - 3600 * hours;
+  let hours = Math.floor(duration / 3600);
+  duration = duration - 3600 * hours;
 
-  let minutes = Math.floor(diff / 60);
-  diff = diff - minutes * 60;
+  let minutes = Math.floor(duration / 60);
+  duration = duration - minutes * 60;
 
-  let seconds = diff;
+  let seconds = duration;
 
-  return `${hours > 9 ? hours : `0${hours}`}:${minutes > 9 ? minutes : `0${minutes}` }:${seconds> 9 ? seconds: `0${seconds}` }`;
+  let text = `${minutes > 9 ? minutes : `0${minutes}` }:${seconds> 9 ? seconds: `0${seconds}`}` ;
+  if (hours > 0 || full) {
+    text = `${hours > 9 ? hours : `0${hours}`}:${text}`;
+  }
+  return text;
 }
 

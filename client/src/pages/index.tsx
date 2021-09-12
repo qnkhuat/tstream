@@ -164,7 +164,8 @@ const Home = () => {
                   <p>{dayjs(r.StartedTime).fromNow()}</p>
                 </div>
 
-                <p className="absolute top-4 right-4 bg-gray-800 p-1 rounded-md font-semibold">{utils.formatDuration(dayjs(r.LastActiveTime), dayjs(r.StartedTime))}</p>
+                <p className="absolute top-4 right-4 bg-gray-800 p-1 rounded-md font-semibold">
+                {utils.formatDuration(dayjs(r.LastActiveTime).diff(dayjs(r.StartedTime), "second"), true)}</p>
                 <p className="absolute bottom-4 right-4 text-whtie font-semibold text-right mt-4"><PersonIcon/> {r.AccNViewers}</p>
 
               </div>)}

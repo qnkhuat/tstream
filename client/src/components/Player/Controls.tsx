@@ -1,9 +1,12 @@
-import React from "react";
+import React, { useMemo } from "react";
+
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import PauseIcon from '@mui/icons-material/Pause';
 import IconButton from '@mui/material/IconButton';
 import Slider from '@mui/material/Slider';
-import { PlayerState, PlayerAction, playerActions, PlayerActionType} from "./store";
+
+import * as utils from  "../../utils";
+import { PlayerState, PlayerAction, playerActions } from "./store";
 
 interface Props {
   className?: string;
@@ -12,21 +15,28 @@ interface Props {
 }
 
 const Controls: React.FC<Props> = ({ state, dispatch, className = "" }: Props) => {
+
+  const duration = useMemo(() => {
+    if (state.recordDuration) return utils.formatDuration(state.recordDuration * 1000);
+    else return "00:00";
+  }, [state.recordDuration]);
+
   return <div className={`flex items-center ${className} px-10 mb-5`}>
-    <IconButton onClick={() => state.play ? dispatch(playerActions.pause()) : dispatch(playerActions.play()) }
-      className="mr-4"
-    >
+    <IconButton 
+      onClick={() => state.play ? dispatch(playerActions.pause()) : dispatch(playerActions.play()) }
+      className="mr-4">
       {state.play && <PauseIcon/>}
       {!state.play && <PlayArrowIcon/>}
     </IconButton>
     <Slider
+      className="mr-4"
       size="small"
       defaultValue={0}
       aria-label="Small"
       valueLabelDisplay="auto"
       color="primary"
-      //onChange={(e, value) => {if(handleJumpTo) handleJumpTo(value[0])}}
     />
+    <p className="text-sm font-bold">{duration}</p>
   </div>
 }
 

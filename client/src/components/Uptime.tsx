@@ -8,10 +8,10 @@ interface Props {
 }
 
 const Uptime: React.FC<Props> = ({startTime, className=""}) => {
-  const [ upTime, setUptime ] = useState(utils.formatDuration(dayjs(), dayjs(startTime)));
+  const [ upTime, setUptime ] = useState(utils.formatDuration(dayjs().diff(dayjs(startTime), "second"), true) );
   useEffect(() => {
     let id = setInterval(() => {
-      setUptime(utils.formatDuration(dayjs(), dayjs(startTime)));
+      setUptime(utils.formatDuration(dayjs().diff(dayjs(startTime), "second"), true));
     }, 1000)
     return () => {
       clearInterval(id);

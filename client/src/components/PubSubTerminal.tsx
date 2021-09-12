@@ -4,9 +4,6 @@ import Terminal, { WriteManager } from "./Terminal";
 import PubSub from "../lib/pubsub";
 import * as constants from "../lib/constants";
 import * as message from "../types/message";
-import * as buffer from "../lib/buffer";
-import pako from "pako";
-
 
 // TODO: add handle % and px for size
 interface Props {
@@ -37,7 +34,6 @@ const PubSubTerminal: React.FC<Props> = ({ msgManager, width = -1, height = -1, 
     msgManager.pub("request", constants.MSG_TREQUEST_WINSIZE);
 
     msgManager.sub(constants.MSG_TWRITEBLOCK, (block: message.TermWriteBlock) => {
-      console.log("Got block: ", block);
       writeManager!.addBlock(block);
     });
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect } from "react";
 import Xterm from "./Xterm";
 import * as constants from "../lib/constants";
 import * as message from "../types/message";
@@ -15,7 +15,6 @@ interface Props {
 }
 
 const Terminal = React.forwardRef<Xterm, Props>(({ width=-1, height=-1, rows=0, cols = 0, className = "" }, ref) => {
-  console.log("TERMINAL get winsize", width ,height);
 
   useEffect(() => {
     const rescale = () => {
@@ -93,13 +92,13 @@ export class WriteManager {
   }
 
   consume() {
-    if (this.queue.length == 0) return
+    if (this.queue.length === 0) return
     else {
 
       // any message has offset < 0 => messages from the past with respect to render time
       // concat all these messages into one buffer and render at once
       let bufferArray: Uint8Array[] = [];
-      while (true && this.queue.length != 0) {
+      while (true && this.queue.length !== 0) {
         let msg = this.queue[0];
 
         if (msg.Delay < 0) {
@@ -128,7 +127,7 @@ export class WriteManager {
       if ( bufferArray.length > 0) this.writeCB(buffer.concatab(bufferArray));
 
       // schedule to render upcomming messages
-      // TODO: are there any ways we don't have to create many settimeout liek this?
+      // TODO: are there any ways we don't have to create many settimeout like this?
       // tried sequentially call to settimeout but the performance is much worse
       this.queue.forEach((msg) => {
         switch (msg.Type) {

@@ -1,11 +1,15 @@
 import React, { useRef, useEffect, useReducer } from 'react';
 import pako from "pako";
+
 import Terminal, { WriteManager } from "../Terminal";
 import Xterm from "../Xterm";
+import Controls from "./Controls";
+
+import { playerActions } from "./store";
+
 import * as api from "../../api";
 import * as message from "../../types/message";
 import * as store from "./store";
-import Controls from "./Controls";
 
 interface Props {
   id: string;
@@ -29,6 +33,10 @@ const Player: React.FC<Props> = ({id, width, height}: Props) => {
 
     const writeManager = new WriteManager(writeCB, winsizeCB, 0);
 
+    api.getRecordManifest(id.toString()).
+      then((manifest) => dispatch(playerActions.setManifest(manifest))).
+      catch(err => console.error(err));
+
     api.getRecordSegment(id.toString(), "3.gz").then((data) => {
       const msgArray = JSON.parse(pako.ungzip(data, {to : "string"}));
       const alo = msgArray[0];
@@ -43,16 +51,11 @@ const Player: React.FC<Props> = ({id, width, height}: Props) => {
       <Terminal 
         ref={termRef}
         width={width}
-        height={height}
-      />
+        height={height} />
       <Controls 
         state={state}
         dispatch={dispatch}
-        //handlePlay={() => dispatch({type: store.PlayerActionType.Play})}
-        //handlePause={() => dispatch({type: store.PlayerActionType.Pause})}
-        //handleJumpTo={(value) => dispatch({type: store.PlayerActionType.JumpTo, payload: {to: value}})}
-        className="absolute bottom-0 w-full z-30 left-0"
-      />
+        className="absolute bottom-0 w-full z-30 left-0" />
     </div>
   </>
 }

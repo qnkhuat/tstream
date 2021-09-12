@@ -1,7 +1,6 @@
 import * as message from "../types/message";
 import urljoin from "url-join";
 import axios from "axios";
-import pako from "pako";
 
 interface getRoomsArg {
   status: message.RoomStatus;

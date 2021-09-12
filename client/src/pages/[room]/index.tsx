@@ -300,7 +300,7 @@ class Room extends React.Component<Props, State> {
           <div id="room" className={`flex relative ${this.state.orientation === Orientation.Horizontal ? "flex-row" : "flex-col"}`}>
             <div id="terminal-view" className="relative"
               onMouseMove={() => this.flashTitle()}>
-              {this.state.roomInfo?.Status == RoomStatus.Streaming &&
+              {this.state.roomInfo?.Status === RoomStatus.Streaming &&
               <div id="info" className={`relative w-full ${this.state.mouseMove ? "visible" : "hidden"} z-20`}>
 
                 <div className={`top-0 left-0 w-full absolute z-20 px-4 py-2 bg-opacity-80 bg-gray-800 `}>
@@ -320,7 +320,7 @@ class Room extends React.Component<Props, State> {
 
               <div id="terminal-window">
 
-                {this.state.roomInfo?.Status == RoomStatus.Streaming &&
+                {this.state.roomInfo?.Status === RoomStatus.Streaming &&
                 <PubSubTerminal
                   className="bg-black"
                   msgManager={this.msgManager}
@@ -328,19 +328,19 @@ class Room extends React.Component<Props, State> {
                   height={terminalSize.height}
                   delay={this.state.roomInfo.Delay}
                 />}
-                {this.state.roomInfo?.Status != RoomStatus.Streaming &&
+                {this.state.roomInfo?.Status !== RoomStatus.Streaming &&
                   <div
                     style={terminalSize}
                     className="bg-black flex justify-center items-center">
-                    {this.state.roomInfo?.Status == RoomStatus.Stopped && 
+                    {this.state.roomInfo?.Status === RoomStatus.Stopped && 
                       <p className="text-2xl font-bold">The stream has stopped</p>
                     }
                     
-                    {this.state.roomInfo?.Status == RoomStatus.NotExisted && 
+                    {this.state.roomInfo?.Status === RoomStatus.NotExisted && 
                       <p className="text-2xl font-bold">The stream has stopped</p>
                     }
 
-                    {this.state.roomInfo?.Status == RoomStatus.Unauthorized && 
+                    {this.state.roomInfo?.Status === RoomStatus.Unauthorized && 
                       <p className="text-2xl font-bold">You're not authorized to view this room</p>
                     }
 
