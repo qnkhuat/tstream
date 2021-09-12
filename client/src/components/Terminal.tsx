@@ -109,23 +109,30 @@ export class WriteManager {
     this.queue.push(...q);
   }
 
-  consume() {
-    if (! this.currentTime || !this.play || this.queue.length == 0) {
-      setTimeout(() => {
-        this.consume();
-        this.currentTime = this.currentTime! + this.refreshInterval;
-      }, this.refreshInterval);
-      return;
-    }
-    const startTime = this.currentTime;
+  consume(): any {
+    if(!this.currentTime) return setTimeout(() => this.consume(), this.refreshInterval);
+    const startTime = this.currentTime!;
     const endTime = startTime + this.refreshInterval;
-    this.currentTime = endTime;
+
+    const returnCallback = () => {
+      this.currentTime = endTime;
+      setTimeout(() => {
+        this.currentTime = startTime + this.refreshInterval;
+        this.consume();
+      }, this.refreshInterval);
+    }
+
+    if (!this.play || this.queue.length == 0) {
+      return returnCallback();
+    }
+
 
     while (this.queue.length > 0 && this.queue[0].Delay < endTime) {
       if (this.queue[0].Delay > endTime) break;
 
       const msg: message.Wrapper = this.queue.shift()!;
       const msgTimeout = msg.Delay - startTime;
+
       switch (msg.Type) {
 
         case constants.MSG_TWRITE:
@@ -142,34 +149,17 @@ export class WriteManager {
       }
     }
 
-
-    setTimeout(() => {
-      this.consume();
-    }, this.refreshInterval);
+    return returnCallback();
   }
 
   addBlock(block: message.TermWriteBlock) {
     // the starttime of stream or records will be the the starttime of the first block received
     if (!this.startTime) {
       this.startTime = (new Date(block.StartTime)).getTime();
-      this.currentTime = (new Date()).getTime() - this.startTime;
+      this.currentTime = (new Date()).getTime() - this.startTime - (this.delay - block.Duration);
     }
-    console.log(this.delay);
 
     const blockDelayTime = (new Date(block.StartTime)).getTime() - this.startTime;
-    console.log("----------------------------");
-    console.log('block starttime: ', block.StartTime);
-    console.log('Start time:', (new Date(this.startTime)).toString());
-    console.log('currentTime: ', this.currentTime);
-    console.log('blockDelayTime: ', blockDelayTime);
-
-    // when viewers receive this block
-    // it only contains the actual start-time
-    // we need to be able to re-compute the render time based on 
-    // - now time
-    // - when does this block being created
-    // - the delay factor. In case of play back the delay = now - stream sesion start time
-    //const blockDelayTime = (new Date()).getTime() - (new Date(block.StartTime)).getTime() - this.delay;
 
     // this is a big chunk of encoding/decoding
     // Since we have to : reduce message size by usign gzip and also
