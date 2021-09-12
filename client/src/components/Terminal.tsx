@@ -75,89 +75,101 @@ export class WriteManager {
   writeCB: (arr:Uint8Array) => void;
   winsizeCB: (ws:message.TermSize) => void;
   delay: number; // in milliseconds
+  startTime: number | undefined; // the start time of the stream. used to calculate the duration of stream or records
+  currentTime: number | undefined; // currenttime of the player
+  refreshInterval: number; // the writemanager will scan and schedule to write after each refreshInterval. Unit in milliseconds
 
   constructor(writeCB: (arr: Uint8Array) => void, winsizeCB: (ws: message.TermSize) => void, delay: number = 0) {
     this.writeCB = writeCB;
     this.winsizeCB = winsizeCB;
     this.delay = delay;
+    this.refreshInterval = 200; // TODO: move this to optional arguments
+    this.queue = [];
+    this.consume();
   }
+
+  play() {
+    //this.play
+  }
+
+  pause() {
+
+  }
+
+  jumpTo() {
+
+  }
+
 
   resetQueue() {
     this.queue = [];
   }
 
   addQueue(q: message.Wrapper[]) {
-    this.queue.push(...q); // Concatnate
-    this.consume();
+    this.queue.push(...q);
   }
 
   consume() {
-    if (this.queue.length === 0) return
-    else {
-
-      // any message has offset < 0 => messages from the past with respect to render time
-      // concat all these messages into one buffer and render at once
-      let bufferArray: Uint8Array[] = [];
-      while (true && this.queue.length !== 0) {
-        let msg = this.queue[0];
-
-        if (msg.Delay < 0) {
-          switch (msg.Type) {
-            case constants.MSG_TWRITE:
-              let bufferData = buffer.str2ab(msg.Data)
-              bufferArray.push(bufferData);
-              break;
-
-            case constants.MSG_TWINSIZE:
-              // write the previous buffers 
-              if ( bufferArray.length > 0) this.writeCB(buffer.concatab(bufferArray));
-              // reset it
-              bufferArray = [];
-              // resize
-              this.winsizeCB(msg.Data);
-              break;
-
-            default:
-              console.error("Unhandled message type: ", msg.Type);
-          }
-
-          this.queue.shift();
-        } else break;
-      }
-      if ( bufferArray.length > 0) this.writeCB(buffer.concatab(bufferArray));
-
-      // schedule to render upcomming messages
-      // TODO: are there any ways we don't have to create many settimeout like this?
-      // tried sequentially call to settimeout but the performance is much worse
-      this.queue.forEach((msg) => {
-        switch (msg.Type) {
-
-          case constants.MSG_TWRITE:
-            let bufferData = buffer.str2ab(msg.Data);
-            setTimeout(() => this.writeCB(bufferData), msg.Delay);
-            break;
-
-          case constants.MSG_TWINSIZE:
-            setTimeout(() => this.winsizeCB(msg.Data), msg.Delay);
-            break;
-
-          default:
-            console.error("Unhandled message type: ", msg.Type);
-        }
-
-      })
-      this.resetQueue();
+    if (! this.currentTime || !this.play || this.queue.length == 0) {
+      setTimeout(() => {
+        this.consume();
+        this.currentTime = this.currentTime! + this.refreshInterval;
+      }, this.refreshInterval);
+      return;
     }
+    const startTime = this.currentTime;
+    const endTime = startTime + this.refreshInterval;
+    this.currentTime = endTime;
+
+    while (this.queue.length > 0 && this.queue[0].Delay < endTime) {
+      if (this.queue[0].Delay > endTime) break;
+
+      const msg: message.Wrapper = this.queue.shift()!;
+      const msgTimeout = msg.Delay - startTime;
+      switch (msg.Type) {
+
+        case constants.MSG_TWRITE:
+          let bufferData = buffer.str2ab(msg.Data);
+          setTimeout(() => this.writeCB(bufferData), msgTimeout);
+          break;
+
+        case constants.MSG_TWINSIZE:
+          setTimeout(() => this.winsizeCB(msg.Data), msgTimeout);
+          break;
+
+        default:
+          console.error("Unhandled message type: ", msg.Type);
+      }
+    }
+
+
+    setTimeout(() => {
+      this.consume();
+    }, this.refreshInterval);
   }
 
   addBlock(block: message.TermWriteBlock) {
+    // the starttime of stream or records will be the the starttime of the first block received
+    if (!this.startTime) {
+      this.startTime = (new Date(block.StartTime)).getTime();
+      this.currentTime = (new Date()).getTime() - this.startTime;
+    }
+    console.log(this.delay);
+
+    const blockDelayTime = (new Date(block.StartTime)).getTime() - this.startTime;
+    console.log("----------------------------");
+    console.log('block starttime: ', block.StartTime);
+    console.log('Start time:', (new Date(this.startTime)).toString());
+    console.log('currentTime: ', this.currentTime);
+    console.log('blockDelayTime: ', blockDelayTime);
+
     // when viewers receive this block
     // it only contains the actual start-time
     // we need to be able to re-compute the render time based on 
     // - now time
     // - when does this block being created
     // - the delay factor. In case of play back the delay = now - stream sesion start time
-    let blockDelayTime = (new Date()).getTime() - (new Date(block.StartTime)).getTime() - this.delay;
+    //const blockDelayTime = (new Date()).getTime() - (new Date(block.StartTime)).getTime() - this.delay;
 
     // this is a big chunk of encoding/decoding
     // Since we have to : reduce message size by usign gzip and also
@@ -170,7 +182,7 @@ export class WriteManager {
     msgArrayString.forEach((msgString: string) => {
       // re-compute the offset of this message with respect to the render time
       let msg: message.Wrapper = JSON.parse(window.atob(msgString));
-      msg.Delay = msg.Delay - blockDelayTime;
+      msg.Delay = blockDelayTime + msg.Delay;
       msgArray.push(msg);
     })
 
