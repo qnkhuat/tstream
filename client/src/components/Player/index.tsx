@@ -1,7 +1,7 @@
-import React, { useRef, useEffect, useReducer } from 'react';
+import React, { useState, useRef, useEffect, useReducer } from 'react';
 import pako from "pako";
 
-import Terminal, { WriteManager } from "../Terminal";
+import Terminal from "../Terminal";
 import Xterm from "../Xterm";
 import Controls from "./Controls";
 
@@ -20,19 +20,8 @@ interface Props {
 const Player: React.FC<Props> = ({id, width, height}: Props) => {
   const [ state, dispatch ] = useReducer(store.playerReducer, store.initialState);
 
-  const termRef = useRef<Xterm>(null);
-
   useEffect(() => {
-    const writeCB = (bufferData: Uint8Array) => {
-      termRef.current?.writeUtf8(bufferData);
-    };
-
-    let winsizeCB = (ws: message.TermSize) => {
-      termRef.current?.resize(ws.Cols, ws.Rows);
-    }
-
-    const writeManager = new WriteManager(writeCB, winsizeCB, 0);
-
+    
     api.getRecordManifest(id.toString()).
       then((manifest) => dispatch(playerActions.setManifest(manifest))).
       catch(err => console.error(err));
@@ -41,23 +30,20 @@ const Player: React.FC<Props> = ({id, width, height}: Props) => {
       const msgArray = JSON.parse(pako.ungzip(data, {to : "string"}));
       const alo = msgArray[0];
       let blockMsg: message.TermWriteBlock = JSON.parse(window.atob(alo.Data));
-      writeManager.addBlock(blockMsg);
+      //tempWriteManager.addBlock(blockMsg);
     }).catch(console.error);
 
+    //setWriteManager(tempWriteManager);
+    //tempWriteManager.play();
   }, []);
 
-  return <>
-    <div className="relative">
-      <Terminal 
-        ref={termRef}
-        width={width}
-        height={height} />
-      <Controls 
-        state={state}
-        dispatch={dispatch}
-        className="absolute bottom-0 w-full z-30 left-0" />
-    </div>
-  </>
+
+  return <div className="relative">
+    <Terminal 
+      //ref={termRef}
+      width={width}
+      height={height} />
+  </div>
 }
 
 export default Player;

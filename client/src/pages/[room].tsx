@@ -1,17 +1,17 @@
 import React from 'react';
 import { RouteComponentProps, withRouter } from "react-router-dom";
 
-import * as utils from "../../utils";
-import * as constants from "../../lib/constants";
-import * as message from "../../types/message";
-import PubSub from "../../lib/pubsub";
+import * as utils from "../utils";
+import * as constants from "../lib/constants";
+import * as message from "../types/message";
+import PubSub from "../lib/pubsub";
 
-import Chat from "../../components/Chat";
-import Navbar from "../../components/Navbar";
-import PubSubTerminal from "../../components/PubSubTerminal";
-import Uptime from "../../components/Uptime";
-import Loading from "../../components/Loading";
-import AudioRTC from "../../components/AudioRTC";
+import Chat from "../components/Chat";
+import Navbar from "../components/Navbar";
+import PubSubTerminal from "../components/PubSubTerminal";
+import Uptime from "../components/Uptime";
+import Loading from "../components/Loading";
+import AudioRTC from "../components/AudioRTC";
 
 import IconButton from '@mui/material/IconButton';
 import PersonIcon from '@mui/icons-material/Person';
