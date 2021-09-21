@@ -1,24 +1,28 @@
 import React from "react";
 import pako from "pako";
-import Xterm from "./Xterm";
-import * as constants from "../lib/constants";
-import * as message from "../types/message";
-import * as buffer from "../lib/buffer";
+import Xterm from "../Xterm";
+import Controls from "./Controls";
+import * as constants from "../../lib/constants";
+import * as buffer from "../../lib/buffer";
+import * as message from "../../types/message";
 
 interface Props {
   width: number; // in pixel
   height: number; // in pixel
+  // this callback is used in playback mode. when the terminal will fetch data to add to queue itself
+  controls?: boolean;
+  requestBlockCB?: (startTime: number, endTime: number) => message.TermWriteBlock | message.TermWriteBlock[];
+  mode?: "streaming" | "playback";
   rows?: number;
   cols?: number;
-  delay?: number;
-  refreshInterval?: number; // the writemanager will scan and schedule to write after each refreshInterval. Unit in milliseconds
+  delay?: number; // in milliseconds
+  // parameter to config scan interval to write to terminal. Unit in milliseconds
+  refreshInterval?: number; 
   className?: string;
 }
 
-interface State {
+export interface State {
   playing: boolean;
-
-  //delay: number; // in milliseconds
   startTime?: number | undefined; // the absolute start time of the stream. used to calculate the duration of stream or records
   currentTime?: number | undefined; // currenttime of the player relative to the starttime
 }
@@ -29,13 +33,15 @@ class Terminal extends React.Component<Props, State> {
   queue: message.Wrapper[] = [];
 
   static defaultProps = { 
+    mode: "streaming",
+    controls: false,
     width: -1, 
     height: -1, 
     rows : 0, 
     cols : 0, 
-    className:"",
+    className: "",
     delay: 0,
-    refreshInterval: 200,
+    refreshInterval: 2000,
   };
 
   state: State = {
@@ -59,7 +65,7 @@ class Terminal extends React.Component<Props, State> {
         termCols = cols! > 0 ? cols : this.termRef.current.terminal.cols,
         hFontSizeMultiplier = height / (cellHeight * termRows!),
         wFontSizeMultiplier = width / (cellWidth * termCols!),
-        // method doesn't ensure termianl will 100% fit the required size since fontsize are discrete
+        // method doesn't ensure terminal will perfectly fit the required size since fontsize are discrete
         // Another method is to transform scale to fit the window
         // But I haven't figured out why the scaled version sometimes make terminal deformed 
         // after multiple times of apply scale transformation
@@ -74,11 +80,15 @@ class Terminal extends React.Component<Props, State> {
   }
 
   play() {
+    console.log("play");
+    console.log(this.state.playing);
     this.setState({ playing: true });
     this.consume();
   }
 
   pause() {
+    console.log("pause");
+    console.log(this.state.playing);
     this.setState({ playing: false });
   }
 
@@ -92,6 +102,9 @@ class Terminal extends React.Component<Props, State> {
   }
 
   consume(): any {
+    console.log("consuming: ", this.state.currentTime);
+    if(!this.state.playing) return;
+
     const returnCallback = () => {
       if (this.state.currentTime) this.setState({ currentTime: this.state.currentTime + this.props.refreshInterval! });
 
@@ -101,7 +114,7 @@ class Terminal extends React.Component<Props, State> {
     }
 
 
-    if (!this.state.currentTime || ! this.state.playing || this.queue.length == 0) return returnCallback();
+    if (!this.state.currentTime || this.queue.length == 0) return returnCallback();
 
     const currentTime = this.state.currentTime!;
     const endTime = currentTime + this.props.refreshInterval!;
@@ -193,6 +206,15 @@ class Terminal extends React.Component<Props, State> {
               disableStdin: true,
           }}/>
       </div>
+
+      {this.props.controls &&
+      <Controls 
+        className="absolute bottom-0 w-full z-30 left-0"
+        //playing={termRef.current?.state.playing}
+        playing={this.state.playing}
+        onPlay={() => this.play()}
+        onPause={() => this.pause()}
+      />}
     </div>
   }
 
