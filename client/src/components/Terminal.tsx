@@ -1,5 +1,5 @@
 // A Wrapper of XTerm where it resize itself based on the provided with and height
-import React, { useState, useEffect, useRef } from "react";
+import React, { useEffect } from "react";
 import Xterm from "./Xterm";
 import * as constants from "../lib/constants";
 import * as message from "../types/message";
@@ -121,19 +121,21 @@ export class WriteManager {
     this.playing = false;
   }
 
-  consume() {
+  printStatus() {
     console.log("------------");
     console.log("Startime: ", this.startTime);
     console.log("CurrentTime: ", this.currentTime);
     console.log("Queue len: ", this.queue.length);
     console.log("First queue: ", this.queue[0]?.Delay);
-    
+  }
+
+  consume() {
+    this.printStatus()
+        
     if(!this.playing || !this.termRef) return;
 
-    const startTime = Date.now();
     const returnCallback = () => {
-      console.log("Processing time: ", (Date.now() - startTime));
-      if(this.currentTime) this.currentTime = this.currentTime + (Date.now() - startTime) + this.refreshInterval;
+      if(this.currentTime) this.currentTime = this.currentTime + this.refreshInterval;
     }
 
     if (!this.currentTime || this.queue.length == 0) return returnCallback();
@@ -179,7 +181,6 @@ export class WriteManager {
     }
 
     const blockDelayTime = (new Date(block.StartTime)).getTime() - this.startTime;
-    console.log("Block delay time: ", blockDelayTime);
 
     // this is a big chunk of encoding/decoding
     // Since we have to : reduce message size by usign gzip and also

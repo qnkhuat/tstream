@@ -1,7 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import pako from "pako";
 
-import Terminal from "../Terminal";
+import Terminal, { WriteManager } from "../Terminal";
 import XTerm from "../Xterm";
 
 import * as api from "../../api";
@@ -18,28 +18,23 @@ const Player: React.FC<Props> = ({id, width, height}: Props) => {
 
   useEffect(() => {
     if (!termRef.current) return;
-
-    //api.getRecordManifest(id.toString()).
-    //  then((manifest) => console.log(manifest)).
-    //  catch(err => console.error(err));
+    const writeManager = new WriteManager(termRef.current, {playing: true, refreshInterval: 2000});
 
     api.getRecordSegment(id.toString(), "3.gz").then((data) => {
       const msgArray = JSON.parse(pako.ungzip(data, {to : "string"}));
-      const alo = msgArray[0];
-      let blockMsg: message.TermWriteBlock = JSON.parse(window.atob(alo.Data));
-      //termRef.current!.addBlock(blockMsg);
+      msgArray.forEach((msg: message.TermWriteBlock) => writeManager.addBlock(JSON.parse(window.atob(msg.Data))) );
     }).catch(console.error);
 
+    return () => {
+      writeManager.detach();
+    }
   }, [termRef.current]);
 
-
   return <Terminal 
-      ref={termRef}
-      //controls={true}
-      //mode="playback"
-      width={width}
-      height={height} 
-    />
+    ref={termRef}
+    width={width}
+    height={height} 
+  />
 }
 
 export default Player;
