@@ -36,3 +36,46 @@ export function formatDuration(duration: number, full: boolean = false): string 
   return text;
 }
 
+interface AccurateIntervalOptions {
+  immediate?: boolean;
+  aligned?: boolean;
+}
+type EmptyCallback = () => void;
+
+export const accurateInterval = (func: (arg0: any) => void, interval: number, opts: AccurateIntervalOptions = {}): EmptyCallback => {
+  //https://github.com/klyngbaek/accurate-interval/blob/master/index.js
+  let nextAt: number, 
+    timeout : ReturnType<typeof setTimeout>| null, 
+    now : number,
+    wrapper: EmptyCallback,
+    clear: EmptyCallback
+  ;
+
+  now = new Date().getTime();
+
+  nextAt = now;
+
+  if (opts.aligned) {
+    nextAt += interval - (now % interval);
+  }
+  if (!opts.immediate) {
+    nextAt += interval;
+  }
+
+  timeout = null;
+
+  wrapper = () => {
+    let scheduledTime = nextAt;
+    nextAt += interval;
+    timeout = setTimeout(wrapper, nextAt - new Date().getTime());
+    func(scheduledTime);
+  };
+
+  clear = () => {
+    clearTimeout(timeout!);
+  }
+
+  timeout = setTimeout(wrapper, nextAt - new Date().getTime());
+
+  return clear;
+};
