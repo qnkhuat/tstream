@@ -4,7 +4,7 @@ import Router from "./router";
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import termlog from "termlog";
-//termlog();
+termlog();
 
 const darkTheme = createTheme({
   palette: {
