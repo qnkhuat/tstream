@@ -1,6 +1,7 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useReducer } from 'react';
 import pako from "pako";
 
+import Controls from "./Controls";
 import Terminal from "../Terminal";
 import Xterm from "../Xterm";
 
@@ -17,61 +18,154 @@ interface Props {
   height: number;
 }
 
+interface PlayerState {
+  playing: boolean;
+  duration: number;
+  currentTime: number;
+}
+
+export enum PlayerActionType {
+  Play,
+    Pause,
+    Change,
+    SetDuration,
+}
+
+type PlayerAction = 
+  | { type: PlayerActionType.Play }
+  | { type: PlayerActionType.Pause }
+  | { type: PlayerActionType.SetDuration, payload: { duration: number } }
+  | { type: PlayerActionType.Change, payload: { currentTime: number } }
+;
+
+const playerReducer = (state: PlayerState, action: PlayerAction) => {
+  switch(action.type) {
+    case PlayerActionType.Play:
+      return {
+        ...state,
+        playing: true,
+      }
+    case PlayerActionType.Pause:
+      return {
+        ...state,
+        playing: false,
+      }
+    case PlayerActionType.SetDuration:
+    case PlayerActionType.Change:
+      return {
+        ...state,
+        ...action.payload,
+      }
+  }
+}
+
 const Player: React.FC<Props> = ({id, width, height}: Props) => {
   const termRef = useRef<Xterm>(null);
+  const [ writeManager, setWriteManager ] = useState<WriteManager>();
+  const [ playerState, dispatch] = useReducer(playerReducer, {
+    playing: false,
+    currentTime: 0,
+    duration: 0,
+  });
 
   useEffect(() => {
     if (!termRef.current) return;
-    const writeManager = new WriteManager(termRef.current, {playing: true, refreshInterval: 2000, mode: "streaming"});
-    //api.getRecordManifest(id.toString()).then(console.log).catch(console.error);
 
-    api.getRecordSegment(id.toString(), "3.gz").then((data) => {
-      const msgArray = JSON.parse(pako.ungzip(data, {to : "string"}));
-      msgArray.forEach((msg: message.TermWriteBlock) => writeManager.addBlock(JSON.parse(window.atob(msg.Data))) );
-    }).catch(console.error);
+    let writeManager: WriteManager;
+    api.getRecordManifest(id.toString()).then((manifest: message.Manifest) => {
+      writeManager = new WriteManager(termRef.current!, manifest, { 
+        playing: true, 
+        refreshInterval: 200,
+        onPlay: () => dispatch({ type: PlayerActionType.Play }),
+        onPause: () => dispatch({ type: PlayerActionType.Pause }),
+        onChange: (currentTime) => dispatch({ type: PlayerActionType.Change, payload: { currentTime } }),
+      });
+
+      const recordDuration = (new Date(manifest.StopTime)).getTime() - (new Date(manifest.StartTime)).getTime();
+      dispatch({ type: PlayerActionType.SetDuration, payload: { duration: recordDuration }});
+      setWriteManager(writeManager);
+    });
+
 
     return () => {
-      writeManager.detach();
+      if(writeManager) writeManager.detach();
     }
   }, [termRef]);
 
-  return <Terminal 
-    ref={termRef}
-    width={width}
-    height={height} 
-  />
+  return <div className="relative">
+    <Controls 
+      className="absolute bottom-0 left-0 w-full z-50"
+      onPlay={() => writeManager?.play()}
+      onPause={() => writeManager?.pause()}
+      onChange={(value: number) => {writeManager?.jumpTo(value)}}
+      playing={playerState.playing}
+      duration={playerState.duration}
+      currentTime={playerState.currentTime}
+    />
+    <Terminal 
+      ref={termRef}
+      width={width}
+      height={height} 
+    />
+  </div>
 }
 
 interface WriteMangerOptions {
   delay?: number;
   playing?: boolean;
   refreshInterval?: number;
-  mode?: "streaming" | "playback";
+  bufferSize?: number;
+  onPlay?: () => void;
+  onPause?: () => void;
+  onChange?: (currentTime: number) => void;
 }
 
 
 class WriteManager {
 
   termRef: Xterm | null;
+  manifest: message.Manifest | undefined;
   queue: message.Wrapper[] = [];
-  delay: number; // in milliseconds
-  startTime: number | null = null;
-  currentTime: number | null = null;
+  // the size of buffer to pre-load content. it should diviable for the segmenttime in manifest
+  bufferSize: number; // in milliseconds
+  bufferStopTime: number = 0;
+  startTime: number;
+  stopTime: number;
+  currentTime: number = 0;
   playing: boolean = false;
   refreshInterval: number;
   clearConsumeInterval?: () => void | undefined;
-  mode: "streaming" | "playback";
+  fetching: boolean = false;
+  delay: number; // in milliseconds
+  onPlay?: () => void;
+  onPause?: () => void;
+  onChange?: (currentTime: number) => void;
 
-  constructor(termRef: Xterm, 
-    { delay = 0, 
+  constructor(termRef: Xterm, manifest: message.Manifest, 
+    { 
+      onPlay,
+      onPause,
+      onChange,
+      delay = 0, 
       playing = false, 
       refreshInterval = 200,
-      mode = "streaming",
+      bufferSize = 50000,
     }: WriteMangerOptions) {
-    this.mode = mode;
+
+    this.onPlay = onPlay;
+    this.onPause = onPause;
+    this.onChange = onChange;
+
     this.refreshInterval = refreshInterval;
     this.termRef = termRef;
     this.delay = delay;
+    this.bufferSize = bufferSize;
+
+    // load the manifest
+    this.manifest = manifest;
+    this.startTime = (new Date(manifest.StartTime)).getTime();
+    this.stopTime = (new Date(manifest.StopTime)).getTime()
+
     if( playing ) this.play();
   }
 
@@ -79,8 +173,57 @@ class WriteManager {
     this.queue = [];
   }
 
+  // add queue ensure the queue is always ordered in delay time
+  // q: the incoming queue is ensured to be incremented in Delay time
   addQueue(q: message.Wrapper[]) {
-    this.queue.push(...q); // Concatnate
+    if( q.length == 0 ) return;
+
+    if (this.queue.length == 0) {
+      this.queue = q
+      return
+    }
+    const startQ = q[0].Delay, 
+      endQ = q[q.length - 1].Delay;
+
+    // all msg in incoming queue is pushed to the back
+    if (startQ > this.queue[this.queue.length - 1].Delay) {
+      this.queue.push(...q);
+      return
+    }
+
+    // all msg in incoming queue is at the front
+    if (endQ < this.queue[0].Delay) {
+      this.queue.unshift(...q);
+      return;
+    }
+
+    // msg in coming queue is at the middle of current queue
+
+    let i = 0;
+    // find the index of msg inside queue where we could insert the incoming queue to
+    // I.e this.queue = [1,2,3,6,7,8]
+    // let q = [4,5]
+    // What we want to di is insert q at the middle of the queue
+    while ( i < this.queue.length && startQ >= this.queue[i].Delay) {
+      i += 1;
+    }
+
+    // incase this.queue = [1,2,3,5,6,7,8]
+    // q = [4, 5]
+    // we will remove the rest and append q to the end to get
+    // this.queue  = [1,2,3,4,5]
+    if (this.queue[i].Delay >= endQ) {
+      this.queue = this.queue.slice(0, i);
+      this.queue.push(...q);
+      return;
+    } else {
+      // incase this.queue = [1,2,3,6,7,8]
+      // q = [4, 5]
+      // we insert the q into the middle
+      // this.queue  = [1,2,3,4,5,6,7,8]
+      this.queue = this.queue.splice(i, 0, ...q);
+      return;
+    }
   }
 
   detach() {
@@ -88,38 +231,87 @@ class WriteManager {
     this.pause();
   }
 
+  fetchSegmentByIndex = (index:number, stopIndex: number) => {
+    if (!this.fetching || !this.manifest || index > stopIndex || index > this.manifest.Segments.length - 1) {
+      console.log('off', this.fetching, index, stopIndex, this.manifest?.Segments.length);
+      this.fetching = false;
+      return;
+    }
+
+    console.log("fetching :", this.manifest.Segments[index].Path, this.manifest.Segments[index].Offset);
+    api.getRecordSegment(this.manifest.Id, this.manifest.Segments[index].Path).
+      then((data) => {
+        const msgArray = JSON.parse(pako.ungzip(data, {to : "string"}));
+        if (msgArray) msgArray.forEach((msg: message.TermWriteBlock) => this.addBlock(JSON.parse(window.atob(msg.Data))) );
+      }).then(() => this.fetchSegmentByIndex(index + 1, stopIndex));
+  }
+
+  plan() {
+    if(!this.manifest || this.fetching) return;
+    const expectedEndBufferTime = this.currentTime + this.bufferSize;
+    if (expectedEndBufferTime < this.bufferStopTime) return;
+
+    this.fetching = true;
+    let currentSegmentIndex = 0;
+
+    while (currentSegmentIndex + 1 <= this.manifest.Segments.length - 1
+      && this.manifest.Segments[currentSegmentIndex+1].Offset < this.bufferStopTime) {
+      currentSegmentIndex += 1;
+    }
+
+    if (currentSegmentIndex > 0) currentSegmentIndex -= 1;
+
+    const numberOfSegmentsToFetch = Math.round((expectedEndBufferTime - this.bufferStopTime) / this.manifest.SegmentDuration);
+    this.bufferStopTime = expectedEndBufferTime;
+    this.fetchSegmentByIndex(currentSegmentIndex, currentSegmentIndex + numberOfSegmentsToFetch);
+  }
+
   play() {
     if (!this.clearConsumeInterval) {
-      this.clearConsumeInterval= accurateInterval(() => {
+      if(this.onPlay) this.onPlay();
+      this.clearConsumeInterval = accurateInterval(() => {
         this.playing = true;
         this.consume();
       }, this.refreshInterval, {immediate: true});
     }
   }
 
+
   pause() {
-    if(this.clearConsumeInterval) this.clearConsumeInterval();
+    if(this.clearConsumeInterval) {
+      this.clearConsumeInterval()
+      this.clearConsumeInterval = undefined;
+    };
+    if(this.playing && this.onPause) this.onPause();
     this.playing = false;
+    this.fetching = false;
   }
+
+  jumpTo(to: number){
+    this.pause();
+    this.flushQueue();
+    this.currentTime = to;
+    this.bufferStopTime= to;
+    this.play();
+  };
 
   printStatus() {
     console.log("------------");
     console.log("Startime: ", this.startTime);
     console.log("CurrentTime: ", this.currentTime);
+    console.log("Fetching: ", this.fetching);
     console.log("Queue len: ", this.queue.length);
     console.log("First queue: ", this.queue[0]?.Delay);
+    console.log("Last queue: ", this.queue[this.queue.length - 1]?.Delay);
+    console.log("Buffer stop time: ", this.bufferStopTime);
   }
 
   consume() {
+    this.plan();
     this.printStatus()
-        
+
     if(!this.playing || !this.termRef) return;
-
-    const returnCallback = () => {
-      if(this.currentTime) this.currentTime = this.currentTime + this.refreshInterval;
-    }
-
-    if (!this.currentTime || this.queue.length == 0) return returnCallback();
+    if(this.onChange) this.onChange(this.currentTime);
 
     const currentTime = this.currentTime;
     const endTime = currentTime + this.refreshInterval;
@@ -134,11 +326,11 @@ class WriteManager {
 
         case constants.MSG_TWRITE:
           let bufferData = buffer.str2ab(msg.Data);
-          setTimeout(() => this.termRef!.writeUtf8(bufferData), msgTimeout);
+          setTimeout(() => this.termRef?.writeUtf8(bufferData), msgTimeout);
           break;
 
         case constants.MSG_TWINSIZE:
-            setTimeout(() => this.termRef!.resize(msg.Data.Cols, msg.Data.Rows), msgTimeout);
+            setTimeout(() => this.termRef?.resize(msg.Data.Cols, msg.Data.Rows), msgTimeout);
           break;
 
         default:
@@ -146,22 +338,12 @@ class WriteManager {
       }
     }
 
-    return returnCallback();
+    this.currentTime = this.currentTime + this.refreshInterval;
+    return;
   }
 
   addBlock(block: message.TermWriteBlock) {
-    console.log("New block: ", (new Date(block.StartTime)).getTime());
-    // the starttime of stream or records will be the the starttime of the first block received
-    if (!this.startTime || !this.currentTime) {
-      const blockStartTime = (new Date(block.StartTime)).getTime();
-      this.startTime = blockStartTime;
-      // the delay is how much the block message sent to server is delayed to its start time
-      // it means that the delay will be include the block duration time and a bit of buffer
-      // For example : delay = 1.5s and block duration 1s. we have .5 second for the delay of network
-      this.currentTime = (new Date()).getTime() - blockStartTime - (this.delay! - block.Duration);
-      console.log("set Current titme: ", this.currentTime);
-    }
-
+    
     const blockDelayTime = (new Date(block.StartTime)).getTime() - this.startTime;
 
     // this is a big chunk of encoding/decoding
@@ -177,7 +359,6 @@ class WriteManager {
       let msg: message.Wrapper = JSON.parse(window.atob(msgString));
       msg.Delay = blockDelayTime + msg.Delay;
       msgArray.push(msg);
-      //console.log("msg Delay: ", msg.Delay);
     })
 
     this.addQueue(msgArray);

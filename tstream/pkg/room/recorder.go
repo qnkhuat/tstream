@@ -24,7 +24,7 @@ const MANIFEST_FILENAME = "manifest.json"
 **/
 
 type Manifest struct {
-	Id              int
+	Id              string
 	Version         int
 	StartTime       time.Time
 	StopTime        time.Time
@@ -51,7 +51,7 @@ type Recorder struct {
 	manifest         *Manifest
 }
 
-func NewRecorder(dir string, id int) (*Recorder, error) {
+func NewRecorder(dir, id string) (*Recorder, error) {
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		if err = os.MkdirAll(dir, 0755); err != nil {
 			return nil, err

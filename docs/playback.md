@@ -45,3 +45,40 @@ That's said:
 - Playback will use http to download files
 - The download part will be handled by the player
 - Let's have 2 seperate versions for watching the stream and playback for now
+
+
+How the playback is gonna work:
+- The playback will feed data into the Write manager
+- Write manager will accumulate into a queue
+- Write manager keep an inner clock to where things went
+- Write manager will have a scan rate => it'll scan and set time out for message during the next time span. this should be small ( ~ 200ms );
+- Write manager will have a play/pause state
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

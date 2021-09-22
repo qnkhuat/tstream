@@ -47,7 +47,7 @@ export interface ManifestSegment {
 
 export interface Manifest {
   Version: number;
-  Id: number;
+  Id: string;
   StartTime: Date;
   StopTime: Date;
   SegmentDuration: number;

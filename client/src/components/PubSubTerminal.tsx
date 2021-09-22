@@ -4,7 +4,6 @@ import pako from "pako";
 import Terminal from "./Terminal";
 import Xterm from "./Xterm";
 
-import { accurateInterval } from "../utils";
 import PubSub from "../lib/pubsub";
 import * as constants from "../lib/constants";
 import * as buffer from "../lib/buffer";
@@ -79,11 +78,6 @@ class WriteManager {
 
   flushQueue() {
     this.queue = [];
-  }
-
-  addQueue(q: message.Wrapper[]) {
-    this.queue.push(...q); // Concatnate
-    this.consume()
   }
 
   detach() {
@@ -172,7 +166,8 @@ class WriteManager {
       msgArray.push(msg);
     })
 
-    this.addQueue(msgArray);
+    this.queue.push(...msgArray); // Concatnate
+    this.consume();
 
   }
 }
