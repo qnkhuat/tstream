@@ -209,7 +209,7 @@ class Room extends React.Component<Props, State> {
       switch (msg.Type) {
 
         case constants.MSG_TWRITEBLOCK:
-          let blockMsg: message.TermWriteBlock = JSON.parse(window.atob(msg.Data));
+          let blockMsg: message.TermWriteBlock = msg.Data;
           msgManager.pub(msg.Type, blockMsg);
           break;
 

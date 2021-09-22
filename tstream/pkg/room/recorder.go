@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/qnkhuat/tstream/pkg/message"
+	"github.com/qnkhuat/tstream/pkg/streamer"
 	"log"
 	"os"
 	"path/filepath"
@@ -49,6 +50,7 @@ type Recorder struct {
 	currentSegmentID int
 	currentSegment   *Segment
 	manifest         *Manifest
+	lastWinsize      message.Winsize
 }
 
 func NewRecorder(dir, id string) (*Recorder, error) {
@@ -78,7 +80,25 @@ func (re *Recorder) AddMsg(msg message.Wrapper) error {
 }
 
 func (re *Recorder) newSegment() {
+	re.currentSegmentID += 1
 	re.currentSegment = NewSegment()
+	if (re.lastWinsize != message.Winsize{}) {
+		block := streamer.NewBlock(0, 0)
+		block.AddMsg(message.Wrapper{
+			Type: message.TWinsize,
+			Data: re.lastWinsize,
+		})
+		blockMsg, err := block.Serialize()
+		if err != nil {
+			log.Printf("Failed to serialize block msg: %s", err)
+			return
+		}
+		re.currentSegment.Add(blockMsg)
+	}
+}
+
+func (re *Recorder) SetLastWinsize(msg message.Winsize) {
+	re.lastWinsize = msg
 }
 
 func (re *Recorder) Start(writeInterval time.Duration, id int) {
@@ -116,8 +136,7 @@ func (re *Recorder) WriteCurrentSegment() error {
 	}
 
 	re.manifest.Segments = append(re.manifest.Segments, manifestSegment)
-	re.currentSegmentID += 1
-	re.currentSegment = NewSegment()
+	re.newSegment()
 	re.lock.Unlock()
 	return err
 }

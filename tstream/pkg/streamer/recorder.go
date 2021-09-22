@@ -120,6 +120,8 @@ type Block struct {
 	delay time.Duration
 
 	// buffer of encoded termwrite message
+	// we have to store like this instead of []message.Wrapper because for termwrite message
+	// if we don't marshal before sending it, it doesn't display correctly
 	buffer [][]byte
 }
 
@@ -162,15 +164,9 @@ func (bl *Block) Serialize() (message.Wrapper, error) {
 		Data:      b.Bytes(),
 	}
 
-	blockByte, err := json.Marshal(blockMsg)
-	if err != nil {
-		log.Printf("Failed to encode termwrite block message")
-		return msg, err
-	}
-
 	msg = message.Wrapper{
 		Type: message.TWriteBlock,
-		Data: blockByte,
+		Data: blockMsg,
 	}
 
 	return msg, nil

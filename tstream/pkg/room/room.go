@@ -4,13 +4,18 @@ A room is virtual object that wrap one streamer and multiple viewers togethher
 package room
 
 import (
+	"bytes"
+	"compress/gzip"
+	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/qnkhuat/tstream/internal/cfg"
 	"github.com/qnkhuat/tstream/pkg/message"
+	"io/ioutil"
 	"log"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -144,7 +149,7 @@ func (r *Room) Start(recordsRoot string) {
 	// create folder to store record files
 	recordDir := filepath.Join(recordsRoot, fmt.Sprintf("%d", r.id))
 
-	recorder, err := NewRecorder(recordDir, string(r.id))
+	recorder, err := NewRecorder(recordDir, strconv.FormatUint(r.id, 10))
 	r.recorder = recorder
 	if err != nil {
 		log.Printf("Failed to start recorder: %s", err)
@@ -173,12 +178,51 @@ func (r *Room) Start(recordsRoot string) {
 		switch msgType := msg.Type; msgType {
 
 		case message.TWriteBlock:
+
 			r.addMsgBuffer(msg)
 			r.lastActiveTime = time.Now()
-			r.Broadcast(msg, []message.CRole{message.RViewer}, []string{})
+			go r.Broadcast(msg, []message.CRole{message.RViewer}, []string{})
 
 			if recorder != nil {
 				recorder.AddMsg(msg)
+
+				// decode the block message to find winsize message
+				blockMsg := message.TermWriteBlock{}
+				err = message.ToStruct(msg.Data, &blockMsg)
+
+				gr, err := gzip.NewReader(bytes.NewBuffer(blockMsg.Data))
+				defer gr.Close()
+				if err != nil {
+					log.Printf("Failed to decompress block data: %s", err)
+					continue
+				}
+				data, err := ioutil.ReadAll(gr)
+				var arrayMsg [][]byte
+				err = json.Unmarshal(data, &arrayMsg)
+				if err != nil {
+					log.Printf("Failed to unpack message array: %s", err)
+					continue
+				}
+
+				for _, byteMsg := range arrayMsg {
+					tempWrapperMsg := message.Wrapper{}
+					err = json.Unmarshal(byteMsg, &tempWrapperMsg)
+					if err != nil {
+						log.Printf("Failed to unpack message array: %s", err)
+						continue
+					}
+
+					if tempWrapperMsg.Type == message.TWinsize {
+						winsize := message.Winsize{}
+						err = message.ToStruct(tempWrapperMsg.Data, &winsize)
+						if err != nil {
+							log.Printf("Failed to decode winsize message: %s", err)
+							continue
+						}
+						r.recorder.SetLastWinsize(winsize)
+					}
+				}
+
 			}
 
 		case message.TWinsize:

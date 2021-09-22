@@ -44,8 +44,7 @@ const StreamPreview: FC<Props> = ({ title, wsUrl, streamerID, nViewers, startedT
 
       switch (msg.Type) {
         case constants.MSG_TWRITEBLOCK:
-          let blockMsg: message.TermWriteBlock = JSON.parse(window.atob(msg.Data));
-          tempMsg.pub(msg.Type, blockMsg);
+          tempMsg.pub(msg.Type, msg.Data);
           break;
 
         case constants.MSG_TWINSIZE:

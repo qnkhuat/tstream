@@ -233,16 +233,14 @@ class WriteManager {
 
   fetchSegmentByIndex = (index:number, stopIndex: number) => {
     if (!this.fetching || !this.manifest || index > stopIndex || index > this.manifest.Segments.length - 1) {
-      console.log('off', this.fetching, index, stopIndex, this.manifest?.Segments.length);
       this.fetching = false;
       return;
     }
 
-    console.log("fetching :", this.manifest.Segments[index].Path, this.manifest.Segments[index].Offset);
     api.getRecordSegment(this.manifest.Id, this.manifest.Segments[index].Path).
       then((data) => {
         const msgArray = JSON.parse(pako.ungzip(data, {to : "string"}));
-        if (msgArray) msgArray.forEach((msg: message.TermWriteBlock) => this.addBlock(JSON.parse(window.atob(msg.Data))) );
+        if (msgArray) msgArray.forEach((msg: message.Wrapper) => this.addBlock(msg.Data)) ;
       }).then(() => this.fetchSegmentByIndex(index + 1, stopIndex));
   }
 
@@ -308,7 +306,7 @@ class WriteManager {
 
   consume() {
     this.plan();
-    this.printStatus()
+    //this.printStatus()
 
     if(!this.playing || !this.termRef) return;
     if(this.onChange) this.onChange(this.currentTime);
@@ -330,6 +328,7 @@ class WriteManager {
           break;
 
         case constants.MSG_TWINSIZE:
+            console.log('winsize ne');
             setTimeout(() => this.termRef?.resize(msg.Data.Cols, msg.Data.Rows), msgTimeout);
           break;
 
