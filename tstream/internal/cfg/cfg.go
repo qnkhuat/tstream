@@ -13,7 +13,7 @@ const (
 	// Room
 	ROOM_BUFFER_SIZE      = 3                // number of recent broadcast message to buffer
 	ROOM_CACHE_MSG_SIZE   = 25               // number of recent chat messages to buffer
-	ROOM_SEGMENT_DURATION = 10 * time.Second // Duration of a segment for recording
+	ROOM_SEGMENT_DURATION = 30 * time.Second // Duration of a segment for recording
 
 	// Streamer
 	STREAMER_ENVKEY_SESSIONID    = "TSTREAM_SESSIONID"

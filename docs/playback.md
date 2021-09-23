@@ -31,8 +31,6 @@ Action plan:
 This is hard-core shit
 
 
-
-
 After consideration Here is what I think:
 What we want:
 - We want this to be as fast as possible, if this is slower than traditional stremaing => it's worthless
@@ -56,7 +54,9 @@ How the playback is gonna work:
 
 
 
-
+# note for next time
+- make a better planning and more fine-grained to fetch data
+- Consider to add keyframe at the start of each block
 
 
 

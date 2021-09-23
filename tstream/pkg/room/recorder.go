@@ -82,6 +82,7 @@ func (re *Recorder) AddMsg(msg message.Wrapper) error {
 func (re *Recorder) newSegment() {
 	re.currentSegmentID += 1
 	re.currentSegment = NewSegment()
+
 	if (re.lastWinsize != message.Winsize{}) {
 		block := streamer.NewBlock(0, 0)
 		block.AddMsg(message.Wrapper{
@@ -95,6 +96,7 @@ func (re *Recorder) newSegment() {
 		}
 		re.currentSegment.Add(blockMsg)
 	}
+
 }
 
 func (re *Recorder) SetLastWinsize(msg message.Winsize) {
@@ -106,6 +108,7 @@ func (re *Recorder) Start(writeInterval time.Duration, id int) {
 	re.manifest.SegmentDuration = writeInterval.Milliseconds()
 
 	for range time.Tick(writeInterval) {
+		log.Printf("about to write a message: %d", re.currentSegment.Nbuffer())
 		re.WriteCurrentSegment()
 		re.dumpManifest()
 	}

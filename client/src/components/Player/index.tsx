@@ -149,7 +149,7 @@ class WriteManager {
       delay = 0, 
       playing = false, 
       refreshInterval = 200,
-      bufferSize = 50000,
+      bufferSize = 1000 * 120,
     }: WriteMangerOptions) {
 
     this.onPlay = onPlay;
@@ -212,7 +212,7 @@ class WriteManager {
     // q = [4, 5]
     // we will remove the rest and append q to the end to get
     // this.queue  = [1,2,3,4,5]
-    if (this.queue[i].Delay >= endQ) {
+    if (i < this.queue.length && this.queue[i].Delay >= endQ) {
       this.queue = this.queue.slice(0, i);
       this.queue.push(...q);
       return;
@@ -241,6 +241,7 @@ class WriteManager {
       then((data) => {
         const msgArray = JSON.parse(pako.ungzip(data, {to : "string"}));
         if (msgArray) msgArray.forEach((msg: message.Wrapper) => this.addBlock(msg.Data)) ;
+        this.bufferStopTime += this.manifest!.SegmentDuration;
       }).then(() => this.fetchSegmentByIndex(index + 1, stopIndex));
   }
 
@@ -256,11 +257,18 @@ class WriteManager {
       && this.manifest.Segments[currentSegmentIndex+1].Offset < this.bufferStopTime) {
       currentSegmentIndex += 1;
     }
+    //while (currentSegmentIndex < this.manifest.Segments.length - 1
+    //  && this.manifest.Segments[currentSegmentIndex].Offset < this.bufferStopTime) {
+    //  currentSegmentIndex += 1;
+    //}
 
-    if (currentSegmentIndex > 0) currentSegmentIndex -= 1;
+
+    // try to get the 
+    currentSegmentIndex = Math.max(0, currentSegmentIndex -1, currentSegmentIndex -2);
+    if (currentSegmentIndex > 1 ) currentSegmentIndex -=1;
 
     const numberOfSegmentsToFetch = Math.round((expectedEndBufferTime - this.bufferStopTime) / this.manifest.SegmentDuration);
-    this.bufferStopTime = expectedEndBufferTime;
+    console.log('submit to fetch', currentSegmentIndex, currentSegmentIndex + numberOfSegmentsToFetch);
     this.fetchSegmentByIndex(currentSegmentIndex, currentSegmentIndex + numberOfSegmentsToFetch);
   }
 
@@ -306,7 +314,7 @@ class WriteManager {
 
   consume() {
     this.plan();
-    //this.printStatus()
+    this.printStatus()
 
     if(!this.playing || !this.termRef) return;
     if(this.onChange) this.onChange(this.currentTime);
@@ -328,7 +336,6 @@ class WriteManager {
           break;
 
         case constants.MSG_TWINSIZE:
-            console.log('winsize ne');
             setTimeout(() => this.termRef?.resize(msg.Data.Cols, msg.Data.Rows), msgTimeout);
           break;
 
