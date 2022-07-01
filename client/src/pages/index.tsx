@@ -115,7 +115,6 @@ function Home() {
 
   }
 
-
   if (!displayLiveStreams || !recentStreams) return <Loading/>;
 
   let displayRecentStreams: message.RoomInfo[] = recentStreams;
