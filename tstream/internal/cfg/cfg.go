@@ -1,9 +1,9 @@
 package cfg
 
 const (
-	SERVER_VERSION                   = "1.3.2" // Used to verify compatible verion of streamer
-	STREAMER_VERSION                 = "1.3.2" // retry connect with server if websocket is broke
-	SERVER_STREAMER_REQUIRED_VERSION = "1.3.2" // Used to verify compatible verion of streamer
+	SERVER_VERSION                   = "1.3.3" // Version of tstream server
+	STREAMER_VERSION                 = "1.3.3" // Version of tstream client
+	SERVER_STREAMER_REQUIRED_VERSION = "1.3.2" // Streamer have to run this version or later to connect to server
 
 	// Room
 	ROOM_BUFFER_SIZE    = 3    // number of recent broadcast message to buffer

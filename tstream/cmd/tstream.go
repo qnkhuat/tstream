@@ -72,14 +72,14 @@ func main() {
 	var version = flag.Bool("version", false, fmt.Sprintf("TStream version: %s", cfg.STREAMER_VERSION))
 
 	flag.Parse()
-	fmt.Printf("TStream v%s\n", cfg.STREAMER_VERSION)
 
 	if *version {
-		fmt.Printf("Tstream %s\nGithub: https://github.com/qnkhuat/tstream\n", cfg.STREAMER_VERSION)
+		fmt.Printf("TStream %s\nGithub: https://github.com/qnkhuat/tstream\n", cfg.STREAMER_VERSION)
 		os.Exit(0)
 		return
 	}
 
+	fmt.Printf("TStream v%s\n", cfg.STREAMER_VERSION)
 	// Define prompts
 	u, err := user.Current()
 	if err != nil {
