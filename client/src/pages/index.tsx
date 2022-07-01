@@ -21,7 +21,6 @@ dayjs.extend(relativeTime)
 // max number of streampreview to display
 const NDisplayLiveStreams = 6;
 
-
 interface RatingExtended extends stringSimilarity.Rating {
   type?: string;
 }
@@ -133,7 +132,7 @@ function Home() {
 
           <div id="previews">
             {!liveStreams && <p className="text-2xl mt-8 text-center font-bold">No one is live streaming 😅</p>}
-            {liveStreams && 
+            {liveStreams &&
               <>
                 <div className="flex justify-center flex-wrap mt-8">
                   <p className="text-2xl w-full text-center font-bold">Live streaming</p>
