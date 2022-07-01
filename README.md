@@ -1,8 +1,8 @@
 <h1 style="border-bottom:0" align="center">TStream - Streaming from terminal</h1>
-<a href="https://tstream.club"><p align="center"><img style="border-radius:20px;" src="./client/public/android-chrome-192x192.png"/></p></a>
+<a href="https://tstream.xyz"><p align="center"><img style="border-radius:20px;" src="./client/public/android-chrome-192x192.png"/></p></a>
 
 <p align="center">
-<a href="https://tstream.club">TStream.club </a> | <a href="https://discord.gg/qATHjk6ady"> Join our Discord </a> | <a href="https://tstream.club/start-streaming">Start Streaming</a>
+<a href="https://tstream.xyz">tstream.xyz </a> | <a href="https://discord.gg/qATHjk6ady"> Join our Discord </a> | <a href="https://tstream.xyz/start-streaming">Start Streaming</a>
 </p>
 
 ![TStream](./client/public/demo.gif)
@@ -55,7 +55,7 @@ Optional configurations:
 Test the server with `curl http://localhost:3000/api/health`. It should return the current time
 
 ## Client web app
-This is what currently running at [tstream.club](https://tstream.club). 
+This is what currently running at [tstream.xyz](https://tstream.xyz). 
 
 To run it:
 - Install [nodejs](https://nodejs.org/en/download/)
@@ -65,13 +65,13 @@ To run it:
 - Tell the client your the server address by: `export REACT_APP_API_URL={your server address}`
 - Run server: `npm run start`
 
-Now go to `localhost:3001`, it should be exactly like [tstream.club](https://tstream.club)
+Now go to `localhost:3001`, it should be exactly like [tstream.xyz](https://tstream.xyz)
 
 For production I recommend using service like [Vercel](https://vercel.com/). It's free and very easy to setup
 
 ## Streaming 
 
-By default the tstream package will stream to [https://server.tstream.club](https://server.tstream.club)
+By default the tstream package will stream to [https://server.tstream.xyz](https://server.tstream.xyz)
 
 You can override it with by running `tstream -server {your server address}`. 
 
